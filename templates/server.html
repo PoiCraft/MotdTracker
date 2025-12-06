@@ -77,7 +77,7 @@
                     <canvas id="chart-players-{{ slug }}"></canvas>
                 </div>
 
-                <div class="chart-title">🟢 在线状态历史</div>
+                <div class="chart-title">在线状态历史</div>
                 <div class="chart-container chart-small">
                     <canvas id="chart-status-{{ slug }}"></canvas>
                 </div>
@@ -364,8 +364,8 @@ function toggleHistory(elementId) {
 function initWebSocket(){
     socket = io();
     const wsStatus = document.getElementById('ws-status');
-    socket.on('connect', ()=>{ wsStatus.className='ws-status ws-connected'; wsStatus.textContent='🟢 已连接'; wsStatus.title='WebSocket已连接'; });
-    socket.on('disconnect', ()=>{ wsStatus.className='ws-status ws-disconnected'; wsStatus.textContent='🔴 已断开'; wsStatus.title='WebSocket已断开'; });
+    socket.on('connect', ()=>{ wsStatus.className='ws-status ws-connected'; wsStatus.textContent='已连接'; wsStatus.title='WebSocket已连接'; });
+    socket.on('disconnect', ()=>{ wsStatus.className='ws-status ws-disconnected'; wsStatus.textContent='已断开'; wsStatus.title='WebSocket已断开'; });
     socket.on('connect_error', (e)=>{ wsStatus.className='ws-status ws-error'; wsStatus.textContent='⚠️ 错误'; wsStatus.title='WebSocket错误: '+e.message; });
     socket.on('server_update', ()=>{
         clearTimeout(window.wsRefreshTimer);

@@ -291,7 +291,7 @@
                 // Calculate today's duration
                 const today = new Date().toISOString().split('T')[0];
                 const todayData = calendar.daily.find(d => d.date === today);
-                document.getElementById('today-duration').textContent = todayData ? formatDuration(todayData.total_seconds) : '0分';
+                document.getElementById('today-duration').textContent = todayData ? formatDuration(todayData.total_seconds) : formatDuration(0);
                 
                 if (calendar.daily && calendar.daily.length) {
                     renderDayDetail(calendar.daily[calendar.daily.length - 1].date);
@@ -311,14 +311,14 @@
             socket.on('connect', () => {
                 console.log('WebSocket 已连接');
                 wsStatus.className = 'ws-status ws-connected';
-                wsStatus.textContent = '🟢 已连接';
+                wsStatus.textContent = '已连接';
                 wsStatus.title = 'WebSocket已连接 - 实时接收更新';
             });
             
             socket.on('disconnect', () => {
                 console.log('WebSocket 已断开');
                 wsStatus.className = 'ws-status ws-disconnected';
-                wsStatus.textContent = '🔴 已断开';
+                wsStatus.textContent = '已断开';
                 wsStatus.title = 'WebSocket已断开 - 尝试重新连接中...';
             });
             

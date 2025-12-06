@@ -628,7 +628,7 @@ h1 {
     }
 
     .heatmap-cell {
-        height: 16px;
+        height: 80%; /* 80% of default 20px = 16px */
     }
 
     .ws-status {
