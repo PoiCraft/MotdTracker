@@ -162,7 +162,7 @@ function updateGroupCard(slug, {uptime, latency, players, maxPlayers, active, to
 }
 
 async function loadGroup(group){
-    const g = encodeURIComponent(group.server_name);
+    const g = encodeURIComponent(group.name);
     const slug = group.slug;
     try {
         const [historyRes, statsRes, playersRes] = await Promise.all([
@@ -196,7 +196,7 @@ async function loadGroup(group){
         renderHistory(slug, history);
         renderPlayersList(slug, players);
     } catch(err){
-        console.error('加载组数据失败', group.server_name, err);
+        console.error('加载组数据失败', group.name, err);
     }
 }
 
