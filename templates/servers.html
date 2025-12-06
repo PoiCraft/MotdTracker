@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单服视图</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 单服视图</h1>
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <a class="toolbar-btn" href="/groups">🔗 分组视图</a>
+                <button class="toolbar-btn" id="refresh-btn">🔄 刷新</button>
+                <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">⚪ 连接中</span>
+            </div>
+            <div class="toolbar-right">
+                <span class="toolbar-label">时间跨度</span>
+                <select id="global-range" class="range-select" title="选择时间跨度">
+                    <option value="4">4小时</option>
+                    <option value="8">8小时</option>
+                    <option value="12" selected>12小时</option>
+                    <option value="24">1天</option>
+                    <option value="48">2天</option>
+                    <option value="96">4天</option>
+                    <option value="168">7天</option>
+                    <option value="720">30天</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="servers-container">
+            {% for server in servers %}
+            {% set status = server.latest_status %}
+            <div class="server-card" data-server-id="{{ server.id }}" data-name="{{ server.name }}" data-host="{{ server.host }}" data-port="{{ server.port }}">
+                <div class="server-header">
+                    <div>
+                        <div class="server-name">{{ server.name }}</div>
+                        <div class="server-address">{{ server.host }}:{{ server.port }}</div>
+                    </div>
+                    <div class="status-badge {{ 'status-online' if status and status.online else 'status-offline' }}" id="badge-{{ server.id }}">
+                        {{ '● 在线' if status and status.online else '● 离线' }}
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-label">在线率 (24h)</div>
+                        <div class="stat-value" id="uptime-{{ server.id }}">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">平均延迟</div>
+                        <div class="stat-value" id="latency-{{ server.id }}">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">当前玩家</div>
+                        <div class="stat-value" id="players-{{ server.id }}">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">版本</div>
+                        <div class="stat-value" id="version-{{ server.id }}">--</div>
+                    </div>
+                </div>
+
+                <div class="uptime-bar">
+                    <div class="uptime-fill" id="uptime-fill-{{ server.id }}">0% 在线</div>
+                </div>
+
+                <div class="chart-title">延迟趋势</div>
+                <div class="chart-container">
+                    <canvas id="chart-latency-{{ server.id }}"></canvas>
+                </div>
+
+                <div class="chart-title">在线玩家趋势</div>
+                <div class="chart-container">
+                    <canvas id="chart-players-{{ server.id }}"></canvas>
+                </div>
+
+                <div class="chart-title">在线状态历史</div>
+                <div class="chart-container chart-small">
+                    <canvas id="chart-status-{{ server.id }}"></canvas>
+                </div>
+
+                <div class="chart-title">状态快照</div>
+                <div class="history-grid" id="history-{{ server.id }}"></div>
+
+                <div class="chart-title">服务器信息</div>
+                <div class="group-servers info-list" id="info-{{ server.id }}">加载中...</div>
+
+                <div class="chart-title">在线玩家在线时长</div>
+                <div class="group-servers player-list" id="players-list-{{ server.id }}">加载中...</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+<script>
+const charts = {};
+let socket = null;
+let chartHours = 12;
+const servers = Array.from(document.querySelectorAll('[data-server-id]')).map(el => ({
+    id: Number(el.dataset.serverId),
+    name: el.dataset.name,
+    host: el.dataset.host,
+    port: el.dataset.port
+}));
+
+function formatDuration(seconds){
+    if (seconds === null || seconds === undefined) return '未知';
+    const mins = Math.floor(seconds / 60);
+    const hours = Math.floor(mins / 60);
+    const minutes = mins % 60;
+    return hours > 0 ? `${hours}小时${minutes}分` : `${minutes}分`;
+}
+
+function formatTime(value){
+    if (!value) return '未知';
+    return new Date(value).toLocaleString('zh-CN');
+}
+
+function escapeHtml(unsafe){
+    if (!unsafe) return '';
+    return unsafe
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function updateServerCard(id, {uptime, latency, players, maxPlayers, version, online}){
+    const uptimeEl = document.getElementById(`uptime-${id}`);
+    const latencyEl = document.getElementById(`latency-${id}`);
+    const playersEl = document.getElementById(`players-${id}`);
+    const versionEl = document.getElementById(`version-${id}`);
+    const fillEl = document.getElementById(`uptime-fill-${id}`);
+    const badge = document.getElementById(`badge-${id}`);
+    if (uptimeEl) uptimeEl.textContent = `${uptime ?? 0}%`;
+    if (latencyEl) latencyEl.textContent = latency ? `${latency}ms` : 'N/A';
+    if (playersEl) playersEl.textContent = online ? `${players}/${maxPlayers}` : 'N/A';
+    if (versionEl) versionEl.textContent = version || 'N/A';
+    if (fillEl) {
+        const val = uptime ?? 0;
+        fillEl.style.width = `${val}%`;
+        fillEl.textContent = `${val}% 在线`;
+    }
+    if (badge) {
+        badge.textContent = online ? '● 在线' : '● 离线';
+        badge.className = online ? 'status-badge status-online' : 'status-badge status-offline';
+    }
+}
+
+function renderInfo(id, status){
+    const container = document.getElementById(`info-${id}`);
+    if (!container) return;
+    if (!status || status.error) {
+        container.textContent = '暂无数据';
+        return;
+    }
+    const pluginText = status.plugins && status.plugins.length
+        ? `${status.plugins.slice(0, 8).join(', ')}${status.plugins.length > 8 ? ' ...' : ''}`
+        : '';
+    container.innerHTML = `
+        <div class="info-line"><span>版本</span><span>${status.version || '未知'}</span></div>
+        ${status.map ? `<div class="info-line"><span>地图</span><span>${status.map}</span></div>` : ''}
+        ${status.software ? `<div class="info-line"><span>核心</span><span>${status.software}</span></div>` : ''}
+        ${status.players_max ? `<div class="info-line"><span>最大玩家</span><span>${status.players_max}</span></div>` : ''}
+        ${pluginText ? `<div class="info-line"><span>插件</span><span>${pluginText}</span></div>` : ''}
+        ${status.sample_players ? `<div class="info-line"><span>在线样本</span><span>${status.sample_players.map(p => `<a href="/player?name=${encodeURIComponent(p)}">${p}</a>`).join(', ')}</span></div>` : ''}
+        ${status.motd ? `<div class="motd">MOTD: ${escapeHtml(status.motd)}</div>` : ''}
+    `;
+}
+
+function renderPlayersList(id, players){
+    const container = document.getElementById(`players-list-${id}`);
+    if (!container) return;
+    if (!players || !players.length){
+        container.innerHTML = '<div class="loading">暂无在线玩家</div>';
+        return;
+    }
+    container.innerHTML = players.map(p => `
+        <div class="player-row">
+            <div>
+                <div class="player-name"><a href="/player?name=${encodeURIComponent(p.player_name)}">${p.player_name}</a></div>
+            </div>
+            <div class="player-meta">
+                <div>${p.online ? `已在线 ${formatDuration(p.duration_seconds)}` : '已离线'}</div>
+                <div>${p.online ? `开始: ${formatTime(p.session_start)}` : `最后在线: ${formatTime(p.last_seen)}`}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderLatencyChart(id, history){
+    const ctx = document.getElementById(`chart-latency-${id}`);
+    if (!ctx) return;
+    const slice = history.slice(0, chartHours * 60).reverse();
+    const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
+    const latencies = slice.map(h => h.online ? h.latency : null);
+    const key = `latency-${id}`;
+    if (charts[key]) charts[key].destroy();
+    charts[key] = new Chart(ctx, {
+        type: 'line',
+        data:{ labels, datasets:[{label:'延迟 (ms)', data: latencies, borderColor:'#667eea', backgroundColor:'rgba(102, 126, 234, 0.1)', borderWidth:2, fill:true, tension:0.4, spanGaps:true, pointRadius:0, pointHoverRadius:5}]},
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{legend:{display:false}, tooltip:{mode:'index', intersect:false}},
+            scales:{x:{display:true, ticks:{maxTicksLimit:8}}, y:{display:true, beginAtZero:true, ticks:{callback:(v)=>v+'ms'}}},
+            interaction:{mode:'nearest', axis:'x', intersect:false}
+        }
+    });
+}
+
+function renderPlayersChart(id, history){
+    const ctx = document.getElementById(`chart-players-${id}`);
+    if (!ctx) return;
+    const slice = history.slice(0, chartHours * 60).reverse();
+    const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
+    const playersOnline = slice.map(h => h.online ? h.players_online : null);
+    const playersMax = slice.map(h => h.online ? h.players_max : null);
+    const key = `players-${id}`;
+    if (charts[key]) charts[key].destroy();
+    charts[key] = new Chart(ctx, {
+        type: 'line',
+        data:{ labels, datasets:[
+            {label:'在线玩家', data: playersOnline, borderColor:'#10b981', backgroundColor:'rgba(16, 185, 129, 0.1)', borderWidth:2, fill:true, tension:0.4, pointRadius:0, pointHoverRadius:5, spanGaps:true},
+            {label:'最大玩家', data: playersMax, borderColor:'#6b7280', backgroundColor:'rgba(107, 114, 128, 0.05)', borderWidth:1, borderDash:[5,5], fill:false, tension:0.4, pointRadius:0, pointHoverRadius:3, spanGaps:true}
+        ]},
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{legend:{display:true, position:'top', labels:{usePointStyle:true, padding:15}}, tooltip:{mode:'index', intersect:false}},
+            scales:{x:{display:true, ticks:{maxTicksLimit:8}}, y:{display:true, beginAtZero:true, ticks:{callback:(v)=>Math.floor(v), stepSize:1}}},
+            interaction:{mode:'nearest', axis:'x', intersect:false}
+        }
+    });
+}
+
+function renderStatusChart(id, history){
+    const ctx = document.getElementById(`chart-status-${id}`);
+    if (!ctx) return;
+    const slice = history.slice(0, chartHours * 60).reverse();
+    const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
+    const data = slice.map(h => h.online ? 1 : 0);
+    const key = `status-${id}`;
+    if (charts[key]) charts[key].destroy();
+    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 100);
+    gradient.addColorStop(0, 'rgba(16, 185, 129, 0.8)');
+    gradient.addColorStop(1, 'rgba(16, 185, 129, 0.2)');
+    charts[key] = new Chart(ctx, {
+        type: 'line',
+        data:{ labels, datasets:[{label:'在线状态', data, borderColor:'#10b981', backgroundColor:gradient, borderWidth:2, fill:true, stepped:true, pointRadius:0, pointHoverRadius:5}]},
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=> ctx.parsed.y===1?'在线':'离线'}}},
+            scales:{x:{display:true, ticks:{maxTicksLimit:8}}, y:{min:0, max:1, display:true, ticks:{stepSize:1, callback:(v)=>v===1?'在线':'离线'}}},
+            interaction:{mode:'nearest', axis:'x', intersect:false}
+        }
+    });
+}
+
+function renderHistory(id, history){
+    const container = document.getElementById(`history-${id}`);
+    if (!container) return;
+    container.innerHTML = '';
+    const desired = chartHours * 3 * 60;
+    const slice = history.slice(0, desired);
+    if (slice.length < desired){
+        const missing = desired - slice.length;
+        for (let i = 0; i < missing; i++) {
+            slice.push({ online: null, timestamp: null });
+        }
+    }
+    slice.reverse().forEach(h => {
+        const block = document.createElement('div');
+        block.className = 'history-block';
+        if (h.online === true){
+            block.classList.add('online');
+            block.title = h.timestamp ? `在线 - ${new Date(h.timestamp).toLocaleString('zh-CN')}` : '在线';
+        } else if (h.online === false){
+            block.classList.add('offline');
+            block.title = h.timestamp ? `离线 - ${new Date(h.timestamp).toLocaleString('zh-CN')}` : '离线';
+        } else {
+            block.classList.add('unknown');
+            block.title = '无数据';
+        }
+        container.appendChild(block);
+    });
+}
+
+async function loadServer(server){
+    const id = server.id;
+    const [statusRes, historyRes, statsRes, playersRes] = await Promise.all([
+        fetch(`/api/server/${id}`),
+        fetch(`/api/server/${id}/history`),
+        fetch(`/api/server/${id}/stats`),
+        fetch(`/api/server/${id}/online_players`)
+    ]);
+    const statusData = statusRes.ok ? await statusRes.json() : null;
+    const history = historyRes.ok ? await historyRes.json() : [];
+    const stats = statsRes.ok ? await statsRes.json() : {};
+    const players = playersRes.ok ? await playersRes.json() : [];
+
+    const historySlice = history.slice(0, chartHours * 60);
+    const latest = statusData && statusData.timestamp ? statusData : history[0];
+    const isOnline = latest ? !!latest.online : false;
+
+    updateServerCard(id, {
+        uptime: stats.uptime_percentage ?? 0,
+        latency: stats.avg_latency,
+        players: latest && latest.players_online ? latest.players_online : 0,
+        maxPlayers: latest && latest.players_max ? latest.players_max : 0,
+        version: latest ? latest.version : null,
+        online: isOnline
+    });
+
+    renderLatencyChart(id, historySlice);
+    renderPlayersChart(id, historySlice);
+    renderStatusChart(id, historySlice);
+    renderHistory(id, history);
+    renderInfo(id, statusData);
+    renderPlayersList(id, players);
+}
+
+function initWebSocket(){
+    socket = io();
+    const wsStatus = document.getElementById('ws-status');
+    socket.on('connect', ()=>{ wsStatus.className='ws-status ws-connected'; wsStatus.textContent='🟢 已连接'; wsStatus.title='WebSocket已连接'; });
+    socket.on('disconnect', ()=>{ wsStatus.className='ws-status ws-disconnected'; wsStatus.textContent='🔴 已断开'; wsStatus.title='WebSocket已断开'; });
+    socket.on('connect_error', (e)=>{ wsStatus.className='ws-status ws-error'; wsStatus.textContent='⚠️ 错误'; wsStatus.title='WebSocket错误: '+e.message; });
+    socket.on('server_update', ()=>{
+        clearTimeout(window.wsRefreshTimer);
+        window.wsRefreshTimer = setTimeout(loadAll, 800);
+    });
+}
+
+function loadAll(){
+    chartHours = parseInt(document.getElementById('global-range').value, 10) || 12;
+    servers.forEach(s => loadServer(s));
+}
+
+document.getElementById('refresh-btn').addEventListener('click', loadAll);
+window.addEventListener('beforeunload', ()=>{ if(socket) socket.disconnect(); Object.values(charts).forEach(c=>c.destroy?.()); });
+initWebSocket();
+loadAll();
+</script>
+</body>
+</html>

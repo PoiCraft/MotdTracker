@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, redirect, url_for
 from flask_socketio import SocketIO
 from poller import ServerPoller
 import atexit
@@ -18,10 +18,50 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 poller = ServerPoller('config.json', socketio=socketio)
 
 
+def build_groups_data():
+    """构建服务器组及其最新状态列表"""
+    servers = poller.db.get_all_servers()
+
+    groups = {}
+    for server in servers:
+        server_config = next((s for s in poller.config.get('servers', [])
+                             if s['host'] == server['host'] and s['port'] == server['port']), None)
+        group_name = server_config.get('group', server['name']) if server_config else server['name']
+
+        if group_name not in groups:
+            groups[group_name] = {
+                'group_name': group_name,
+                'servers': []
+            }
+
+        latest_status = poller.db.get_server_latest_status(server['id'])
+        groups[group_name]['servers'].append({
+            **server,
+            'latest_status': latest_status
+        })
+
+    return list(groups.values())
+
+
 @app.route('/')
 def index():
-    """主页 - 显示所有服务器状态"""
-    return render_template('index.html')
+    """主页跳转到分组视图"""
+    return redirect(url_for('groups_page'))
+
+
+@app.route('/groups')
+def groups_page():
+    """分组视图页面"""
+    groups = build_groups_data()
+    return render_template('groups.html', groups=groups)
+
+
+@app.route('/servers')
+def servers_page():
+    """单服视图页面"""
+    servers = poller.db.get_all_servers()
+    enriched = [{**s, 'latest_status': poller.db.get_server_latest_status(s['id'])} for s in servers]
+    return render_template('servers.html', servers=enriched)
 
 
 @app.route('/player')
@@ -120,30 +160,8 @@ def api_server_stats(server_id):
 @app.route('/api/groups')
 def api_groups():
     """API - 获取所有服务器组及其聚合数据"""
-    servers = poller.db.get_all_servers()
-    
-    # 按组分类服务器
-    groups = {}
-    for server in servers:
-        # 从配置中获取组信息
-        server_config = next((s for s in poller.config.get('servers', []) 
-                             if s['host'] == server['host'] and s['port'] == server['port']), None)
-        group_name = server_config.get('group', server['name']) if server_config else server['name']
-        
-        if group_name not in groups:
-            groups[group_name] = {
-                'group_name': group_name,
-                'servers': []
-            }
-        
-        # 获取服务器最新状态
-        latest_status = poller.db.get_server_latest_status(server['id'])
-        groups[group_name]['servers'].append({
-            **server,
-            'latest_status': latest_status
-        })
-    
-    return jsonify(list(groups.values()))
+    groups = build_groups_data()
+    return jsonify(groups)
 
 
 @app.route('/api/group/<group_name>/history')
