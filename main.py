@@ -53,7 +53,7 @@ def index():
 def server_page():
     """服务器视图页面"""
     groups = build_groups_data()
-    return render_template('server.html', groups=groups)
+    return render_template('server.html', groups=groups, active_page='server')
 
 
 @app.route('/nodes')
@@ -61,19 +61,19 @@ def nodes_page():
     """节点视图页面"""
     servers = poller.db.get_all_servers()
     enriched = [{**s, 'latest_status': poller.db.get_server_latest_status(s['id'])} for s in servers]
-    return render_template('nodes.html', servers=enriched)
+    return render_template('nodes.html', servers=enriched, active_page='nodes')
 
 
 @app.route('/players')
 def players_page():
     """玩家列表页面"""
-    return render_template('players.html')
+    return render_template('players.html', active_page='players')
 
 
 @app.route('/player/<player_name>')
 def player_page(player_name):
     """单玩家详情页面"""
-    return render_template('player_detail.html')
+    return render_template('player_detail.html', active_page='players')
 
 
 @app.route('/api/nodes')
