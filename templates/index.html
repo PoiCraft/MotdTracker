@@ -202,7 +202,7 @@
                     ${groupPlayers.length ? groupPlayers.map(p => `
                         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0e0e0;">
                             <div>
-                                <div style="font-weight:600;"><a href="/player/?name=${encodeURIComponent(p.player_name)}">${p.player_name}</a></div>
+                                <div style="font-weight:600;"><a href="/player/${encodeURIComponent(p.player_name)}">${p.player_name}</a></div>
                                 <div style="font-size:0.85em;color:#777;">节点: ${p.server_name}</div>
                             </div>
                             <div style="text-align:right;font-size:0.9em;color:${p.online ? '#16a34a' : '#999'};">
@@ -384,14 +384,14 @@
                         ${status.plugins ? `<span>插件: ${status.plugins.length} 个</span>` : ''}
                     </div>
                     ${status.plugins ? `<div style="margin-top:8px;font-size:0.9em;color:#666;">${status.plugins.slice(0,8).join(', ')}${status.plugins.length>8?' ...':''}</div>` : ''}
-                    ${status.sample_players ? `<div style="margin-top:8px;font-size:0.9em;color:#666;">在线玩家样本: ${status.sample_players.map(p => `<a href="/player/?name=${encodeURIComponent(p)}">${p}</a>`).join(', ')}</div>` : ''}
+                    ${status.sample_players ? `<div style="margin-top:8px;font-size:0.9em;color:#666;">在线玩家样本: ${status.sample_players.map(p => `<a href="/player/${encodeURIComponent(p)}">${p}</a>`).join(', ')}</div>` : ''}
                 </div>
 
                 <div class="chart-title">在线玩家在线时长</div>
                 <div class="group-servers">
                     ${onlinePlayers.length ? onlinePlayers.map(p => `
                         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0e0e0;">
-                            <div style="font-weight:600;"><a href="/player/?name=${encodeURIComponent(p.player_name)}">${p.player_name}</a></div>
+                            <div style="font-weight:600;"><a href="/player/${encodeURIComponent(p.player_name)}">${p.player_name}</a></div>
                             <div style="text-align:right;font-size:0.9em;color:${p.online ? '#16a34a' : '#999'};">
                                 <div>${p.online ? `已在线 ${formatDuration(p.duration_seconds)}` : '已离线'}</div>
                                 <div style="color:#777;">${p.online ? `开始: ${formatTime(p.session_start)}` : `最后在线: ${formatTime(p.last_seen)}`}</div>

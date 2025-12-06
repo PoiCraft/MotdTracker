@@ -64,8 +64,8 @@ def servers_page():
     return render_template('servers.html', servers=enriched)
 
 
-@app.route('/player/')
-def player_page():
+@app.route('/player/<player_name>')
+def player_page(player_name):
     """单玩家详情页面"""
     return render_template('player_detail.html')
 

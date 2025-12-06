@@ -72,7 +72,7 @@
     </div>
 
     <script>
-        const playerName = new URLSearchParams(window.location.search).get('name') || '';
+        const playerName = decodeURIComponent(window.location.pathname.split('/').filter(p => p).pop() || '');
         let calendarDaily = [];
         let heatmapData = [];
         let hourlyChart;
