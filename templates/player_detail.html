@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>玩家详情</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
+</head>
+<body>
+    <div class="container">
+        <h1 id="player-title">玩家详情</h1>
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <a class="toolbar-btn" href="/">⬅️ 返回主面板</a>
+                <button class="toolbar-btn" id="refresh-btn">🔄 刷新</button>
+                <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">⚪ 连接中</span>
+            </div>
+            <div class="toolbar-right">
+                <span class="toolbar-label" id="summary-text">加载中...</span>
+                <span class="toolbar-label" id="updated-at">--</span>
+            </div>
+        </div>
+
+        <div id="summary-card" class="server-card">
+            <div class="server-header">
+                <div class="server-name" id="player-name">--</div>
+                <div id="status-badge" class="status-badge">--</div>
+            </div>
+            <div class="stats-grid stats-grid-compact">
+                <div class="stat-box">
+                    <div class="stat-label">当前状态</div>
+                    <div class="stat-value" id="current-status">--</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">本次在线时长</div>
+                    <div class="stat-value" id="current-duration">--</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">最后在线</div>
+                    <div class="stat-value stat-value-small" id="last-seen">--</div>
+                </div>
+            </div>
+            <div class="chart-title">群组会话状态</div>
+            <div class="group-servers" id="session-list"></div>
+        </div>
+
+        <div class="server-card">
+            <div class="chart-title">日期 x 小时 热力图 (近30天)</div>
+            <div id="heatmap" class="heatmap"></div>
+            <div class="calendar-hint">颜色越深表示当日该小时在线时长越长。点击任意日期查看当日会话。</div>
+
+            <div class="chart-title">当日会话</div>
+            <div id="day-detail" class="group-servers"></div>
+
+            <div class="chart-title">每小时平均在线时长</div>
+            <div class="chart-container chart-container-tall">
+                <canvas id="hourly-chart"></canvas>
+            </div>
+
+            <div class="stats-grid stats-grid-wide">
+                <div class="stat-box">
+                    <div class="stat-label">平均每日在线时长</div>
+                    <div class="stat-value" id="avg-daily">--</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">平均每会话在线时长</div>
+                    <div class="stat-value" id="avg-session">--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const playerName = new URLSearchParams(window.location.search).get('name') || '';
+        let calendarDaily = [];
+        let heatmapData = [];
+        let hourlyChart;
+
+        function formatDuration(seconds) {
+            if (!seconds && seconds !== 0) return '未知';
+            const mins = Math.floor(seconds / 60);
+            const hours = Math.floor(mins / 60);
+            const minutes = mins % 60;
+            if (hours > 0) return `${hours}小时${minutes}分`;
+            return `${minutes}分`;
+        }
+
+        function formatTime(value) {
+            if (!value) return '未知';
+            return new Date(value).toLocaleString('zh-CN');
+        }
+
+        function renderSummary(data) {
+            document.getElementById('player-title').textContent = `玩家详情 - ${data.player_name}`;
+            document.getElementById('player-name').textContent = data.player_name;
+            document.getElementById('updated-at').textContent = `更新于 ${new Date().toLocaleTimeString('zh-CN')}`;
+            document.getElementById('summary-text').textContent = data.online ? '在线' : '离线';
+
+            const badge = document.getElementById('status-badge');
+            badge.textContent = data.online ? '● 在线' : '● 离线';
+            badge.className = data.online ? 'status-badge status-online' : 'status-badge status-offline';
+
+            document.getElementById('current-status').textContent = data.online ? '在线' : '离线';
+            document.getElementById('current-duration').textContent = data.online ? formatDuration(data.duration_seconds) : 'N/A';
+            document.getElementById('last-seen').textContent = formatTime(data.last_seen);
+
+            const list = document.getElementById('session-list');
+            // 按群组展示会话信息 - 保留 DOM 结构，只更新必要内容
+            if (data.groups && Object.keys(data.groups).length > 0) {
+                const newHTML = Object.entries(data.groups).map(([groupName, group]) => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e5e7eb;">
+                        <div style="font-weight:600;color:#667eea;">${groupName}</div>
+                        <div style="text-align:right;font-size:0.9em;color:${group.online ? '#16a34a' : '#555'};">
+                            ${group.online ? `在线 ${formatDuration(group.duration_seconds)}` : '已离线'}
+                            <div style="color:#777;">${group.online ? `开始: ${formatTime(group.session_start)}` : `最后在线: ${formatTime(group.last_seen)}`}</div>
+                        </div>
+                    </div>
+                `).join('');
+                // 只在内容实际变化时才更新
+                if (list.innerHTML !== newHTML) {
+                    list.innerHTML = newHTML;
+                }
+            } else {
+                const emptyHTML = '<div class="loading">暂无会话记录</div>';
+                if (list.innerHTML !== emptyHTML) {
+                    list.innerHTML = emptyHTML;
+                }
+            }
+        }
+
+        function renderHeatmap(heatmap, daily) {
+            heatmapData = heatmap;
+            calendarDaily = daily;
+            const container = document.getElementById('heatmap');
+            
+            if (!heatmap || heatmap.length === 0) {
+                const emptyHTML = '<div class="loading">暂无数据</div>';
+                if (container.innerHTML !== emptyHTML) {
+                    container.innerHTML = emptyHTML;
+                }
+                return;
+            }
+
+            const grouped = {};
+            let maxSeconds = 0;
+            heatmap.forEach(cell => {
+                grouped[cell.date] = grouped[cell.date] || {};
+                grouped[cell.date][cell.hour] = cell.seconds;
+                if (cell.seconds > maxSeconds) maxSeconds = cell.seconds;
+            });
+
+            const dates = Object.keys(grouped).sort();
+            const existingRows = container.querySelectorAll('.heatmap-row');
+            const existingDates = Array.from(existingRows).map(row => 
+                row.querySelector('.heatmap-date')?.textContent
+            );
+
+            // 检查是否需要重建整个热力图（日期变化）
+            const needsRebuild = dates.length !== existingDates.length || 
+                                 dates.some((date, i) => date !== existingDates[i]);
+
+            if (needsRebuild) {
+                // 完全重建
+                container.innerHTML = '';
+                dates.forEach(date => {
+                    const row = document.createElement('div');
+                    row.className = 'heatmap-row';
+                    const label = document.createElement('div');
+                    label.className = 'heatmap-date';
+                    label.textContent = date;
+                    row.appendChild(label);
+
+                    const cellsWrap = document.createElement('div');
+                    cellsWrap.className = 'heatmap-cells';
+                    for (let h = 0; h < 24; h++) {
+                        const val = grouped[date][h] || 0;
+                        const intensity = maxSeconds ? Math.min(1, val / maxSeconds) : 0;
+                        const cell = document.createElement('div');
+                        cell.className = 'heatmap-cell';
+                        cell.style.background = `hsl(140, 60%, ${Math.max(15, 85 - intensity * 55)}%)`;
+                        cell.title = `${date} ${String(h).padStart(2,'0')}:00\n在线: ${formatDuration(val)}`;
+                        cell.dataset.date = date;
+                        cell.dataset.hour = h;
+                        cell.addEventListener('click', () => renderDayDetail(date));
+                        cellsWrap.appendChild(cell);
+                    }
+                    row.appendChild(cellsWrap);
+                    container.appendChild(row);
+                });
+            } else {
+                // 只更新单元格样式和标题
+                existingRows.forEach((row, rowIndex) => {
+                    const date = dates[rowIndex];
+                    const cells = row.querySelectorAll('.heatmap-cell');
+                    cells.forEach((cell, h) => {
+                        const val = grouped[date][h] || 0;
+                        const intensity = maxSeconds ? Math.min(1, val / maxSeconds) : 0;
+                        const newBg = `hsl(140, 60%, ${Math.max(15, 85 - intensity * 55)}%)`;
+                        const newTitle = `${date} ${String(h).padStart(2,'0')}:00\n在线: ${formatDuration(val)}`;
+                        
+                        if (cell.style.background !== newBg) {
+                            cell.style.background = newBg;
+                        }
+                        if (cell.title !== newTitle) {
+                            cell.title = newTitle;
+                        }
+                    });
+                });
+            }
+        }
+
+        function renderDayDetail(dateStr) {
+            const target = calendarDaily.find(c => c.date === dateStr);
+            const container = document.getElementById('day-detail');
+            if (!target || !target.sessions || target.sessions.length === 0) {
+                const emptyHTML = '<div class="loading">该日无在线记录</div>';
+                if (container.innerHTML !== emptyHTML) {
+                    container.innerHTML = emptyHTML;
+                }
+                return;
+            }
+            const newHTML = target.sessions.map(s => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0e0e0;">
+                    <div style="font-weight:600;color:#667eea;">${s.group_name || '默认'}</div>
+                    <div style="text-align:right;font-size:0.9em;color:#555;">
+                        <div>${formatTime(s.start)} - ${formatTime(s.end)}</div>
+                        <div style="color:#777;">时长: ${formatDuration((new Date(s.end) - new Date(s.start)) / 1000)}</div>
+                    </div>
+                </div>
+            `).join('');
+            // 只在内容实际变化时才更新
+            if (container.innerHTML !== newHTML) {
+                container.innerHTML = newHTML;
+            }
+        }
+
+        function renderHourlyChart(hourly) {
+            const ctx = document.getElementById('hourly-chart');
+            if (!ctx) return;
+            const labels = hourly.map(h => `${String(h.hour).padStart(2,'0')}:00`);
+            const data = hourly.map(h => (h.avg_seconds || 0) / 60);
+
+            // 只有在图表不存在或数据变化时才重建
+            if (!hourlyChart) {
+                hourlyChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: '平均在线时长(分钟)',
+                            data,
+                            backgroundColor: 'rgba(16,185,129,0.6)',
+                            borderColor: '#10b981',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: '分钟'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: '小时'
+                                }
+                            }
+                        }
+                    }
+                });
+            } else {
+                // 更新现有图表数据而不是销毁重建
+                hourlyChart.data.datasets[0].data = data;
+                hourlyChart.update('none'); // 使用 'none' 模式避免动画
+            }
+        }
+
+        async function loadData() {
+            if (!playerName) {
+                document.getElementById('summary-text').textContent = '未指定玩家';
+                return;
+            }
+            try {
+                const detailRes = await fetch(`/api/player/${encodeURIComponent(playerName)}/detail`);
+                const detail = await detailRes.json();
+                renderSummary(detail);
+
+                const calendarRes = await fetch(`/api/player/${encodeURIComponent(playerName)}/calendar`);
+                const calendar = await calendarRes.json();
+                renderHeatmap(calendar.heatmap, calendar.daily);
+                renderHourlyChart(calendar.hourly_average || []);
+                document.getElementById('avg-daily').textContent = formatDuration(calendar.average_daily_seconds);
+                document.getElementById('avg-session').textContent = formatDuration(calendar.average_session_seconds);
+                if (calendar.daily && calendar.daily.length) {
+                    renderDayDetail(calendar.daily[calendar.daily.length - 1].date);
+                }
+            } catch (e) {
+                console.error(e);
+                document.getElementById('summary-text').textContent = '加载失败';
+            }
+        }
+
+        // WebSocket 连接和状态管理
+        let socket = null;
+        function initWebSocket() {
+            socket = io();
+            const wsStatus = document.getElementById('ws-status');
+            
+            socket.on('connect', () => {
+                console.log('WebSocket 已连接');
+                wsStatus.className = 'ws-status ws-connected';
+                wsStatus.textContent = '🟢 已连接';
+                wsStatus.title = 'WebSocket已连接 - 实时接收更新';
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('WebSocket 已断开');
+                wsStatus.className = 'ws-status ws-disconnected';
+                wsStatus.textContent = '🔴 已断开';
+                wsStatus.title = 'WebSocket已断开 - 尝试重新连接中...';
+            });
+            
+            socket.on('connect_error', (error) => {
+                console.error('WebSocket 连接错误:', error);
+                wsStatus.className = 'ws-status ws-error';
+                wsStatus.textContent = '⚠️ 错误';
+                wsStatus.title = 'WebSocket连接错误: ' + error.message;
+            });
+            
+            socket.on('server_update', (data) => {
+                console.log('收到服务器更新:', data.name, data.status);
+                // 检查更新的服务器是否与当前玩家相关
+                if (data.status.sample_players && Array.isArray(data.status.sample_players)) {
+                    const playerInUpdate = data.status.sample_players.some(p => p.name === playerName);
+                    if (playerInUpdate || data.status.players_online === 0) {
+                        // 如果玩家在更新中或服务器无人在线（可能玩家刚下线），刷新数据
+                        clearTimeout(window.wsRefreshTimer);
+                        window.wsRefreshTimer = setTimeout(() => loadData(), 800);
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('refresh-btn').addEventListener('click', loadData);
+            loadData();
+            initWebSocket();
+            const timer = setInterval(loadData, 60000);
+            window.addEventListener('beforeunload', () => {
+                clearInterval(timer);
+                if (socket) socket.disconnect();
+            });
+        });
+    </script>
+</body>
+</html>

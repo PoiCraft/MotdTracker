@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft服务器监控 - UptimeBot风格</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Minecraft服务器监控</h1>
+        
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <button class="toolbar-btn" onclick="loadData()">🔄 刷新数据</button>
+                <button class="toolbar-btn" id="mode-btn" onclick="toggleDisplayMode()">📊 单服视图</button>
+                <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">⚪ 连接中</span>
+            </div>
+            <div class="toolbar-right">
+                <span class="toolbar-label">时间跨度</span>
+                <select id="global-range" class="range-select" title="选择时间跨度">
+                    <option value="4">4小时</option>
+                    <option value="8">8小时</option>
+                    <option value="12" selected>12小时</option>
+                    <option value="24">1天</option>
+                    <option value="48">2天</option>
+                    <option value="96">4天</option>
+                    <option value="168">7天</option>
+                    <option value="720">30天</option>
+                </select>
+            </div>
+        </div>
+        
+        <div id="servers-container">
+            <div class="loading">正在加载数据...</div>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+        let autoRefreshInterval;
+        let displayMode = 'grouped'; // 'grouped' or 'individual'
+        let chartHours = 12; // 全局图表小时数
+        let socket = null;
+        function getSnapshotLength() { return chartHours * 3 * 60; }
+        function getChartLength() { return chartHours * 60; }
+
+        function formatDuration(seconds) {
+            if (seconds === null || seconds === undefined) return '未知';
+            const mins = Math.floor(seconds / 60);
+            const hours = Math.floor(mins / 60);
+            const minutes = mins % 60;
+            if (hours > 0) {
+                return `${hours}小时${minutes}分`;
+            }
+            return `${minutes}分`;
+        }
+
+        function formatTime(value) {
+            if (!value) return '未知';
+            return new Date(value).toLocaleString('zh-CN');
+        }
+
+        // 加载服务器数据
+        async function loadData() {
+            try {
+                if (displayMode === 'grouped') {
+                    const response = await fetch('/api/groups');
+                    const groups = await response.json();
+                    displayGroups(groups);
+                } else {
+                    const response = await fetch('/api/servers');
+                    const servers = await response.json();
+                    displayServers(servers);
+                }
+            } catch (error) {
+                console.error('加载数据失败:', error);
+                document.getElementById('servers-container').innerHTML = 
+                    '<div class="loading">❌ 加载数据失败，请刷新页面重试</div>';
+            }
+        }
+
+        // 切换显示模式
+        function toggleDisplayMode() {
+            displayMode = displayMode === 'grouped' ? 'individual' : 'grouped';
+            document.getElementById('mode-btn').textContent = 
+                displayMode === 'grouped' ? '📊 单服视图' : '🔗 分组视图';
+            loadData();
+        }
+
+        // 显示分组服务器
+        async function displayGroups(groups) {
+            const container = document.getElementById('servers-container');
+            container.innerHTML = '';
+
+            for (const group of groups) {
+                const card = await createGroupCard(group);
+                container.appendChild(card);
+            }
+        }
+
+        // 创建分组服务器卡片
+        async function createGroupCard(group) {
+            const card = document.createElement('div');
+            card.className = 'server-card';
+
+            // 计算组的总体状态 - 优先选择在线的服务器
+            let selectedServer = null;
+            let anyOnline = false;
+
+            // 优先选择在线的服务器
+            for (const server of group.servers) {
+                const status = server.latest_status;
+                if (status && status.online) {
+                    anyOnline = true;
+                    if (!selectedServer) {
+                        selectedServer = server;
+                    }
+                }
+            }
+
+            // 如果没有在线的,就选第一个
+            if (!selectedServer && group.servers.length > 0) {
+                selectedServer = group.servers[0];
+            }
+
+            const selectedStatus = selectedServer ? selectedServer.latest_status : null;
+            const players = selectedStatus && selectedStatus.online ? selectedStatus.players_online : 0;
+            const maxPlayers = selectedStatus && selectedStatus.online ? selectedStatus.players_max : 0;
+
+            // 获取组的历史数据和统计
+            const historyResponse = await fetch(`/api/group/${encodeURIComponent(group.group_name)}/history`);
+            const history = await historyResponse.json();
+
+            const statsResponse = await fetch(`/api/group/${encodeURIComponent(group.group_name)}/stats`);
+            const stats = await statsResponse.json();
+
+            // 获取组内玩家会话
+            const playersResponse = await fetch(`/api/group/${encodeURIComponent(group.group_name)}/players`);
+            const groupPlayers = await playersResponse.json();
+
+            // 获取最新记录用于显示
+            const latestRecord = history[0];
+            const latestTimestamp = latestRecord ? latestRecord.timestamp : '暂无数据';
+
+            card.innerHTML = `
+                <div class="server-header">
+                    <div>
+                        <div class="server-name">${group.group_name}</div>
+                        <div class="server-address">${group.servers.length} 个连接入口</div>
+                    </div>
+                    <div class="status-badge ${anyOnline ? 'status-online' : 'status-offline'}">
+                        ${anyOnline ? '● 在线' : '● 离线'}
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-label">在线率 (24h)</div>
+                        <div class="stat-value">${stats.uptime_percentage || 0}%</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">平均延迟</div>
+                        <div class="stat-value">${stats.avg_latency ? stats.avg_latency + 'ms' : 'N/A'}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">在线玩家</div>
+                        <div class="stat-value">${anyOnline ? `${players}/${maxPlayers}` : 'N/A'}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">活跃入口</div>
+                        <div class="stat-value" style="font-size: 1.5em;">${group.servers.filter(s => s.latest_status?.online).length}/${group.servers.length}</div>
+                    </div>
+                </div>
+
+                <div class="uptime-bar">
+                    <div class="uptime-fill" style="width: ${stats.uptime_percentage || 0}%">
+                        ${stats.uptime_percentage || 0}% 在线
+                    </div>
+                </div>
+
+                <div class="chart-title">📊 各入口延迟对比 (${chartHours}小时)</div>
+                <div class="chart-container">
+                    <canvas id="chart-latency-${group.group_name}"></canvas>
+                </div>
+
+                <div class="chart-title">👥 在线玩家趋势 (${chartHours}小时)</div>
+                <div class="chart-container">
+                    <canvas id="chart-players-${group.group_name}"></canvas>
+                </div>
+
+                <div class="chart-title">🟢 在线状态历史 (${chartHours}小时)</div>
+                <div class="chart-container" style="height: 100px;">
+                    <canvas id="chart-status-${group.group_name}"></canvas>
+                </div>
+
+                <div class="chart-title">📅 状态快照 (快照时长：${chartHours*3}小时)</div>
+                <div class="history-grid" id="group-history-${group.group_name}"></div>
+
+                <div class="chart-title">👥 组内玩家在线情况</div>
+                <div class="group-servers">
+                    ${groupPlayers.length ? groupPlayers.map(p => `
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0e0e0;">
+                            <div>
+                                <div style="font-weight:600;"><a href="/player?name=${encodeURIComponent(p.player_name)}">${p.player_name}</a></div>
+                                <div style="font-size:0.85em;color:#777;">入口: ${p.server_name}</div>
+                            </div>
+                            <div style="text-align:right;font-size:0.9em;color:${p.online ? '#16a34a' : '#555'};">
+                                ${p.online ? `在线 ${formatDuration(p.duration_seconds)}` : '已离线'}
+                                <div style="color:#777;">${p.online ? `开始: ${formatTime(p.session_start)}` : `最后在线: ${formatTime(p.last_seen)}`}</div>
+                            </div>
+                        </div>
+                    `).join('') : '<div class="loading">暂无玩家记录</div>'}
+                </div>
+
+                <div class="chart-title">📅 连接入口详情</div>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                    ${group.servers.map(s => {
+                        const status = s.latest_status;
+                        const online = status && status.online;
+                        return `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #e0e0e0;">
+                                <div>
+                                    <strong>${s.name}</strong>
+                                    <div style="font-size: 0.85em; color: #666;">${s.host}:${s.port}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span class="status-badge ${online ? 'status-online' : 'status-offline'}" style="padding: 4px 12px; font-size: 0.85em;">
+                                        ${online ? '在线' : '离线'}
+                                    </span>
+                                    ${online ? `<div style="font-size: 0.85em; color: #666; margin-top: 4px;">${status.latency}ms | ${status.players_online}人</div>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div class="update-time">
+                    最后更新: ${new Date(latestTimestamp).toLocaleString('zh-CN')}
+                </div>
+            `;
+
+            // 渲染图表和群组状态快照
+                        setTimeout(() => {
+                            renderGroupLatencyChart(group.group_name, history, getChartLength());
+                            renderGroupPlayersChart(group.group_name, history, getChartLength());
+                            renderGroupStatusChart(group.group_name, history, getChartLength());
+                            renderGroupHistory(group.group_name, history, group.servers, getSnapshotLength());
+                        }, 0);
+
+            return card;
+        }
+
+        // 渲染群组状态快照条
+        function renderGroupHistory(groupName, history, servers) {
+            const container = document.getElementById(`group-history-${groupName}`);
+            if (!container) return;
+            container.innerHTML = '';
+            // 取最近 snapshotLength 条
+            let snapshotLength = 720;
+            if (arguments.length > 3 && typeof arguments[3] === 'number') {
+                snapshotLength = arguments[3];
+            }
+            const recentHistory = history.slice(0, snapshotLength).reverse();
+            recentHistory.forEach(record => {
+                const block = document.createElement('div');
+                block.className = 'history-block';
+                // 统计在线节点数
+                let onlineCount = 0;
+                let latencyInfo = [];
+                if (record.latencies) {
+                    for (const [name, latency] of Object.entries(record.latencies)) {
+                        if (latency !== null && latency !== undefined) {
+                            onlineCount++;
+                            latencyInfo.push(`${name}: ${latency}ms`);
+                        } else {
+                            latencyInfo.push(`${name}: 离线`);
+                        }
+                    }
+                }
+                // 颜色逻辑
+                if (onlineCount === servers.length) {
+                    block.classList.add('online'); // 全部在线绿色
+                } else if (onlineCount === 0) {
+                    block.classList.add('offline'); // 全部离线红色
+                } else {
+                    block.style.background = '#fbbf24'; // 有一个或多个离线为黄色
+                }
+                // hover内容
+                block.title = `时间: ${new Date(record.timestamp).toLocaleString('zh-CN')}` +
+                    `\n${latencyInfo.join('\n')}`;
+                container.appendChild(block);
+            });
+        }
+
+        // 显示服务器列表
+        async function displayServers(servers) {
+            const container = document.getElementById('servers-container');
+            container.innerHTML = '';
+
+            for (const server of servers) {
+                const card = await createServerCard(server);
+                container.appendChild(card);
+            }
+        }
+
+        // 创建服务器卡片
+        async function createServerCard(server) {
+            const card = document.createElement('div');
+            card.className = 'server-card';
+
+            const status = server.latest_status || server.status || {};
+            const isOnline = !!status.online;
+
+            // 获取历史数据
+            const historyResponse = await fetch(`/api/server/${server.id}/history`);
+            const history = await historyResponse.json();
+
+            // 获取统计数据
+            const statsResponse = await fetch(`/api/server/${server.id}/stats`);
+            const stats = await statsResponse.json();
+
+            // 获取当前在线玩家
+            const playersResponse = await fetch(`/api/server/${server.id}/online_players`);
+            const onlinePlayers = await playersResponse.json();
+
+            card.innerHTML = `
+                <div class="server-header">
+                    <div>
+                        <div class="server-name">${server.name}</div>
+                        <div class="server-address">${server.host}:${server.port}</div>
+                    </div>
+                    <div class="status-badge ${isOnline ? 'status-online' : 'status-offline'}">
+                        ${isOnline ? '● 在线' : '● 离线'}
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-label">在线率 (24h)</div>
+                        <div class="stat-value">${stats.uptime_percentage || 0}%</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">平均延迟</div>
+                        <div class="stat-value">${stats.avg_latency ? stats.avg_latency + 'ms' : 'N/A'}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">当前玩家</div>
+                        <div class="stat-value">${isOnline ? `${status.players_online}/${status.players_max}` : 'N/A'}</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">版本</div>
+                        <div class="stat-value" style="font-size: 1.2em;">${isOnline ? status.version : 'N/A'}</div>
+                    </div>
+                </div>
+
+                <div class="uptime-bar">
+                    <div class="uptime-fill" style="width: ${stats.uptime_percentage || 0}%">
+                        ${stats.uptime_percentage || 0}% 在线
+                    </div>
+                </div>
+
+                <div class="chart-title">延迟趋势</div>
+                <div class="chart-container">
+                    <canvas id="chart-latency-${server.id}"></canvas>
+                </div>
+
+                <div class="chart-title">在线玩家趋势</div>
+                <div class="chart-container">
+                    <canvas id="chart-players-${server.id}"></canvas>
+                </div>
+
+                <div class="chart-title">服务器信息</div>
+                <div class="group-servers">
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:0.95em;color:#555;">
+                        ${status.map ? `<span>地图: ${status.map}</span>` : ''}
+                        ${status.software ? `<span>核心: ${status.software}</span>` : ''}
+                        ${status.plugins ? `<span>插件: ${status.plugins.length} 个</span>` : ''}
+                    </div>
+                    ${status.plugins ? `<div style="margin-top:8px;font-size:0.9em;color:#666;">${status.plugins.slice(0,8).join(', ')}${status.plugins.length>8?' ...':''}</div>` : ''}
+                    ${status.sample_players ? `<div style="margin-top:8px;font-size:0.9em;color:#666;">在线玩家样本: ${status.sample_players.map(p => `<a href="/player?name=${encodeURIComponent(p)}">${p}</a>`).join(', ')}</div>` : ''}
+                </div>
+
+                <div class="chart-title">在线玩家在线时长</div>
+                <div class="group-servers">
+                    ${onlinePlayers.length ? onlinePlayers.map(p => `
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0e0e0;">
+                            <div style="font-weight:600;"><a href="/player?name=${encodeURIComponent(p.player_name)}">${p.player_name}</a></div>
+                            <div style="text-align:right;font-size:0.9em;color:#555;">
+                                <div>已在线 ${formatDuration(p.duration_seconds)}</div>
+                                <div style="color:#777;">开始: ${formatTime(p.session_start)}</div>
+                            </div>
+                        </div>
+                    `).join('') : '<div class="loading">暂无在线玩家</div>'}
+                </div>
+
+                <div class="chart-title">状态快照 (快照时长：${chartHours*3}小时)</div>
+                <div class="history-grid" id="history-${server.id}"></div>
+
+                ${isOnline && status.motd ? `<div class="motd">MOTD: ${escapeHtml(status.motd)}</div>` : ''}
+
+                <div class="update-time">
+                    最后更新: ${status ? new Date(status.timestamp).toLocaleString('zh-CN') : '暂无数据'}
+                </div>
+            `;
+
+            // 渲染图表和历史记录
+                        setTimeout(() => {
+                            renderLatencyChart(server.id, history, getChartLength());
+                            renderPlayersChart(server.id, history, getChartLength());
+                            renderStatusChart(server.id, history, getChartLength());
+                            renderHistory(server.id, history, getSnapshotLength());
+                        }, 0);
+
+            return card;
+        }
+
+        // 渲染延迟图表
+        function renderLatencyChart(serverId, history) {
+            const ctx = document.getElementById(`chart-latency-${serverId}`);
+            if (!ctx) return;
+
+            // 销毁旧图表
+            const chartKey = `latency-${serverId}`;
+            if (charts[chartKey]) {
+                charts[chartKey].destroy();
+            }
+
+            // 准备数据 - 显示最近4小时的数据点
+            const recentHistory = history.slice(0, 240).reverse();
+            const labels = recentHistory.map(h => {
+                const date = new Date(h.timestamp);
+                return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            });
+            const latencies = recentHistory.map(h => h.online ? h.latency : null);
+
+            charts[chartKey] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '延迟 (ms)',
+                        data: latencies,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        spanGaps: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            ticks: {
+                                maxTicksLimit: 8
+                            }
+                        },
+                        y: {
+                            display: true,
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + 'ms';
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
+
+        // 渲染分组延迟图表
+        function renderGroupLatencyChart(groupName, history) {
+            const ctx = document.getElementById(`chart-latency-${groupName}`);
+            if (!ctx) return;
+
+            const chartKey = `latency-${groupName}`;
+            if (charts[chartKey]) {
+                charts[chartKey].destroy();
+            }
+
+            const recentHistory = history.slice(0, 240).reverse();
+            const labels = recentHistory.map(h => {
+                const date = new Date(h.timestamp);
+                return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            });
+
+            // 获取所有服务器名称
+            const serverNames = new Set();
+            recentHistory.forEach(h => {
+                if (h.latencies) {
+                    Object.keys(h.latencies).forEach(name => serverNames.add(name));
+                }
+            });
+
+            // 为每个服务器创建数据集
+            const colors = [
+                { border: '#667eea', bg: 'rgba(102, 126, 234, 0.1)' },
+                { border: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
+                { border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
+                { border: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' },
+                { border: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' },
+                { border: '#ec4899', bg: 'rgba(236, 72, 153, 0.1)' }
+            ];
+
+            const datasets = [];
+            let colorIndex = 0;
+            
+            serverNames.forEach(serverName => {
+                const color = colors[colorIndex % colors.length];
+                const data = recentHistory.map(h => {
+                    return h.latencies && h.latencies[serverName] !== undefined 
+                        ? h.latencies[serverName] 
+                        : null;
+                });
+
+                datasets.push({
+                    label: serverName,
+                    data: data,
+                    borderColor: color.border,
+                    backgroundColor: color.bg,
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    spanGaps: true
+                });
+                
+                colorIndex++;
+            });
+
+            charts[chartKey] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 10,
+                                font: { size: 11 }
+                            }
+                        },
+                        tooltip: { 
+                            mode: 'index', 
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y + 'ms';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { display: true, ticks: { maxTicksLimit: 8 } },
+                        y: {
+                            display: true,
+                            beginAtZero: true,
+                            ticks: { callback: function(value) { return value + 'ms'; } }
+                        }
+                    },
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false }
+                }
+            });
+        }
+
+        // 渲染分组玩家图表
+        function renderGroupPlayersChart(groupName, history) {
+            const ctx = document.getElementById(`chart-players-${groupName}`);
+            if (!ctx) return;
+
+            const chartKey = `players-${groupName}`;
+            if (charts[chartKey]) {
+                charts[chartKey].destroy();
+            }
+
+            const recentHistory = history.slice(0, 240).reverse();
+            const labels = recentHistory.map(h => {
+                const date = new Date(h.timestamp);
+                return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            });
+            const playersOnline = recentHistory.map(h => h.online ? h.players_online : null);
+            const playersMax = recentHistory.map(h => h.online ? h.players_max : null);
+
+            charts[chartKey] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '在线玩家',
+                            data: playersOnline,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            pointHoverRadius: 5,
+                            spanGaps: true
+                        },
+                        {
+                            label: '最大玩家数',
+                            data: playersMax,
+                            borderColor: '#6b7280',
+                            backgroundColor: 'rgba(107, 114, 128, 0.05)',
+                            borderWidth: 1,
+                            borderDash: [5, 5],
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            pointHoverRadius: 3,
+                            spanGaps: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { usePointStyle: true, padding: 15 }
+                        },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: { display: true, ticks: { maxTicksLimit: 8 } },
+                        y: {
+                            display: true,
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) { return Math.floor(value); },
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false }
+                }
+            });
+        }
+
+        // 渲染分组状态图表
+        function renderGroupStatusChart(groupName, history) {
+            const ctx = document.getElementById(`chart-status-${groupName}`);
+            if (!ctx) return;
+
+            const chartKey = `status-${groupName}`;
+            if (charts[chartKey]) {
+                charts[chartKey].destroy();
+            }
+
+            const recentHistory = history.slice(0, 240).reverse();
+            const labels = recentHistory.map(h => {
+                const date = new Date(h.timestamp);
+                return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            });
+            const statusData = recentHistory.map(h => h.online ? 1 : 0);
+
+            const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 100);
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.8)');
+            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.2)');
+
+            charts[chartKey] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '在线状态',
+                        data: statusData,
+                        borderColor: '#10b981',
+                        backgroundColor: gradient,
+                        borderWidth: 2,
+                        fill: true,
+                        stepped: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y === 1 ? '在线' : '离线';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { display: true, ticks: { maxTicksLimit: 8 } },
+                        y: {
+                            display: true,
+                            min: 0,
+                            max: 1,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    return value === 1 ? '在线' : '离线';
+                                }
+                            }
+                        }
+                    },
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false }
+                }
+            });
+        }
+
+        // 渲染延迟图表
+        function renderPlayersChart(serverId, history) {
+            const ctx = document.getElementById(`chart-players-${serverId}`);
+            if (!ctx) return;
+
+            // 销毁旧图表
+            const chartKey = `players-${serverId}`;
+            if (charts[chartKey]) {
+                charts[chartKey].destroy();
+            }
+
+            // 准备数据 - 显示最近4小时的数据点
+            const recentHistory = history.slice(0, 240).reverse();
+            const labels = recentHistory.map(h => {
+                const date = new Date(h.timestamp);
+                return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            });
+            const playersOnline = recentHistory.map(h => h.online ? h.players_online : null);
+            const playersMax = recentHistory.map(h => h.online ? h.players_max : null);
+
+            charts[chartKey] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '在线玩家',
+                            data: playersOnline,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            pointHoverRadius: 5,
+                            spanGaps: true
+                        },
+                        {
+                            label: '最大玩家',
+                            data: playersMax,
+                            borderColor: '#6b7280',
+                            backgroundColor: 'rgba(107, 114, 128, 0.05)',
+                            borderWidth: 1,
+                            borderDash: [5, 5],
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            pointHoverRadius: 3,
+                            spanGaps: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 15
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            ticks: {
+                                maxTicksLimit: 8
+                            }
+                        },
+                        y: {
+                            display: true,
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return Math.floor(value);
+                                },
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
+
+        // 渲染在线状态图表
+        function renderStatusChart(serverId, history) {
+            const ctx = document.getElementById(`chart-status-${serverId}`);
+            if (!ctx) return;
+
+            // 销毁旧图表
+            const chartKey = `status-${serverId}`;
+            if (charts[chartKey]) {
+                charts[chartKey].destroy();
+            }
+
+            // 准备数据 - 显示最近4小时的数据点
+            const recentHistory = history.slice(0, 240).reverse();
+            const labels = recentHistory.map(h => {
+                const date = new Date(h.timestamp);
+                return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            });
+            const statusData = recentHistory.map(h => h.online ? 1 : 0);
+
+            // 创建渐变色
+            const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 100);
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.8)');
+            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.2)');
+
+            charts[chartKey] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '在线状态',
+                        data: statusData,
+                        borderColor: '#10b981',
+                        backgroundColor: gradient,
+                        borderWidth: 2,
+                        fill: true,
+                        stepped: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y === 1 ? '在线' : '离线';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            ticks: {
+                                maxTicksLimit: 8
+                            }
+                        },
+                        y: {
+                            display: true,
+                            min: 0,
+                            max: 1,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    return value === 1 ? '在线' : '离线';
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
+
+        // 渲染历史状态条
+        function renderHistory(serverId, history) {
+            const container = document.getElementById(`history-${serverId}`);
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            // 显示最近 snapshotLength 个状态点
+            let snapshotLength = 720;
+            if (arguments.length > 2 && typeof arguments[2] === 'number') {
+                snapshotLength = arguments[2];
+            }
+            const recentHistory = history.slice(0, snapshotLength).reverse();
+            
+            recentHistory.forEach(record => {
+                const block = document.createElement('div');
+                block.className = 'history-block';
+                
+                if (record.online) {
+                    block.classList.add('online');
+                        block.title = `在线 - ${new Date(record.timestamp).toLocaleString('zh-CN')}` +
+                            `\n延迟: ${record.latency !== undefined ? record.latency + 'ms' : 'N/A'}` +
+                            `\n在线人数: ${record.players_online !== undefined ? record.players_online : 'N/A'}`;
+                } else {
+                    block.classList.add('offline');
+                    block.title = `离线 - ${new Date(record.timestamp).toLocaleString('zh-CN')}`;
+                }
+                
+                container.appendChild(block);
+            });
+        }
+
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // WebSocket 连接和状态管理
+        function initWebSocket() {
+            socket = io();
+            const wsStatus = document.getElementById('ws-status');
+            
+            socket.on('connect', () => {
+                console.log('WebSocket 已连接');
+                wsStatus.className = 'ws-status ws-connected';
+                wsStatus.textContent = '🟢 已连接';
+                wsStatus.title = 'WebSocket已连接 - 实时接收服务器更新';
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('WebSocket 已断开');
+                wsStatus.className = 'ws-status ws-disconnected';
+                wsStatus.textContent = '🔴 已断开';
+                wsStatus.title = 'WebSocket已断开 - 尝试重新连接中...';
+            });
+            
+            socket.on('connect_error', (error) => {
+                console.error('WebSocket 连接错误:', error);
+                wsStatus.className = 'ws-status ws-error';
+                wsStatus.textContent = '⚠️ 错误';
+                wsStatus.title = 'WebSocket连接错误: ' + error.message;
+            });
+            
+            socket.on('server_update', (data) => {
+                console.log('收到服务器更新:', data.name, data.status);
+                // 自动刷新数据以显示最新状态
+                if (displayMode === 'grouped') {
+                    // 群组模式下，等待一小段时间让所有服务器都更新完
+                    clearTimeout(window.wsRefreshTimer);
+                    window.wsRefreshTimer = setTimeout(() => loadData(), 1000);
+                } else {
+                    // 单服模式下立即刷新
+                    loadData();
+                }
+            });
+        }
+
+        // 初始加载
+        loadData();
+        initWebSocket();
+
+        // 自动刷新 (每60秒) - WebSocket会提供实时更新，但保留定期刷新作为后备
+        autoRefreshInterval = setInterval(loadData, 60000);
+
+        // 页面卸载时清理
+        window.addEventListener('beforeunload', () => {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            if (socket) {
+                socket.disconnect();
+            }
+            Object.values(charts).forEach(chart => chart.destroy());
+        });
+    </script>
+</body>
+</html>
