@@ -687,10 +687,10 @@ def main():
     
     # 启动Flask应用（使用 SocketIO）
     print("Minecraft服务器监控已启动")
-    print("访问 http://127.0.0.1:5000 查看监控面板")
+    print("访问 http://127.0.0.1:5011 查看监控面板")
     print("按 Ctrl+C 停止服务")
     
-    port = poller.config.get('port', 5000)
+    port = poller.config.get('port', 5011)
     socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
 
 
