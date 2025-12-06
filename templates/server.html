@@ -13,7 +13,7 @@
         <h1>🎮 服务器视图</h1>
         <div class="toolbar">
             <div class="toolbar-left">
-                <a class="toolbar-btn" href="/nodes">📊 单节点视图</a>
+                <a class="toolbar-btn" href="/nodes">单节点视图</a>
                 <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">⚪ 连接中</span>
             </div>
             <div class="toolbar-right">
@@ -67,7 +67,7 @@
                     <div class="uptime-fill" id="uptime-fill-{{ slug }}">0% 在线</div>
                 </div>
 
-                <div class="chart-title">📊 各节点延迟对比</div>
+                <div class="chart-title">各节点延迟对比</div>
                 <div class="chart-container">
                     <canvas id="chart-latency-{{ slug }}"></canvas>
                 </div>
@@ -88,7 +88,7 @@
                 <div class="history-section">
                     <div class="chart-title">📅 状态快照</div>
                     <div class="history-grid collapsed" id="group-history-{{ slug }}"></div>
-                    <div class="history-toggle" onclick="toggleHistory('group-history-{{ slug }}')">▼ 展开</div>
+                    <div class="history-toggle" onclick="toggleHistory('group-history-{{ slug }}')">展开</div>
                 </div>
             </div>
             {% endfor %}
@@ -144,7 +144,7 @@ function updateGroupCard(slug, {uptime, latency, players, maxPlayers, active, to
         fillEl.textContent = `${val}% 在线`;
     }
     if (badge) {
-        badge.textContent = online ? '● 在线' : '● 离线';
+        badge.textContent = online ? '在线' : '离线';
         badge.className = online ? 'status-badge status-online' : 'status-badge status-offline';
     }
 }
@@ -202,7 +202,7 @@ function renderPlayersList(slug, players){
                 <div class="player-meta">节点: ${escapeHtml(p.server_name)}</div>
             </div>
             <div class="player-meta">
-                <div style="color:${p.online ? '#16a34a' : '#999'};">${p.online ? `已在线 ${formatDuration(p.duration_seconds)}` : '已离线'}</div>
+                <div style="color:${p.online ? '#16a34a' : '#94a3b8'};">${p.online ? `已在线 ${formatDuration(p.duration_seconds)}` : '已离线'}</div>
                 <div>${p.online ? `开始: ${formatTime(p.session_start)}` : `最后在线: ${formatTime(p.last_seen)}`}</div>
             </div>
         </div>
@@ -354,10 +354,10 @@ function toggleHistory(elementId) {
     const toggle = element.nextElementSibling;
     if (element.classList.contains('collapsed')) {
         element.classList.remove('collapsed');
-        toggle.textContent = '▲ 收起';
+        toggle.textContent = '收起';
     } else {
         element.classList.add('collapsed');
-        toggle.textContent = '▼ 展开';
+        toggle.textContent = '展开';
     }
 }
 

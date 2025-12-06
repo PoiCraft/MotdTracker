@@ -197,6 +197,9 @@ h1 {
 
 .history-grid.collapsed {
     max-height: 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
 }
 
 .history-toggle {
@@ -254,6 +257,7 @@ h1 {
     flex-direction: column;
     gap: 8px;
     margin: 12px 0;
+    overflow-x: auto;
 }
 
 .heatmap-row {
@@ -265,13 +269,14 @@ h1 {
 
 .heatmap-date {
     font-size: 0.9em;
-    color: #555;
+    color: var(--text-secondary);
 }
 
 .heatmap-cells {
     display: grid;
     grid-template-columns: repeat(24, minmax(10px, 1fr));
     gap: 2px;
+    min-width: fit-content;
 }
 
 .heatmap-cell {
@@ -614,11 +619,16 @@ h1 {
     }
 
     .heatmap-row {
-        grid-template-columns: 80px 1fr;
+        grid-template-columns: 70px 1fr;
     }
 
     .heatmap-cells {
         gap: 1px;
+        min-width: 300px;
+    }
+
+    .heatmap-cell {
+        height: 16px;
     }
 
     .ws-status {

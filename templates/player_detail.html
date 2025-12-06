@@ -33,6 +33,10 @@
                     <div class="stat-value" id="current-status">--</div>
                 </div>
                 <div class="stat-box">
+                    <div class="stat-label">今日在线时长</div>
+                    <div class="stat-value" id="today-duration">--</div>
+                </div>
+                <div class="stat-box">
                     <div class="stat-label">本次在线时长</div>
                     <div class="stat-value" id="current-duration">--</div>
                 </div>
@@ -41,8 +45,6 @@
                     <div class="stat-value stat-value-small" id="last-seen">--</div>
                 </div>
             </div>
-            <div class="chart-title">服务器会话状态</div>
-            <div class="group-servers" id="session-list"></div>
         </div>
 
         <div class="server-card">
@@ -108,35 +110,12 @@
             document.getElementById('summary-text').textContent = data.online ? '在线' : '离线';
 
             const badge = document.getElementById('status-badge');
-            badge.textContent = data.online ? '● 在线' : '● 离线';
+            badge.textContent = data.online ? '在线' : '离线';
             badge.className = data.online ? 'status-badge status-online' : 'status-badge status-offline';
 
             document.getElementById('current-status').textContent = data.online ? '在线' : '离线';
             document.getElementById('current-duration').textContent = data.online ? formatDuration(data.duration_seconds) : 'N/A';
             document.getElementById('last-seen').textContent = formatTime(data.last_seen);
-
-            const list = document.getElementById('session-list');
-            // 按服务器展示会话信息 - 保留 DOM 结构，只更新必要内容
-            if (data.groups && Object.keys(data.groups).length > 0) {
-                const newHTML = Object.entries(data.groups).map(([groupName, group]) => `
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e5e7eb;">
-                        <div style="font-weight:600;color:#667eea;">${escapeHtml(groupName)}</div>
-                        <div style="text-align:right;font-size:0.9em;color:${group.online ? '#16a34a' : '#999'};">
-                            ${group.online ? `在线 ${formatDuration(group.duration_seconds)}` : '已离线'}
-                            <div style="color:#777;">${group.online ? `开始: ${formatTime(group.session_start)}` : `最后在线: ${formatTime(group.last_seen)}`}</div>
-                        </div>
-                    </div>
-                `).join('');
-                // 只在内容实际变化时才更新
-                if (list.innerHTML !== newHTML) {
-                    list.innerHTML = newHTML;
-                }
-            } else {
-                const emptyHTML = '<div class="loading">暂无会话记录</div>';
-                if (list.innerHTML !== emptyHTML) {
-                    list.innerHTML = emptyHTML;
-                }
-            }
         }
 
         function renderHeatmap(heatmap, daily) {
@@ -233,9 +212,9 @@
             const newHTML = target.sessions.map(s => `
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0e0e0;">
                     <div style="font-weight:600;color:#667eea;">${escapeHtml(s.server_name || '默认')}</div>
-                    <div style="text-align:right;font-size:0.9em;color:#999;">
+                    <div style="text-align:right;font-size:0.9em;color:#cbd5e1;">
                         <div>${formatTime(s.start)} - ${formatTime(s.end)}</div>
-                        <div style="color:#777;">时长: ${formatDuration((new Date(s.end) - new Date(s.start)) / 1000)}</div>
+                        <div style="color:#94a3b8;">时长: ${formatDuration((new Date(s.end) - new Date(s.start)) / 1000)}</div>
                     </div>
                 </div>
             `).join('');
@@ -308,6 +287,12 @@
                 renderHourlyChart(calendar.hourly_average || []);
                 document.getElementById('avg-daily').textContent = formatDuration(calendar.average_daily_seconds);
                 document.getElementById('avg-session').textContent = formatDuration(calendar.average_session_seconds);
+                
+                // Calculate today's duration
+                const today = new Date().toISOString().split('T')[0];
+                const todayData = calendar.daily.find(d => d.date === today);
+                document.getElementById('today-duration').textContent = todayData ? formatDuration(todayData.total_seconds) : '0分';
+                
                 if (calendar.daily && calendar.daily.length) {
                     renderDayDetail(calendar.daily[calendar.daily.length - 1].date);
                 }
