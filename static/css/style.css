@@ -628,6 +628,105 @@ h1 {
     text-align: right;
 }
 
+/* Players List Page */
+.players-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.player-card-compact {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    color: inherit;
+}
+
+.player-card-compact:hover {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 1px var(--accent-primary);
+    transform: translateX(4px);
+}
+
+.player-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.player-name-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.player-name-status .player-name {
+    font-size: 1.1em;
+}
+
+.status-dot {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 600;
+}
+
+.status-dot.online {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+}
+
+.status-dot.offline {
+    background: rgba(148, 163, 184, 0.2);
+    color: #94a3b8;
+}
+
+.player-stats-row {
+    display: flex;
+    gap: 16px;
+    font-size: 0.875em;
+    color: var(--text-secondary);
+}
+
+.stat-item {
+    white-space: nowrap;
+}
+
+.player-heatmap {
+    display: grid;
+    grid-template-columns: repeat(24, 1fr);
+    gap: 2px;
+    width: 300px;
+    flex-shrink: 0;
+}
+
+.heatmap-block {
+    height: 24px;
+    border-radius: 2px;
+    transition: transform 0.2s ease;
+}
+
+.heatmap-block:hover {
+    transform: scale(1.2);
+    z-index: 10;
+}
+
+.player-heatmap-empty {
+    width: 300px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 0.75em;
+}
+
 /* 响应式设计 - 移动设备优化 */
 @media (max-width: 768px) {
     body {
@@ -744,5 +843,24 @@ h1 {
 
     .chart-title {
         font-size: 1em;
+    }
+
+    .player-card-compact {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .player-heatmap {
+        width: 100%;
+        max-width: none;
+    }
+
+    .player-heatmap-empty {
+        width: 100%;
+    }
+
+    .player-stats-row {
+        flex-direction: column;
+        gap: 4px;
     }
 }

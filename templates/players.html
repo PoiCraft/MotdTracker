@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>玩家列表</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <div class="header-title">玩家列表</div>
+                <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">☰</button>
+                <nav class="header-nav" id="headerNav">
+                    <a href="/server" class="nav-link">服务器</a>
+                    <a href="/nodes" class="nav-link">节点</a>
+                    <a href="/players" class="nav-link active">玩家</a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
+                <span class="toolbar-label" id="last-update">数据更新于: --</span>
+            </div>
+        </div>
+
+        <div id="players-container" class="players-list">
+            <div class="loading">加载中...</div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+    <script>
+let socket = null;
+
+function toggleMobileMenu() {
+    const nav = document.getElementById('headerNav');
+    nav.classList.toggle('show');
+}
+
+function formatDuration(seconds) {
+    if (!seconds && seconds !== 0) return '0分';
+    const mins = Math.floor(seconds / 60);
+    const hours = Math.floor(mins / 60);
+    const minutes = mins % 60;
+    if (hours > 0) return `${hours}小时${minutes}分`;
+    return `${minutes}分`;
+}
+
+function formatTime(value) {
+    if (!value) return '未知';
+    return new Date(value).toLocaleString('zh-CN');
+}
+
+function escapeHtml(unsafe) {
+    if (!unsafe) return '';
+    return unsafe
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function renderHeatmap(heatmap) {
+    if (!heatmap || heatmap.length === 0) {
+        return '<div class="player-heatmap-empty">无数据</div>';
+    }
+    
+    // Get today's heatmap (24 hours)
+    const today = new Date().toISOString().split('T')[0];
+    const todayData = heatmap.filter(h => h.date === today);
+    
+    // Create 24 hour blocks
+    const hours = Array(24).fill(0);
+    todayData.forEach(h => {
+        hours[h.hour] = h.seconds;
+    });
+    
+    // Find max for scaling
+    const maxSeconds = Math.max(...hours, 1);
+    
+    // Generate heatmap blocks
+    return `<div class="player-heatmap">
+        ${hours.map((seconds, hour) => {
+            const intensity = maxSeconds > 0 ? seconds / maxSeconds : 0;
+            const color = intensity > 0 
+                ? `rgba(16, 185, 129, ${0.2 + intensity * 0.8})` 
+                : 'rgba(51, 65, 85, 0.3)';
+            return `<div class="heatmap-block" style="background: ${color};" title="${hour}:00 - ${seconds > 0 ? formatDuration(seconds) : '0分'}"></div>`;
+        }).join('')}
+    </div>`;
+}
+
+async function loadPlayers() {
+    try {
+        const res = await fetch('/api/players');
+        const players = await res.json();
+        
+        // For each player, fetch today's calendar data
+        const playersWithHeatmap = await Promise.all(
+            players.map(async (p) => {
+                try {
+                    const calRes = await fetch(`/api/player/${encodeURIComponent(p.player_name)}/calendar?days=1`);
+                    const calendar = await calRes.json();
+                    
+                    // Get today's duration
+                    const today = new Date().toISOString().split('T')[0];
+                    const todayData = calendar.daily.find(d => d.date === today);
+                    
+                    return {
+                        ...p,
+                        heatmap: calendar.heatmap,
+                        todayDuration: todayData ? todayData.total_seconds : 0
+                    };
+                } catch (e) {
+                    return {
+                        ...p,
+                        heatmap: [],
+                        todayDuration: 0
+                    };
+                }
+            })
+        );
+        
+        renderPlayersList(playersWithHeatmap);
+        document.getElementById('last-update').textContent = `数据更新于: ${new Date().toLocaleTimeString('zh-CN')}`;
+    } catch (e) {
+        console.error('加载玩家列表失败:', e);
+        document.getElementById('players-container').innerHTML = '<div class="loading">加载失败</div>';
+    }
+}
+
+function renderPlayersList(players) {
+    const container = document.getElementById('players-container');
+    
+    if (!players || players.length === 0) {
+        container.innerHTML = '<div class="loading">暂无玩家记录</div>';
+        return;
+    }
+    
+    container.innerHTML = players.map(p => `
+        <a href="/player/${encodeURIComponent(p.player_name)}" class="player-card-compact">
+            <div class="player-info">
+                <div class="player-name-status">
+                    <span class="player-name">${escapeHtml(p.player_name)}</span>
+                    <span class="status-dot ${p.online ? 'online' : 'offline'}">${p.online ? '在线' : '离线'}</span>
+                </div>
+                <div class="player-stats-row">
+                    <span class="stat-item">今日: ${formatDuration(p.todayDuration)}</span>
+                    ${p.online ? `<span class="stat-item">已在线: ${formatDuration(p.duration_seconds)}</span>` : `<span class="stat-item">最后在线: ${formatTime(p.last_seen)}</span>`}
+                </div>
+            </div>
+            ${renderHeatmap(p.heatmap)}
+        </a>
+    `).join('');
+}
+
+function initWebSocket() {
+    socket = io();
+    const wsStatus = document.getElementById('ws-status');
+    
+    socket.on('connect', () => {
+        wsStatus.className = 'ws-status ws-connected';
+        wsStatus.textContent = '已连接';
+    });
+    
+    socket.on('disconnect', () => {
+        wsStatus.className = 'ws-status ws-disconnected';
+        wsStatus.textContent = '已断开';
+    });
+    
+    socket.on('status_update', () => {
+        loadPlayers();
+    });
+}
+
+// Load data on page load
+loadPlayers();
+initWebSocket();
+
+// Refresh every 60 seconds
+setInterval(loadPlayers, 60000);
+    </script>
+</body>
+</html>
