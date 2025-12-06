@@ -104,6 +104,13 @@ const groups = Array.from(document.querySelectorAll('[data-group]')).map(el => (
     slug: el.dataset.slug
 }));
 
+// Chart.js color configuration for dark theme
+const chartColors = {
+    text: '#cbd5e1',
+    grid: '#334155',
+    textSecondary: '#94a3b8'
+};
+
 function formatDuration(seconds){
     if (seconds === null || seconds === undefined) return '未知';
     const mins = Math.floor(seconds / 60);
@@ -251,7 +258,7 @@ function renderLatencyChart(slug, history){
             responsive:true,
             maintainAspectRatio:false,
             plugins:{
-                legend:{display:true, position:'top', labels:{usePointStyle:true, padding:10, font:{size:11}}},
+                legend:{display:true, position:'top', labels:{usePointStyle:true, padding:10, font:{size:11}, color: chartColors.text}},
                 tooltip:{mode:'index', intersect:false, callbacks:{label:(ctx)=>{
                     let label = ctx.dataset.label || '';
                     if (label) label += ': ';
@@ -260,8 +267,8 @@ function renderLatencyChart(slug, history){
                 }}}
             },
             scales:{
-                x:{display:true, ticks:{maxTicksLimit:8}},
-                y:{display:true, beginAtZero:true, ticks:{callback:(v)=>v+'ms'}}
+                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
+                y:{display:true, beginAtZero:true, ticks:{callback:(v)=>v+'ms', color: chartColors.text}, grid:{color: chartColors.grid}}
             },
             interaction:{mode:'nearest', axis:'x', intersect:false}
         }
@@ -289,8 +296,11 @@ function renderPlayersChart(slug, history){
         options:{
             responsive:true,
             maintainAspectRatio:false,
-            plugins:{legend:{display:true, position:'top', labels:{usePointStyle:true, padding:15}}, tooltip:{mode:'index', intersect:false}},
-            scales:{x:{display:true, ticks:{maxTicksLimit:8}}, y:{display:true, beginAtZero:true, ticks:{callback:(v)=>Math.floor(v), stepSize:1}}},
+            plugins:{legend:{display:true, position:'top', labels:{usePointStyle:true, padding:15, color: chartColors.text}}, tooltip:{mode:'index', intersect:false}},
+            scales:{
+                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
+                y:{display:true, beginAtZero:true, ticks:{callback:(v)=>Math.floor(v), stepSize:1, color: chartColors.text}, grid:{color: chartColors.grid}}
+            },
             interaction:{mode:'nearest', axis:'x', intersect:false}
         }
     });
@@ -314,7 +324,10 @@ function renderStatusChart(slug, history){
             responsive:true,
             maintainAspectRatio:false,
             plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=> ctx.parsed.y===1?'在线':'离线'}}},
-            scales:{x:{display:true, ticks:{maxTicksLimit:8}}, y:{display:true, min:0, max:1, ticks:{stepSize:1, callback:(v)=>v===1?'在线':'离线'}}},
+            scales:{
+                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
+                y:{display:true, min:0, max:1, ticks:{stepSize:1, callback:(v)=>v===1?'在线':'离线', color: chartColors.text}, grid:{color: chartColors.grid}}
+            },
             interaction:{mode:'nearest', axis:'x', intersect:false}
         }
     });

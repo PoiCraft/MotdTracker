@@ -230,6 +230,12 @@
             const labels = hourly.map(h => `${String(h.hour).padStart(2,'0')}:00`);
             const data = hourly.map(h => (h.avg_seconds || 0) / 60);
 
+            // Chart colors for dark theme
+            const chartColors = {
+                text: '#cbd5e1',
+                grid: '#334155'
+            };
+
             // 只有在图表不存在或数据变化时才重建
             if (!hourlyChart) {
                 hourlyChart = new Chart(ctx, {
@@ -247,18 +253,39 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: chartColors.text
+                                }
+                            }
+                        },
                         scales: {
                             y: {
                                 beginAtZero: true,
                                 title: {
                                     display: true,
-                                    text: '分钟'
+                                    text: '分钟',
+                                    color: chartColors.text
+                                },
+                                ticks: {
+                                    color: chartColors.text
+                                },
+                                grid: {
+                                    color: chartColors.grid
                                 }
                             },
                             x: {
                                 title: {
                                     display: true,
-                                    text: '小时'
+                                    text: '小时',
+                                    color: chartColors.text
+                                },
+                                ticks: {
+                                    color: chartColors.text
+                                },
+                                grid: {
+                                    color: chartColors.grid
                                 }
                             }
                         }

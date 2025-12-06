@@ -134,6 +134,13 @@ function escapeHtml(unsafe){
         .replace(/'/g, '&#039;');
 }
 
+// Chart.js color configuration for dark theme
+const chartColors = {
+    text: '#cbd5e1',
+    grid: '#334155',
+    textSecondary: '#94a3b8'
+};
+
 function updateServerCard(id, {uptime, latency, players, maxPlayers, version, online}){
     const uptimeEl = document.getElementById(`uptime-${id}`);
     const latencyEl = document.getElementById(`latency-${id}`);
@@ -212,7 +219,10 @@ function renderLatencyChart(id, history){
             responsive:true,
             maintainAspectRatio:false,
             plugins:{legend:{display:false}, tooltip:{mode:'index', intersect:false}},
-            scales:{x:{display:true, ticks:{maxTicksLimit:8}}, y:{display:true, beginAtZero:true, ticks:{callback:(v)=>v+'ms'}}},
+            scales:{
+                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
+                y:{display:true, beginAtZero:true, ticks:{callback:(v)=>v+'ms', color: chartColors.text}, grid:{color: chartColors.grid}}
+            },
             interaction:{mode:'nearest', axis:'x', intersect:false}
         }
     });
@@ -236,8 +246,11 @@ function renderPlayersChart(id, history){
         options:{
             responsive:true,
             maintainAspectRatio:false,
-            plugins:{legend:{display:true, position:'top', labels:{usePointStyle:true, padding:15}}, tooltip:{mode:'index', intersect:false}},
-            scales:{x:{display:true, ticks:{maxTicksLimit:8}}, y:{display:true, beginAtZero:true, ticks:{callback:(v)=>Math.floor(v), stepSize:1}}},
+            plugins:{legend:{display:true, position:'top', labels:{usePointStyle:true, padding:15, color: chartColors.text}}, tooltip:{mode:'index', intersect:false}},
+            scales:{
+                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
+                y:{display:true, beginAtZero:true, ticks:{callback:(v)=>Math.floor(v), stepSize:1, color: chartColors.text}, grid:{color: chartColors.grid}}
+            },
             interaction:{mode:'nearest', axis:'x', intersect:false}
         }
     });
@@ -261,7 +274,10 @@ function renderStatusChart(id, history){
             responsive:true,
             maintainAspectRatio:false,
             plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=> ctx.parsed.y===1?'在线':'离线'}}},
-            scales:{x:{display:true, ticks:{maxTicksLimit:8}}, y:{min:0, max:1, display:true, ticks:{stepSize:1, callback:(v)=>v===1?'在线':'离线'}}},
+            scales:{
+                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
+                y:{min:0, max:1, display:true, ticks:{stepSize:1, callback:(v)=>v===1?'在线':'离线', color: chartColors.text}, grid:{color: chartColors.grid}}
+            },
             interaction:{mode:'nearest', axis:'x', intersect:false}
         }
     });
