@@ -91,6 +91,16 @@
             return new Date(value).toLocaleString('zh-CN');
         }
 
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         function renderSummary(data) {
             document.getElementById('player-title').textContent = `玩家详情 - ${data.player_name}`;
             document.getElementById('player-name').textContent = data.player_name;
@@ -110,7 +120,7 @@
             if (data.groups && Object.keys(data.groups).length > 0) {
                 const newHTML = Object.entries(data.groups).map(([groupName, group]) => `
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e5e7eb;">
-                        <div style="font-weight:600;color:#667eea;">${groupName}</div>
+                        <div style="font-weight:600;color:#667eea;">${escapeHtml(groupName)}</div>
                         <div style="text-align:right;font-size:0.9em;color:${group.online ? '#16a34a' : '#999'};">
                             ${group.online ? `在线 ${formatDuration(group.duration_seconds)}` : '已离线'}
                             <div style="color:#777;">${group.online ? `开始: ${formatTime(group.session_start)}` : `最后在线: ${formatTime(group.last_seen)}`}</div>
@@ -222,7 +232,7 @@
             }
             const newHTML = target.sessions.map(s => `
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0e0e0;">
-                    <div style="font-weight:600;color:#667eea;">${s.group_name || '默认'}</div>
+                    <div style="font-weight:600;color:#667eea;">${escapeHtml(s.server_name || '默认')}</div>
                     <div style="text-align:right;font-size:0.9em;color:#999;">
                         <div>${formatTime(s.start)} - ${formatTime(s.end)}</div>
                         <div style="color:#777;">时长: ${formatDuration((new Date(s.end) - new Date(s.start)) / 1000)}</div>
