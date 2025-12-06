@@ -9,20 +9,29 @@
     <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
 </head>
 <body>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">MotdTracker</div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/server" class="nav-link">服务器</a>
+            <a href="/nodes" class="nav-link">节点</a>
+            <a href="/players" class="nav-link">玩家</a>
+        </nav>
+        <div class="sidebar-footer">
+            <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
+        </div>
+    </div>
+    
     <div class="container">
         <div class="header">
             <div class="header-left">
-                <button class="toolbar-btn" id="back-btn" onclick="window.history.back()" style="padding: 6px 12px; font-size: 0.875em;">← 返回</button>
+                <button class="mobile-menu-toggle" onclick="toggleSidebar()">☰</button>
+                <button class="toolbar-btn" id="back-btn" onclick="window.history.back()" style="padding: 6px 12px; font-size: 0.875em; margin-right: 8px;">← 返回</button>
                 <div class="header-title" id="player-title">玩家详情</div>
-                <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">☰</button>
-                <nav class="header-nav" id="headerNav">
-                    <a href="/server" class="nav-link">服务器</a>
-                    <a href="/nodes" class="nav-link">节点</a>
-                    <a href="/players" class="nav-link">玩家</a>
-                </nav>
             </div>
             <div class="header-right">
-                <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
                 <span class="toolbar-label" id="summary-text">加载中...</span>
                 <span class="toolbar-label" id="updated-at">--</span>
             </div>
@@ -415,9 +424,11 @@
             });
         }
 
-        function toggleMobileMenu() {
-            const nav = document.getElementById('headerNav');
-            nav.classList.toggle('show');
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
         }
 
         document.addEventListener('DOMContentLoaded', () => {

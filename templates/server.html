@@ -9,19 +9,42 @@
     <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
 </head>
 <body>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">MotdTracker</div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/server" class="nav-link active">服务器</a>
+            <a href="/nodes" class="nav-link">节点</a>
+            <a href="/players" class="nav-link">玩家</a>
+            <div class="sidebar-divider"></div>
+            <div class="sidebar-item">
+                <label class="sidebar-label">时间跨度</label>
+                <select id="sidebar-range" class="sidebar-select">
+                    <option value="4">4小时</option>
+                    <option value="8">8小时</option>
+                    <option value="12" selected>12小时</option>
+                    <option value="24">1天</option>
+                    <option value="48">2天</option>
+                    <option value="96">4天</option>
+                    <option value="168">7天</option>
+                    <option value="720">30天</option>
+                </select>
+            </div>
+        </nav>
+        <div class="sidebar-footer">
+            <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
+        </div>
+    </div>
+    
     <div class="container">
         <div class="header">
             <div class="header-left">
+                <button class="mobile-menu-toggle" onclick="toggleSidebar()">☰</button>
                 <div class="header-title">服务器视图</div>
-                <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">☰</button>
-                <nav class="header-nav" id="headerNav">
-                    <a href="/server" class="nav-link active">服务器</a>
-                    <a href="/nodes" class="nav-link">节点</a>
-                    <a href="/players" class="nav-link">玩家</a>
-                </nav>
             </div>
             <div class="header-right">
-                <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
                 <span class="toolbar-label" id="last-update">数据更新于: --</span>
                 <span class="toolbar-label">时间跨度</span>
                 <select id="global-range" class="range-select" title="选择时间跨度">
@@ -397,9 +420,11 @@ function loadAll(){
     groups.forEach(g => loadGroup(g));
 }
 
-function toggleMobileMenu() {
-    const nav = document.getElementById('headerNav');
-    nav.classList.toggle('show');
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.toggle('show');
+    overlay.classList.toggle('show');
 }
 
 document.getElementById('global-range').addEventListener('change', loadAll);
