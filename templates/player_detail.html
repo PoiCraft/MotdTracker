@@ -13,8 +13,7 @@
         <h1 id="player-title">玩家详情</h1>
         <div class="toolbar">
             <div class="toolbar-left">
-                <a class="toolbar-btn" href="/">⬅️ 返回主面板</a>
-                <button class="toolbar-btn" id="refresh-btn">🔄 刷新</button>
+                <button class="toolbar-btn" id="back-btn" onclick="window.history.back()">⬅️ 返回</button>
                 <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">⚪ 连接中</span>
             </div>
             <div class="toolbar-right">
@@ -42,7 +41,7 @@
                     <div class="stat-value stat-value-small" id="last-seen">--</div>
                 </div>
             </div>
-            <div class="chart-title">群组会话状态</div>
+            <div class="chart-title">服务器会话状态</div>
             <div class="group-servers" id="session-list"></div>
         </div>
 
@@ -107,12 +106,12 @@
             document.getElementById('last-seen').textContent = formatTime(data.last_seen);
 
             const list = document.getElementById('session-list');
-            // 按群组展示会话信息 - 保留 DOM 结构，只更新必要内容
+            // 按服务器展示会话信息 - 保留 DOM 结构，只更新必要内容
             if (data.groups && Object.keys(data.groups).length > 0) {
                 const newHTML = Object.entries(data.groups).map(([groupName, group]) => `
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e5e7eb;">
                         <div style="font-weight:600;color:#667eea;">${groupName}</div>
-                        <div style="text-align:right;font-size:0.9em;color:${group.online ? '#16a34a' : '#555'};">
+                        <div style="text-align:right;font-size:0.9em;color:${group.online ? '#16a34a' : '#999'};">
                             ${group.online ? `在线 ${formatDuration(group.duration_seconds)}` : '已离线'}
                             <div style="color:#777;">${group.online ? `开始: ${formatTime(group.session_start)}` : `最后在线: ${formatTime(group.last_seen)}`}</div>
                         </div>
@@ -224,7 +223,7 @@
             const newHTML = target.sessions.map(s => `
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0e0e0;">
                     <div style="font-weight:600;color:#667eea;">${s.group_name || '默认'}</div>
-                    <div style="text-align:right;font-size:0.9em;color:#555;">
+                    <div style="text-align:right;font-size:0.9em;color:#999;">
                         <div>${formatTime(s.start)} - ${formatTime(s.end)}</div>
                         <div style="color:#777;">时长: ${formatDuration((new Date(s.end) - new Date(s.start)) / 1000)}</div>
                     </div>
@@ -350,7 +349,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('refresh-btn').addEventListener('click', loadData);
             loadData();
             initWebSocket();
             const timer = setInterval(loadData, 60000);

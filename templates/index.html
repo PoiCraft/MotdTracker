@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minecraft服务器监控 - UptimeBot风格</title>
+    <title>Minecraft节点监控 - UptimeBot风格</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
 </head>
 <body>
     <div class="container">
-        <h1>🎮 Minecraft服务器监控</h1>
+        <h1>🎮 Minecraft节点监控</h1>
         
         <div class="toolbar">
             <div class="toolbar-left">
-                <button class="toolbar-btn" onclick="loadData()">🔄 刷新数据</button>
-                <button class="toolbar-btn" id="mode-btn" onclick="toggleDisplayMode()">📊 单服视图</button>
+                <button class="toolbar-btn" id="mode-btn" onclick="toggleDisplayMode()">📊 单节点视图</button>
                 <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">⚪ 连接中</span>
             </div>
             <div class="toolbar-right">
+                <span class="toolbar-label" id="last-update">数据更新于: --</span>
                 <span class="toolbar-label">时间跨度</span>
                 <select id="global-range" class="range-select" title="选择时间跨度">
                     <option value="4">4小时</option>
@@ -66,6 +66,7 @@
         // 加载服务器数据
         async function loadData() {
             try {
+                document.getElementById('last-update').textContent = `数据更新于: ${new Date().toLocaleTimeString('zh-CN')}`;
                 if (displayMode === 'grouped') {
                     const response = await fetch('/api/groups');
                     const groups = await response.json();
@@ -86,7 +87,7 @@
         function toggleDisplayMode() {
             displayMode = displayMode === 'grouped' ? 'individual' : 'grouped';
             document.getElementById('mode-btn').textContent = 
-                displayMode === 'grouped' ? '📊 单服视图' : '🔗 分组视图';
+                displayMode === 'grouped' ? '📊 单节点视图' : '🔗 服务器视图';
             loadData();
         }
 
@@ -149,7 +150,7 @@
                 <div class="server-header">
                     <div>
                         <div class="server-name">${group.group_name}</div>
-                        <div class="server-address">${group.servers.length} 个连接入口</div>
+                        <div class="server-address">${group.servers.length} 个节点入口</div>
                     </div>
                     <div class="status-badge ${anyOnline ? 'status-online' : 'status-offline'}">
                         ${anyOnline ? '● 在线' : '● 离线'}
@@ -170,7 +171,7 @@
                         <div class="stat-value">${anyOnline ? `${players}/${maxPlayers}` : 'N/A'}</div>
                     </div>
                     <div class="stat-box">
-                        <div class="stat-label">活跃入口</div>
+                        <div class="stat-label">活跃节点</div>
                         <div class="stat-value" style="font-size: 1.5em;">${group.servers.filter(s => s.latest_status?.online).length}/${group.servers.length}</div>
                     </div>
                 </div>
@@ -181,7 +182,7 @@
                     </div>
                 </div>
 
-                <div class="chart-title">📊 各入口延迟对比 (${chartHours}小时)</div>
+                <div class="chart-title">📊 各节点延迟对比 (${chartHours}小时)</div>
                 <div class="chart-container">
                     <canvas id="chart-latency-${group.group_name}"></canvas>
                 </div>
@@ -196,18 +197,15 @@
                     <canvas id="chart-status-${group.group_name}"></canvas>
                 </div>
 
-                <div class="chart-title">📅 状态快照 (快照时长：${chartHours*3}小时)</div>
-                <div class="history-grid" id="group-history-${group.group_name}"></div>
-
-                <div class="chart-title">👥 组内玩家在线情况</div>
+                <div class="chart-title">👥 服务器内玩家在线情况</div>
                 <div class="group-servers">
                     ${groupPlayers.length ? groupPlayers.map(p => `
                         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0e0e0;">
                             <div>
-                                <div style="font-weight:600;"><a href="/player?name=${encodeURIComponent(p.player_name)}">${p.player_name}</a></div>
-                                <div style="font-size:0.85em;color:#777;">入口: ${p.server_name}</div>
+                                <div style="font-weight:600;"><a href="/player/?name=${encodeURIComponent(p.player_name)}">${p.player_name}</a></div>
+                                <div style="font-size:0.85em;color:#777;">节点: ${p.server_name}</div>
                             </div>
-                            <div style="text-align:right;font-size:0.9em;color:${p.online ? '#16a34a' : '#555'};">
+                            <div style="text-align:right;font-size:0.9em;color:${p.online ? '#16a34a' : '#999'};">
                                 ${p.online ? `在线 ${formatDuration(p.duration_seconds)}` : '已离线'}
                                 <div style="color:#777;">${p.online ? `开始: ${formatTime(p.session_start)}` : `最后在线: ${formatTime(p.last_seen)}`}</div>
                             </div>
@@ -215,7 +213,7 @@
                     `).join('') : '<div class="loading">暂无玩家记录</div>'}
                 </div>
 
-                <div class="chart-title">📅 连接入口详情</div>
+                <div class="chart-title">📅 节点入口详情</div>
                 <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
                     ${group.servers.map(s => {
                         const status = s.latest_status;
@@ -235,6 +233,12 @@
                             </div>
                         `;
                     }).join('')}
+                </div>
+
+                <div class="history-section">
+                    <div class="chart-title">📅 状态快照 (快照时长：${chartHours*3}小时)</div>
+                    <div class="history-grid collapsed" id="group-history-${group.group_name}"></div>
+                    <div class="history-toggle" onclick="toggleHistory('group-history-${group.group_name}')">▼ 展开</div>
                 </div>
 
                 <div class="update-time">
@@ -380,24 +384,27 @@
                         ${status.plugins ? `<span>插件: ${status.plugins.length} 个</span>` : ''}
                     </div>
                     ${status.plugins ? `<div style="margin-top:8px;font-size:0.9em;color:#666;">${status.plugins.slice(0,8).join(', ')}${status.plugins.length>8?' ...':''}</div>` : ''}
-                    ${status.sample_players ? `<div style="margin-top:8px;font-size:0.9em;color:#666;">在线玩家样本: ${status.sample_players.map(p => `<a href="/player?name=${encodeURIComponent(p)}">${p}</a>`).join(', ')}</div>` : ''}
+                    ${status.sample_players ? `<div style="margin-top:8px;font-size:0.9em;color:#666;">在线玩家样本: ${status.sample_players.map(p => `<a href="/player/?name=${encodeURIComponent(p)}">${p}</a>`).join(', ')}</div>` : ''}
                 </div>
 
                 <div class="chart-title">在线玩家在线时长</div>
                 <div class="group-servers">
                     ${onlinePlayers.length ? onlinePlayers.map(p => `
                         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0e0e0;">
-                            <div style="font-weight:600;"><a href="/player?name=${encodeURIComponent(p.player_name)}">${p.player_name}</a></div>
-                            <div style="text-align:right;font-size:0.9em;color:#555;">
-                                <div>已在线 ${formatDuration(p.duration_seconds)}</div>
-                                <div style="color:#777;">开始: ${formatTime(p.session_start)}</div>
+                            <div style="font-weight:600;"><a href="/player/?name=${encodeURIComponent(p.player_name)}">${p.player_name}</a></div>
+                            <div style="text-align:right;font-size:0.9em;color:${p.online ? '#16a34a' : '#999'};">
+                                <div>${p.online ? `已在线 ${formatDuration(p.duration_seconds)}` : '已离线'}</div>
+                                <div style="color:#777;">${p.online ? `开始: ${formatTime(p.session_start)}` : `最后在线: ${formatTime(p.last_seen)}`}</div>
                             </div>
                         </div>
                     `).join('') : '<div class="loading">暂无在线玩家</div>'}
                 </div>
 
-                <div class="chart-title">状态快照 (快照时长：${chartHours*3}小时)</div>
-                <div class="history-grid" id="history-${server.id}"></div>
+                <div class="history-section">
+                    <div class="chart-title">状态快照 (快照时长：${chartHours*3}小时)</div>
+                    <div class="history-grid collapsed" id="history-${server.id}"></div>
+                    <div class="history-toggle" onclick="toggleHistory('history-${server.id}')">▼ 展开</div>
+                </div>
 
                 ${isOnline && status.motd ? `<div class="motd">MOTD: ${escapeHtml(status.motd)}</div>` : ''}
 
@@ -958,11 +965,23 @@
             });
         }
 
-        // HTML转义
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // Toggle history section
+        function toggleHistory(elementId) {
+            const element = document.getElementById(elementId);
+            const toggle = element.nextElementSibling;
+            if (element.classList.contains('collapsed')) {
+                element.classList.remove('collapsed');
+                toggle.textContent = '▲ 收起';
+            } else {
+                element.classList.add('collapsed');
+                toggle.textContent = '▼ 展开';
+            }
         }
 
         // WebSocket 连接和状态管理
