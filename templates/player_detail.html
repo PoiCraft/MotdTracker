@@ -51,6 +51,10 @@
                     <div class="stat-value stat-value-small" id="last-seen">--</div>
                 </div>
             </div>
+            <div class="chart-title" style="margin-top: 20px;">今日活跃时段</div>
+            <div id="today-heatmap" class="player-heatmap" style="margin: 12px 0;">
+                <div class="loading">加载中...</div>
+            </div>
         </div>
 
         <div class="server-card">
@@ -230,6 +234,40 @@
             }
         }
 
+        function renderTodayHeatmap(heatmap) {
+            const container = document.getElementById('today-heatmap');
+            if (!container) return;
+            
+            if (!heatmap || heatmap.length === 0) {
+                container.innerHTML = '<div class="player-heatmap-empty">暂无数据</div>';
+                return;
+            }
+            
+            // Get today's heatmap (24 hours)
+            const today = new Date().toISOString().split('T')[0];
+            const todayData = heatmap.filter(h => h.date === today);
+            
+            // Create 24 hour blocks
+            const hours = Array(24).fill(0);
+            todayData.forEach(h => {
+                hours[h.hour] = h.seconds;
+            });
+            
+            // Find max for scaling
+            const maxSeconds = Math.max(...hours, 1);
+            
+            // Generate heatmap blocks using CSS classes
+            container.innerHTML = hours.map((seconds, hour) => {
+                const intensity = maxSeconds > 0 ? seconds / maxSeconds : 0;
+                let className = 'heatmap-block';
+                if (intensity > 0.7) className += ' intensity-high';
+                else if (intensity > 0.4) className += ' intensity-medium';
+                else if (intensity > 0) className += ' intensity-low';
+                else className += ' intensity-none';
+                return `<div class="${className}" title="${hour}:00 - ${seconds > 0 ? formatDuration(seconds) : '0分'}"></div>`;
+            }).join('');
+        }
+
         function renderHourlyChart(hourly) {
             const ctx = document.getElementById('hourly-chart');
             if (!ctx) return;
@@ -317,6 +355,7 @@
                 const calendarRes = await fetch(`/api/player/${encodeURIComponent(playerName)}/calendar`);
                 const calendar = await calendarRes.json();
                 renderHeatmap(calendar.heatmap, calendar.daily);
+                renderTodayHeatmap(calendar.heatmap);
                 renderHourlyChart(calendar.hourly_average || []);
                 document.getElementById('avg-daily').textContent = formatDuration(calendar.average_daily_seconds);
                 document.getElementById('avg-session').textContent = formatDuration(calendar.average_session_seconds);
