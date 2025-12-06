@@ -10,13 +10,18 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎮 服务器视图</h1>
-        <div class="toolbar">
-            <div class="toolbar-left">
-                <a class="toolbar-btn" href="/nodes">单节点视图</a>
-                <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">⚪ 连接中</span>
+        <div class="header">
+            <div class="header-left">
+                <div class="header-title">服务器视图</div>
+                <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">☰</button>
+                <nav class="header-nav" id="headerNav">
+                    <a href="/server" class="nav-link active">服务器</a>
+                    <a href="/nodes" class="nav-link">节点</a>
+                    <a href="/players" class="nav-link">玩家</a>
+                </nav>
             </div>
-            <div class="toolbar-right">
+            <div class="header-right">
+                <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
                 <span class="toolbar-label" id="last-update">数据更新于: --</span>
                 <span class="toolbar-label">时间跨度</span>
                 <select id="global-range" class="range-select" title="选择时间跨度">
@@ -390,6 +395,11 @@ function loadAll(){
     chartHours = parseInt(document.getElementById('global-range').value, 10) || 12;
     document.getElementById('last-update').textContent = `数据更新于: ${new Date().toLocaleTimeString('zh-CN')}`;
     groups.forEach(g => loadGroup(g));
+}
+
+function toggleMobileMenu() {
+    const nav = document.getElementById('headerNav');
+    nav.classList.toggle('show');
 }
 
 document.getElementById('global-range').addEventListener('change', loadAll);

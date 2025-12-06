@@ -10,13 +10,19 @@
 </head>
 <body>
     <div class="container">
-        <h1 id="player-title">玩家详情</h1>
-        <div class="toolbar">
-            <div class="toolbar-left">
-                <button class="toolbar-btn" id="back-btn" onclick="window.history.back()">⬅️ 返回</button>
-                <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">⚪ 连接中</span>
+        <div class="header">
+            <div class="header-left">
+                <button class="toolbar-btn" id="back-btn" onclick="window.history.back()" style="padding: 6px 12px; font-size: 0.875em;">← 返回</button>
+                <div class="header-title" id="player-title">玩家详情</div>
+                <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">☰</button>
+                <nav class="header-nav" id="headerNav">
+                    <a href="/server" class="nav-link">服务器</a>
+                    <a href="/nodes" class="nav-link">节点</a>
+                    <a href="/players" class="nav-link">玩家</a>
+                </nav>
             </div>
-            <div class="toolbar-right">
+            <div class="header-right">
+                <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
                 <span class="toolbar-label" id="summary-text">加载中...</span>
                 <span class="toolbar-label" id="updated-at">--</span>
             </div>
@@ -368,6 +374,11 @@
                     }
                 }
             });
+        }
+
+        function toggleMobileMenu() {
+            const nav = document.getElementById('headerNav');
+            nav.classList.toggle('show');
         }
 
         document.addEventListener('DOMContentLoaded', () => {
