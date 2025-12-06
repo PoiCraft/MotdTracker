@@ -26,16 +26,16 @@ def build_groups_data():
     for server in servers:
         server_config = next((s for s in poller.config.get('servers', [])
                              if s['host'] == server['host'] and s['port'] == server['port']), None)
-        group_name = server_config.get('group', server['name']) if server_config else server['name']
+        server_name = server_config.get('group', server['name']) if server_config else server['name']
 
-        if group_name not in groups:
-            groups[group_name] = {
-                'group_name': group_name,
+        if server_name not in groups:
+            groups[server_name] = {
+                'server_name': server_name,
                 'servers': []
             }
 
         latest_status = poller.db.get_server_latest_status(server['id'])
-        groups[group_name]['servers'].append({
+        groups[server_name]['servers'].append({
             **server,
             'latest_status': latest_status
         })
@@ -45,34 +45,40 @@ def build_groups_data():
 
 @app.route('/')
 def index():
-    """主页跳转到分组视图"""
-    return redirect(url_for('groups_page'))
+    """主页跳转到服务器视图"""
+    return redirect(url_for('server_page'))
 
 
-@app.route('/groups')
-def groups_page():
-    """分组视图页面"""
+@app.route('/server')
+def server_page():
+    """服务器视图页面"""
     groups = build_groups_data()
-    return render_template('groups.html', groups=groups)
+    return render_template('server.html', groups=groups)
 
 
-@app.route('/servers')
-def servers_page():
-    """单服视图页面"""
+@app.route('/nodes')
+def nodes_page():
+    """节点视图页面"""
     servers = poller.db.get_all_servers()
     enriched = [{**s, 'latest_status': poller.db.get_server_latest_status(s['id'])} for s in servers]
-    return render_template('servers.html', servers=enriched)
+    return render_template('nodes.html', servers=enriched)
 
 
-@app.route('/player')
-def player_page():
+@app.route('/players')
+def players_page():
+    """玩家列表页面"""
+    return render_template('players.html')
+
+
+@app.route('/player/<player_name>')
+def player_page(player_name):
     """单玩家详情页面"""
     return render_template('player_detail.html')
 
 
-@app.route('/api/servers')
-def api_servers():
-    """API - 获取所有服务器状态（JSON格式）"""
+@app.route('/api/nodes')
+def api_nodes():
+    """API - 获取所有节点状态（JSON格式）"""
     servers = poller.get_all_servers_status()
     return jsonify(servers)
 
@@ -157,35 +163,35 @@ def api_server_stats(server_id):
     return jsonify(stats)
 
 
-@app.route('/api/groups')
-def api_groups():
-    """API - 获取所有服务器组及其聚合数据"""
+@app.route('/api/servers')
+def api_servers():
+    """API - 获取所有服务器及其聚合数据"""
     groups = build_groups_data()
     return jsonify(groups)
 
 
-@app.route('/api/group/<group_name>/history')
-def api_group_history(group_name):
-    """API - 获取服务器组的聚合历史数据"""
+@app.route('/api/servers/<server_name>/history')
+def api_servers_history(server_name):
+    """API - 获取服务器的聚合历史数据"""
     servers = poller.db.get_all_servers()
     
-    # 找到该组的所有服务器
-    group_servers = []
+    # 找到该服务器的所有节点
+    server_nodes = []
     for server in servers:
         server_config = next((s for s in poller.config.get('servers', []) 
                              if s['host'] == server['host'] and s['port'] == server['port']), None)
-        if server_config and server_config.get('group') == group_name:
-            group_servers.append({
+        if server_config and server_config.get('group') == server_name:
+            server_nodes.append({
                 'id': server['id'],
                 'name': server['name']
             })
     
-    if not group_servers:
+    if not server_nodes:
         return jsonify([])
     
     # 获取每个服务器的历史数据
     servers_history = {}
-    for server in group_servers:
+    for server in server_nodes:
         history = poller.db.get_server_history(server['id'], limit=1440)
         servers_history[server['name']] = history
     
@@ -229,20 +235,20 @@ def api_group_history(group_name):
     return jsonify(aggregated_history)
 
 
-@app.route('/api/group/<group_name>/stats')
-def api_group_stats(group_name):
+@app.route('/api/servers/<server_name>/stats')
+def api_servers_stats(server_name):
     """API - 获取服务器组的统计信息"""
     servers = poller.db.get_all_servers()
     
     # 找到该组的所有服务器
-    group_server_ids = []
+    server_node_ids = []
     for server in servers:
         server_config = next((s for s in poller.config.get('servers', []) 
                              if s['host'] == server['host'] and s['port'] == server['port']), None)
-        if server_config and server_config.get('group') == group_name:
-            group_server_ids.append(server['id'])
+        if server_config and server_config.get('group') == server_name:
+            server_node_ids.append(server['id'])
     
-    if not group_server_ids:
+    if not server_node_ids:
         return jsonify({
             'uptime_percentage': 0,
             'avg_latency': None,
@@ -250,16 +256,21 @@ def api_group_stats(group_name):
             'online_checks': 0
         })
     
-    # 聚合统计
-    total_checks = 0
-    online_checks = 0
+    # 聚合统计 - 有一个节点在线即可视为服务器在线
+    from collections import defaultdict
+    timestamp_status = defaultdict(list)
     all_latencies = []
     
-    for server_id in group_server_ids:
+    for server_id in server_node_ids:
         history = poller.db.get_server_history(server_id, limit=1440)
-        total_checks += len(history)
-        online_checks += sum(1 for h in history if h['online'])
-        all_latencies.extend([h['latency'] for h in history if h['online'] and h['latency'] is not None])
+        for h in history:
+            timestamp_status[h['timestamp']].append(h['online'])
+            if h['online'] and h['latency'] is not None:
+                all_latencies.append(h['latency'])
+    
+    # 计算在线率：任意时间点有至少一个节点在线即算在线
+    total_checks = len(timestamp_status)
+    online_checks = sum(1 for statuses in timestamp_status.values() if any(statuses))
     
     uptime_percentage = (online_checks / total_checks * 100) if total_checks > 0 else 0
     avg_latency = sum(all_latencies) / len(all_latencies) if all_latencies else None
@@ -272,18 +283,18 @@ def api_group_stats(group_name):
     })
 
 
-@app.route('/api/group/<group_name>/players')
-def api_group_players(group_name):
+@app.route('/api/servers/<server_name>/players')
+def api_servers_players(server_name):
     """API - 获取组内所有玩家会话信息"""
     servers = poller.db.get_all_servers()
 
     # 找到该组的所有服务器配置
-    group_servers = []
+    server_nodes = []
     for server in servers:
         server_config = next((s for s in poller.config.get('servers', [])
                              if s['host'] == server['host'] and s['port'] == server['port']), None)
-        if server_config and server_config.get('group') == group_name:
-            group_servers.append(server)
+        if server_config and server_config.get('group') == server_name:
+            server_nodes.append(server)
 
     result = []
     now = datetime.now()
@@ -298,7 +309,7 @@ def api_group_players(group_name):
         except Exception:
             return None
 
-    for server in group_servers:
+    for server in server_nodes:
         sessions = poller.db.get_all_player_sessions(server['id'])
         for s in sessions:
             start_dt = _parse_dt(s.get('session_start'))
@@ -434,7 +445,7 @@ def api_player_detail(player_name):
         # 获取服务器配置以确定群组
         server_config = next((s for s in poller.config.get('servers', []) 
                              if s['host'] == server['host'] and s['port'] == server['port']), None)
-        group_name = server_config.get('group', '默认') if server_config else '默认'
+        server_name = server_config.get('group', '默认') if server_config else '默认'
         
         sessions = poller.db.get_all_player_sessions(server['id'])
         for s in sessions:
@@ -444,8 +455,8 @@ def api_player_detail(player_name):
             start_dt = _parse_dt(s.get('session_start'))
             last_dt = _parse_dt(s.get('last_seen'))
             
-            if group_name not in groups:
-                groups[group_name] = {
+            if server_name not in groups:
+                groups[server_name] = {
                     'online': False,
                     'session_start': None,
                     'last_seen': None,
@@ -454,7 +465,7 @@ def api_player_detail(player_name):
                     'latest_seen': None
                 }
             
-            group = groups[group_name]
+            group = groups[server_name]
             
             # 更新在线状态
             if s.get('online'):
@@ -470,7 +481,7 @@ def api_player_detail(player_name):
                 group['last_seen'] = last_dt.isoformat()
     
     # 计算每个群组的在线时长
-    for group_name, group in groups.items():
+    for server_name, group in groups.items():
         if group['online'] and group['earliest_start']:
             group['duration_seconds'] = int((now - group['earliest_start']).total_seconds())
         # 清理内部字段
@@ -522,8 +533,8 @@ def api_player_calendar(player_name):
     for server in poller.db.get_all_servers():
         server_config = next((s for s in poller.config.get('servers', []) 
                              if s['host'] == server['host'] and s['port'] == server['port']), None)
-        group_name = server_config.get('group', '默认') if server_config else '默认'
-        server_to_group[server['id']] = group_name
+        server_name = server_config.get('group', '默认') if server_config else '默认'
+        server_to_group[server['id']] = server_name
 
     # 当前在线会话也纳入
     for server in poller.db.get_all_servers():
@@ -601,11 +612,11 @@ def api_player_calendar(player_name):
             if day_key not in daily:
                 daily[day_key] = {'total_seconds': 0, 'sessions': [], 'heat': {}}
             # 使用群组名称而不是服务器名称
-            group_name = server_to_group.get(server_id, '默认')
+            server_name = server_to_group.get(server_id, '默认')
             daily[day_key]['sessions'].append({
                 'start': ds.isoformat(),
                 'end': de.isoformat(),
-                'group_name': group_name
+                'server_name': server_name
             })
 
         # 按小时累积热力，同时累积日总时长

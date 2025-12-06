@@ -9,15 +9,29 @@
     <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
 </head>
 <body>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">MotdTracker</div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/server" class="nav-link">服务器</a>
+            <a href="/nodes" class="nav-link">节点</a>
+            <a href="/players" class="nav-link">玩家</a>
+        </nav>
+        <div class="sidebar-footer">
+            <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
+        </div>
+    </div>
+    
     <div class="container">
-        <h1 id="player-title">玩家详情</h1>
-        <div class="toolbar">
-            <div class="toolbar-left">
-                <a class="toolbar-btn" href="/">⬅️ 返回主面板</a>
-                <button class="toolbar-btn" id="refresh-btn">🔄 刷新</button>
-                <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">⚪ 连接中</span>
+        <div class="header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle" onclick="toggleSidebar()">☰</button>
+                <button class="toolbar-btn" id="back-btn" onclick="window.history.back()" style="padding: 6px 12px; font-size: 0.875em; margin-right: 8px;">← 返回</button>
+                <div class="header-title" id="player-title">玩家详情</div>
             </div>
-            <div class="toolbar-right">
+            <div class="header-right">
                 <span class="toolbar-label" id="summary-text">加载中...</span>
                 <span class="toolbar-label" id="updated-at">--</span>
             </div>
@@ -34,6 +48,10 @@
                     <div class="stat-value" id="current-status">--</div>
                 </div>
                 <div class="stat-box">
+                    <div class="stat-label">今日在线时长</div>
+                    <div class="stat-value" id="today-duration">--</div>
+                </div>
+                <div class="stat-box">
                     <div class="stat-label">本次在线时长</div>
                     <div class="stat-value" id="current-duration">--</div>
                 </div>
@@ -42,8 +60,10 @@
                     <div class="stat-value stat-value-small" id="last-seen">--</div>
                 </div>
             </div>
-            <div class="chart-title">群组会话状态</div>
-            <div class="group-servers" id="session-list"></div>
+            <div class="chart-title" style="margin-top: 20px;">今日活跃时段</div>
+            <div id="today-heatmap" class="player-heatmap" style="margin: 12px 0;">
+                <div class="loading">加载中...</div>
+            </div>
         </div>
 
         <div class="server-card">
@@ -73,7 +93,7 @@
     </div>
 
     <script>
-        const playerName = new URLSearchParams(window.location.search).get('name') || '';
+        const playerName = decodeURIComponent(window.location.pathname.split('/').filter(p => p).pop() || '');
         let calendarDaily = [];
         let heatmapData = [];
         let hourlyChart;
@@ -92,6 +112,16 @@
             return new Date(value).toLocaleString('zh-CN');
         }
 
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         function renderSummary(data) {
             document.getElementById('player-title').textContent = `玩家详情 - ${data.player_name}`;
             document.getElementById('player-name').textContent = data.player_name;
@@ -99,35 +129,12 @@
             document.getElementById('summary-text').textContent = data.online ? '在线' : '离线';
 
             const badge = document.getElementById('status-badge');
-            badge.textContent = data.online ? '● 在线' : '● 离线';
+            badge.textContent = data.online ? '在线' : '离线';
             badge.className = data.online ? 'status-badge status-online' : 'status-badge status-offline';
 
             document.getElementById('current-status').textContent = data.online ? '在线' : '离线';
             document.getElementById('current-duration').textContent = data.online ? formatDuration(data.duration_seconds) : 'N/A';
             document.getElementById('last-seen').textContent = formatTime(data.last_seen);
-
-            const list = document.getElementById('session-list');
-            // 按群组展示会话信息 - 保留 DOM 结构，只更新必要内容
-            if (data.groups && Object.keys(data.groups).length > 0) {
-                const newHTML = Object.entries(data.groups).map(([groupName, group]) => `
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e5e7eb;">
-                        <div style="font-weight:600;color:#667eea;">${groupName}</div>
-                        <div style="text-align:right;font-size:0.9em;color:${group.online ? '#16a34a' : '#555'};">
-                            ${group.online ? `在线 ${formatDuration(group.duration_seconds)}` : '已离线'}
-                            <div style="color:#777;">${group.online ? `开始: ${formatTime(group.session_start)}` : `最后在线: ${formatTime(group.last_seen)}`}</div>
-                        </div>
-                    </div>
-                `).join('');
-                // 只在内容实际变化时才更新
-                if (list.innerHTML !== newHTML) {
-                    list.innerHTML = newHTML;
-                }
-            } else {
-                const emptyHTML = '<div class="loading">暂无会话记录</div>';
-                if (list.innerHTML !== emptyHTML) {
-                    list.innerHTML = emptyHTML;
-                }
-            }
         }
 
         function renderHeatmap(heatmap, daily) {
@@ -223,10 +230,10 @@
             }
             const newHTML = target.sessions.map(s => `
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0e0e0;">
-                    <div style="font-weight:600;color:#667eea;">${s.group_name || '默认'}</div>
-                    <div style="text-align:right;font-size:0.9em;color:#555;">
+                    <div style="font-weight:600;color:#667eea;">${escapeHtml(s.server_name || '默认')}</div>
+                    <div style="text-align:right;font-size:0.9em;color:#cbd5e1;">
                         <div>${formatTime(s.start)} - ${formatTime(s.end)}</div>
-                        <div style="color:#777;">时长: ${formatDuration((new Date(s.end) - new Date(s.start)) / 1000)}</div>
+                        <div style="color:#94a3b8;">时长: ${formatDuration((new Date(s.end) - new Date(s.start)) / 1000)}</div>
                     </div>
                 </div>
             `).join('');
@@ -236,11 +243,51 @@
             }
         }
 
+        function renderTodayHeatmap(heatmap) {
+            const container = document.getElementById('today-heatmap');
+            if (!container) return;
+            
+            if (!heatmap || heatmap.length === 0) {
+                container.innerHTML = '<div class="player-heatmap-empty">暂无数据</div>';
+                return;
+            }
+            
+            // Get today's heatmap (24 hours)
+            const today = new Date().toISOString().split('T')[0];
+            const todayData = heatmap.filter(h => h.date === today);
+            
+            // Create 24 hour blocks
+            const hours = Array(24).fill(0);
+            todayData.forEach(h => {
+                hours[h.hour] = h.seconds;
+            });
+            
+            // Find max for scaling
+            const maxSeconds = Math.max(...hours, 1);
+            
+            // Generate heatmap blocks using CSS classes
+            container.innerHTML = hours.map((seconds, hour) => {
+                const intensity = maxSeconds > 0 ? seconds / maxSeconds : 0;
+                let className = 'heatmap-block';
+                if (intensity > 0.7) className += ' intensity-high';
+                else if (intensity > 0.4) className += ' intensity-medium';
+                else if (intensity > 0) className += ' intensity-low';
+                else className += ' intensity-none';
+                return `<div class="${className}" title="${hour}:00 - ${seconds > 0 ? formatDuration(seconds) : '0分'}"></div>`;
+            }).join('');
+        }
+
         function renderHourlyChart(hourly) {
             const ctx = document.getElementById('hourly-chart');
             if (!ctx) return;
             const labels = hourly.map(h => `${String(h.hour).padStart(2,'0')}:00`);
             const data = hourly.map(h => (h.avg_seconds || 0) / 60);
+
+            // Chart colors for dark theme
+            const chartColors = {
+                text: '#cbd5e1',
+                grid: '#334155'
+            };
 
             // 只有在图表不存在或数据变化时才重建
             if (!hourlyChart) {
@@ -259,18 +306,39 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: chartColors.text
+                                }
+                            }
+                        },
                         scales: {
                             y: {
                                 beginAtZero: true,
                                 title: {
                                     display: true,
-                                    text: '分钟'
+                                    text: '分钟',
+                                    color: chartColors.text
+                                },
+                                ticks: {
+                                    color: chartColors.text
+                                },
+                                grid: {
+                                    color: chartColors.grid
                                 }
                             },
                             x: {
                                 title: {
                                     display: true,
-                                    text: '小时'
+                                    text: '小时',
+                                    color: chartColors.text
+                                },
+                                ticks: {
+                                    color: chartColors.text
+                                },
+                                grid: {
+                                    color: chartColors.grid
                                 }
                             }
                         }
@@ -296,9 +364,16 @@
                 const calendarRes = await fetch(`/api/player/${encodeURIComponent(playerName)}/calendar`);
                 const calendar = await calendarRes.json();
                 renderHeatmap(calendar.heatmap, calendar.daily);
+                renderTodayHeatmap(calendar.heatmap);
                 renderHourlyChart(calendar.hourly_average || []);
                 document.getElementById('avg-daily').textContent = formatDuration(calendar.average_daily_seconds);
                 document.getElementById('avg-session').textContent = formatDuration(calendar.average_session_seconds);
+                
+                // Calculate today's duration
+                const today = new Date().toISOString().split('T')[0];
+                const todayData = calendar.daily.find(d => d.date === today);
+                document.getElementById('today-duration').textContent = todayData ? formatDuration(todayData.total_seconds) : formatDuration(0);
+                
                 if (calendar.daily && calendar.daily.length) {
                     renderDayDetail(calendar.daily[calendar.daily.length - 1].date);
                 }
@@ -317,14 +392,14 @@
             socket.on('connect', () => {
                 console.log('WebSocket 已连接');
                 wsStatus.className = 'ws-status ws-connected';
-                wsStatus.textContent = '🟢 已连接';
+                wsStatus.textContent = '已连接';
                 wsStatus.title = 'WebSocket已连接 - 实时接收更新';
             });
             
             socket.on('disconnect', () => {
                 console.log('WebSocket 已断开');
                 wsStatus.className = 'ws-status ws-disconnected';
-                wsStatus.textContent = '🔴 已断开';
+                wsStatus.textContent = '已断开';
                 wsStatus.title = 'WebSocket已断开 - 尝试重新连接中...';
             });
             
@@ -349,8 +424,14 @@
             });
         }
 
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('refresh-btn').addEventListener('click', loadData);
             loadData();
             initWebSocket();
             const timer = setInterval(loadData, 60000);

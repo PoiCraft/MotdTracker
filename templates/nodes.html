@@ -3,21 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>单服视图</title>
+    <title>单节点视图</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
 </head>
 <body>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">MotdTracker</div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/server" class="nav-link">服务器</a>
+            <a href="/nodes" class="nav-link active">节点</a>
+            <a href="/players" class="nav-link">玩家</a>
+        </nav>
+        <div class="sidebar-footer">
+            <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
+        </div>
+    </div>
+    
     <div class="container">
-        <h1>🎮 单服视图</h1>
-        <div class="toolbar">
-            <div class="toolbar-left">
-                <a class="toolbar-btn" href="/groups">🔗 分组视图</a>
-                <button class="toolbar-btn" id="refresh-btn">🔄 刷新</button>
-                <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">⚪ 连接中</span>
+        <div class="header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle" onclick="toggleSidebar()">☰</button>
+                <div class="header-title">节点视图</div>
             </div>
-            <div class="toolbar-right">
+            <div class="header-right">
+                <span class="toolbar-label" id="last-update">数据更新于: --</span>
                 <span class="toolbar-label">时间跨度</span>
                 <select id="global-range" class="range-select" title="选择时间跨度">
                     <option value="4">4小时</option>
@@ -42,7 +56,7 @@
                         <div class="server-address">{{ server.host }}:{{ server.port }}</div>
                     </div>
                     <div class="status-badge {{ 'status-online' if status and status.online else 'status-offline' }}" id="badge-{{ server.id }}">
-                        {{ '● 在线' if status and status.online else '● 离线' }}
+                        {{ '在线' if status and status.online else '离线' }}
                     </div>
                 </div>
 
@@ -84,14 +98,17 @@
                     <canvas id="chart-status-{{ server.id }}"></canvas>
                 </div>
 
-                <div class="chart-title">状态快照</div>
-                <div class="history-grid" id="history-{{ server.id }}"></div>
-
-                <div class="chart-title">服务器信息</div>
+                <div class="chart-title">节点信息</div>
                 <div class="group-servers info-list" id="info-{{ server.id }}">加载中...</div>
 
                 <div class="chart-title">在线玩家在线时长</div>
                 <div class="group-servers player-list" id="players-list-{{ server.id }}">加载中...</div>
+
+                <div class="history-section">
+                    <div class="chart-title">状态快照</div>
+                    <div class="history-grid collapsed" id="history-{{ server.id }}"></div>
+                    <div class="history-toggle" onclick="toggleHistory('history-{{ server.id }}')">展开</div>
+                </div>
             </div>
             {% endfor %}
         </div>
@@ -131,6 +148,13 @@ function escapeHtml(unsafe){
         .replace(/'/g, '&#039;');
 }
 
+// Chart.js color configuration for dark theme
+const chartColors = {
+    text: '#cbd5e1',
+    grid: '#334155',
+    textSecondary: '#94a3b8'
+};
+
 function updateServerCard(id, {uptime, latency, players, maxPlayers, version, online}){
     const uptimeEl = document.getElementById(`uptime-${id}`);
     const latencyEl = document.getElementById(`latency-${id}`);
@@ -148,7 +172,7 @@ function updateServerCard(id, {uptime, latency, players, maxPlayers, version, on
         fillEl.textContent = `${val}% 在线`;
     }
     if (badge) {
-        badge.textContent = online ? '● 在线' : '● 离线';
+        badge.textContent = online ? '在线' : '离线';
         badge.className = online ? 'status-badge status-online' : 'status-badge status-offline';
     }
 }
@@ -161,15 +185,15 @@ function renderInfo(id, status){
         return;
     }
     const pluginText = status.plugins && status.plugins.length
-        ? `${status.plugins.slice(0, 8).join(', ')}${status.plugins.length > 8 ? ' ...' : ''}`
+        ? `${status.plugins.slice(0, 8).map(p => escapeHtml(p)).join(', ')}${status.plugins.length > 8 ? ' ...' : ''}`
         : '';
     container.innerHTML = `
-        <div class="info-line"><span>版本</span><span>${status.version || '未知'}</span></div>
-        ${status.map ? `<div class="info-line"><span>地图</span><span>${status.map}</span></div>` : ''}
-        ${status.software ? `<div class="info-line"><span>核心</span><span>${status.software}</span></div>` : ''}
+        <div class="info-line"><span>版本</span><span>${escapeHtml(status.version) || '未知'}</span></div>
+        ${status.map ? `<div class="info-line"><span>地图</span><span>${escapeHtml(status.map)}</span></div>` : ''}
+        ${status.software ? `<div class="info-line"><span>核心</span><span>${escapeHtml(status.software)}</span></div>` : ''}
         ${status.players_max ? `<div class="info-line"><span>最大玩家</span><span>${status.players_max}</span></div>` : ''}
         ${pluginText ? `<div class="info-line"><span>插件</span><span>${pluginText}</span></div>` : ''}
-        ${status.sample_players ? `<div class="info-line"><span>在线样本</span><span>${status.sample_players.map(p => `<a href="/player?name=${encodeURIComponent(p)}">${p}</a>`).join(', ')}</span></div>` : ''}
+        ${status.sample_players ? `<div class="info-line"><span>在线玩家</span><span>${status.sample_players.map(p => `<a href="/player/${encodeURIComponent(p)}">${escapeHtml(p)}</a>`).join(', ')}</span></div>` : ''}
         ${status.motd ? `<div class="motd">MOTD: ${escapeHtml(status.motd)}</div>` : ''}
     `;
 }
@@ -184,10 +208,10 @@ function renderPlayersList(id, players){
     container.innerHTML = players.map(p => `
         <div class="player-row">
             <div>
-                <div class="player-name"><a href="/player?name=${encodeURIComponent(p.player_name)}">${p.player_name}</a></div>
+                <div class="player-name"><a href="/player/${encodeURIComponent(p.player_name)}">${escapeHtml(p.player_name)}</a></div>
             </div>
             <div class="player-meta">
-                <div>${p.online ? `已在线 ${formatDuration(p.duration_seconds)}` : '已离线'}</div>
+                <div style="color:${p.online ? '#16a34a' : '#94a3b8'};">${p.online ? `已在线 ${formatDuration(p.duration_seconds)}` : '已离线'}</div>
                 <div>${p.online ? `开始: ${formatTime(p.session_start)}` : `最后在线: ${formatTime(p.last_seen)}`}</div>
             </div>
         </div>
@@ -209,7 +233,10 @@ function renderLatencyChart(id, history){
             responsive:true,
             maintainAspectRatio:false,
             plugins:{legend:{display:false}, tooltip:{mode:'index', intersect:false}},
-            scales:{x:{display:true, ticks:{maxTicksLimit:8}}, y:{display:true, beginAtZero:true, ticks:{callback:(v)=>v+'ms'}}},
+            scales:{
+                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
+                y:{display:true, beginAtZero:true, ticks:{callback:(v)=>v+'ms', color: chartColors.text}, grid:{color: chartColors.grid}}
+            },
             interaction:{mode:'nearest', axis:'x', intersect:false}
         }
     });
@@ -233,8 +260,11 @@ function renderPlayersChart(id, history){
         options:{
             responsive:true,
             maintainAspectRatio:false,
-            plugins:{legend:{display:true, position:'top', labels:{usePointStyle:true, padding:15}}, tooltip:{mode:'index', intersect:false}},
-            scales:{x:{display:true, ticks:{maxTicksLimit:8}}, y:{display:true, beginAtZero:true, ticks:{callback:(v)=>Math.floor(v), stepSize:1}}},
+            plugins:{legend:{display:true, position:'top', labels:{usePointStyle:true, padding:15, color: chartColors.text}}, tooltip:{mode:'index', intersect:false}},
+            scales:{
+                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
+                y:{display:true, beginAtZero:true, ticks:{callback:(v)=>Math.floor(v), stepSize:1, color: chartColors.text}, grid:{color: chartColors.grid}}
+            },
             interaction:{mode:'nearest', axis:'x', intersect:false}
         }
     });
@@ -258,7 +288,10 @@ function renderStatusChart(id, history){
             responsive:true,
             maintainAspectRatio:false,
             plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=> ctx.parsed.y===1?'在线':'离线'}}},
-            scales:{x:{display:true, ticks:{maxTicksLimit:8}}, y:{min:0, max:1, display:true, ticks:{stepSize:1, callback:(v)=>v===1?'在线':'离线'}}},
+            scales:{
+                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
+                y:{min:0, max:1, display:true, ticks:{stepSize:1, callback:(v)=>v===1?'在线':'离线', color: chartColors.text}, grid:{color: chartColors.grid}}
+            },
             interaction:{mode:'nearest', axis:'x', intersect:false}
         }
     });
@@ -291,6 +324,18 @@ function renderHistory(id, history){
         }
         container.appendChild(block);
     });
+}
+
+function toggleHistory(elementId) {
+    const element = document.getElementById(elementId);
+    const toggle = element.nextElementSibling;
+    if (element.classList.contains('collapsed')) {
+        element.classList.remove('collapsed');
+        toggle.textContent = '收起';
+    } else {
+        element.classList.add('collapsed');
+        toggle.textContent = '展开';
+    }
 }
 
 async function loadServer(server){
@@ -330,8 +375,8 @@ async function loadServer(server){
 function initWebSocket(){
     socket = io();
     const wsStatus = document.getElementById('ws-status');
-    socket.on('connect', ()=>{ wsStatus.className='ws-status ws-connected'; wsStatus.textContent='🟢 已连接'; wsStatus.title='WebSocket已连接'; });
-    socket.on('disconnect', ()=>{ wsStatus.className='ws-status ws-disconnected'; wsStatus.textContent='🔴 已断开'; wsStatus.title='WebSocket已断开'; });
+    socket.on('connect', ()=>{ wsStatus.className='ws-status ws-connected'; wsStatus.textContent='已连接'; wsStatus.title='WebSocket已连接'; });
+    socket.on('disconnect', ()=>{ wsStatus.className='ws-status ws-disconnected'; wsStatus.textContent='已断开'; wsStatus.title='WebSocket已断开'; });
     socket.on('connect_error', (e)=>{ wsStatus.className='ws-status ws-error'; wsStatus.textContent='⚠️ 错误'; wsStatus.title='WebSocket错误: '+e.message; });
     socket.on('server_update', ()=>{
         clearTimeout(window.wsRefreshTimer);
@@ -341,10 +386,18 @@ function initWebSocket(){
 
 function loadAll(){
     chartHours = parseInt(document.getElementById('global-range').value, 10) || 12;
+    document.getElementById('last-update').textContent = `数据更新于: ${new Date().toLocaleTimeString('zh-CN')}`;
     servers.forEach(s => loadServer(s));
 }
 
-document.getElementById('refresh-btn').addEventListener('click', loadAll);
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar.classList.toggle('show');
+    overlay.classList.toggle('show');
+}
+
+document.getElementById('global-range').addEventListener('change', loadAll);
 window.addEventListener('beforeunload', ()=>{ if(socket) socket.disconnect(); Object.values(charts).forEach(c=>c.destroy?.()); });
 initWebSocket();
 loadAll();
