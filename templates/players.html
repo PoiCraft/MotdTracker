@@ -80,14 +80,16 @@ function renderHeatmap(heatmap) {
     // Find max for scaling
     const maxSeconds = Math.max(...hours, 1);
     
-    // Generate heatmap blocks
+    // Generate heatmap blocks using CSS classes for theming
     return `<div class="player-heatmap">
         ${hours.map((seconds, hour) => {
             const intensity = maxSeconds > 0 ? seconds / maxSeconds : 0;
-            const color = intensity > 0 
-                ? `rgba(16, 185, 129, ${0.2 + intensity * 0.8})` 
-                : 'rgba(51, 65, 85, 0.3)';
-            return `<div class="heatmap-block" style="background: ${color};" title="${hour}:00 - ${seconds > 0 ? formatDuration(seconds) : '0分'}"></div>`;
+            let className = 'heatmap-block';
+            if (intensity > 0.7) className += ' intensity-high';
+            else if (intensity > 0.4) className += ' intensity-medium';
+            else if (intensity > 0) className += ' intensity-low';
+            else className += ' intensity-none';
+            return `<div class="${className}" title="${hour}:00 - ${seconds > 0 ? formatDuration(seconds) : '0分'}"></div>`;
         }).join('')}
     </div>`;
 }

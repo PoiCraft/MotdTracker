@@ -679,12 +679,12 @@ h1 {
 
 .status-dot.online {
     background: rgba(16, 185, 129, 0.2);
-    color: #10b981;
+    color: var(--success);
 }
 
 .status-dot.offline {
     background: rgba(148, 163, 184, 0.2);
-    color: #94a3b8;
+    color: var(--text-muted);
 }
 
 .player-stats-row {
@@ -710,6 +710,26 @@ h1 {
     height: 24px;
     border-radius: 2px;
     transition: transform 0.2s ease;
+}
+
+.heatmap-block.intensity-none {
+    background: var(--bg-tertiary);
+    opacity: 0.3;
+}
+
+.heatmap-block.intensity-low {
+    background: var(--success);
+    opacity: 0.3;
+}
+
+.heatmap-block.intensity-medium {
+    background: var(--success);
+    opacity: 0.6;
+}
+
+.heatmap-block.intensity-high {
+    background: var(--success);
+    opacity: 1;
 }
 
 .heatmap-block:hover {
