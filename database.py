@@ -27,9 +27,18 @@ class Database:
                 name TEXT NOT NULL,
                 host TEXT NOT NULL,
                 port INTEGER NOT NULL,
+                color TEXT,
                 UNIQUE(host, port)
             )
         ''')
+        
+        # 为已存在的servers表添加color列（如果不存在）
+        try:
+            cursor.execute('ALTER TABLE servers ADD COLUMN color TEXT')
+            conn.commit()
+        except sqlite3.OperationalError:
+            # 列已存在，忽略
+            pass
         
         # 创建监控记录表
         cursor.execute('''
@@ -109,25 +118,28 @@ class Database:
         conn.commit()
         conn.close()
     
-    def add_server(self, name: str, host: str, port: int) -> int:
+    def add_server(self, name: str, host: str, port: int, color: str = None) -> int:
         """添加服务器，返回服务器ID"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
             cursor.execute('''
-                INSERT INTO servers (name, host, port) 
-                VALUES (?, ?, ?)
-            ''', (name, host, port))
+                INSERT INTO servers (name, host, port, color) 
+                VALUES (?, ?, ?, ?)
+            ''', (name, host, port, color))
             conn.commit()
             server_id = cursor.lastrowid
         except sqlite3.IntegrityError:
-            # 服务器已存在，获取其ID
+            # 服务器已存在，获取其ID并更新颜色
             cursor.execute('''
                 SELECT id FROM servers 
                 WHERE host = ? AND port = ?
             ''', (host, port))
             server_id = cursor.fetchone()[0]
+            # 更新名称和颜色
+            cursor.execute('UPDATE servers SET name = ?, color = ? WHERE id = ?', (name, color, server_id))
+            conn.commit()
         finally:
             conn.close()
         
@@ -381,7 +393,7 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         
-        cursor.execute('SELECT id, name, host, port FROM servers')
+        cursor.execute('SELECT id, name, host, port, color FROM servers')
         rows = cursor.fetchall()
         conn.close()
         
@@ -391,7 +403,8 @@ class Database:
                 'id': row[0],
                 'name': row[1],
                 'host': row[2],
-                'port': row[3]
+                'port': row[3],
+                'color': row[4]
             })
         
         return servers

@@ -4,27 +4,32 @@
     {
       "name": "PoiCraft 源站",
       "host": "192.168.124.103",
-      "port": 25566
+      "port": 25566,
+      "color": "#667eea"
     },
     {
       "name": "PoiCraft 主线",
       "host": "play.poicraft.com",
-      "port": 10006
+      "port": 10006,
+      "color": "#10b981"
     },
     {
       "name": "PoiCraft 南京",
       "host": "p2p.gxb.icu",
-      "port": 10086
+      "port": 10086,
+      "color": "#f59e0b"
     },
     {
       "name": "PoiCraft 重庆",
       "host": "183.66.27.14",
-      "port": 54664
+      "port": 54664,
+      "color": "#ef4444"
     },
     {
       "name": "PoiCraft 深圳",
       "host": "mc.mixjia233.com",
-      "port": 25161
+      "port": 25161,
+      "color": "#8b5cf6"
     }
   ],
   "database": "minecraft_stats.db",

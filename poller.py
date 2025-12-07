@@ -54,8 +54,9 @@ class ServerPoller:
             name = node['name']
             host = node['host']
             port = node.get('port', 25565)
+            color = node.get('color')  # 获取颜色配置
             
-            server_id = self.db.add_server(name, host, port)
+            server_id = self.db.add_server(name, host, port, color)
             key = f"{host}:{port}"
             self.server_ids[key] = server_id
             

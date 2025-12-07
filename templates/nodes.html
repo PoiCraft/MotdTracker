@@ -193,6 +193,18 @@ function renderLatencyChart(id, history){
     const slice = history.slice(0, chartHours * 60).reverse();
     const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
     const latencies = slice.map(h => h.online ? h.latency : null);
+    
+    // Calculate P95 for dynamic Y-axis max to avoid extreme outliers compressing the chart
+    const validLatencies = latencies.filter(l => l !== null && l !== undefined);
+    let yMax = undefined;
+    if (validLatencies.length > 0) {
+        const sorted = [...validLatencies].sort((a, b) => a - b);
+        const p95Index = Math.floor(sorted.length * 0.95);
+        const p95 = sorted[p95Index] || sorted[sorted.length - 1];
+        // Add 20% padding above P95, with a minimum of 100ms
+        yMax = Math.max(100, Math.ceil(p95 * 1.2));
+    }
+    
     const key = `latency-${id}`;
     if (charts[key]) charts[key].destroy();
     charts[key] = new Chart(ctx, {
@@ -204,7 +216,7 @@ function renderLatencyChart(id, history){
             plugins:{legend:{display:false}, tooltip:{mode:'index', intersect:false}},
             scales:{
                 x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
-                y:{display:true, beginAtZero:true, ticks:{callback:(v)=>v+'ms', color: chartColors.text}, grid:{color: chartColors.grid}}
+                y:{display:true, beginAtZero:true, max: yMax, ticks:{callback:(v)=>v+'ms', color: chartColors.text}, grid:{color: chartColors.grid}}
             },
             interaction:{mode:'nearest', axis:'x', intersect:false}
         }
