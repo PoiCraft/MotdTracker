@@ -285,8 +285,16 @@
         const datasets = [];
         const allLatencies = [];
         
-        if (slice[0] && slice[0].latencies) {
-            const keys = Object.keys(slice[0].latencies);
+        // Collect all node names from all history records (not just the latest one)
+        const allNodeNames = new Set();
+        slice.forEach(h => {
+            if (h.latencies) {
+                Object.keys(h.latencies).forEach(name => allNodeNames.add(name));
+            }
+        });
+        const keys = Array.from(allNodeNames);
+        
+        if (keys.length > 0) {
             const defaultColors = [
                 { border: '#667eea', bg: 'rgba(102, 126, 234, 0.1)' },
                 { border: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
@@ -313,7 +321,7 @@
                     color = defaultColors[idx % defaultColors.length];
                 }
                 
-                const data = slice.map(h => h.latencies[name] ?? null);
+                const data = slice.map(h => h.latencies && h.latencies[name] !== undefined ? h.latencies[name] : null);
                 // Collect all valid latencies for P95 calculation
                 data.forEach(v => { if (v !== null && v !== undefined) allLatencies.push(v); });
                 datasets.push({
