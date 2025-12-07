@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MotdTracker{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">MotdTracker</div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/server" class="nav-link {% if active_page == 'server' %}active{% endif %}">服务器</a>
+            <a href="/nodes" class="nav-link {% if active_page == 'nodes' %}active{% endif %}">节点</a>
+            <a href="/players" class="nav-link {% if active_page == 'players' %}active{% endif %}">玩家</a>
+            {% block sidebar_items %}{% endblock %}
+        </nav>
+        <div class="sidebar-footer">
+            <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle" onclick="toggleSidebar()">☰</button>
+                {% block header_left %}{% endblock %}
+            </div>
+            <div class="header-right">
+                {% block header_right %}{% endblock %}
+            </div>
+        </div>
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+    {% block extra_scripts %}{% endblock %}
+    
+    <script>
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        sidebar.classList.toggle('show');
+        overlay.classList.toggle('show');
+    }
+    {% block inline_scripts %}{% endblock %}
+    </script>
+</body>
+</html>

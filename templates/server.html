@@ -1,64 +1,48 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>服务器视图</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
-</head>
-<body>
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <div class="sidebar-title">MotdTracker</div>
-        </div>
-        <nav class="sidebar-nav">
-            <a href="/server" class="nav-link active">服务器</a>
-            <a href="/nodes" class="nav-link">节点</a>
-            <a href="/players" class="nav-link">玩家</a>
-            <div class="sidebar-divider"></div>
-            <div class="sidebar-item">
-                <label class="sidebar-label">时间跨度</label>
-                <select id="sidebar-range" class="sidebar-select">
-                    <option value="4">4小时</option>
-                    <option value="8">8小时</option>
-                    <option value="12" selected>12小时</option>
-                    <option value="24">1天</option>
-                    <option value="48">2天</option>
-                    <option value="96">4天</option>
-                    <option value="168">7天</option>
-                    <option value="720">30天</option>
-                </select>
-            </div>
-        </nav>
-        <div class="sidebar-footer">
-            <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
-        </div>
-    </div>
-    
-    <div class="container">
-        <div class="header">
-            <div class="header-left">
-                <button class="mobile-menu-toggle" onclick="toggleSidebar()">☰</button>
-                <div class="header-title">服务器视图</div>
-            </div>
-            <div class="header-right">
-                <span class="toolbar-label" id="last-update">数据更新于: --</span>
-                <span class="toolbar-label">时间跨度</span>
-                <select id="global-range" class="range-select" title="选择时间跨度">
-                    <option value="4">4小时</option>
-                    <option value="8">8小时</option>
-                    <option value="12" selected>12小时</option>
-                    <option value="24">1天</option>
-                    <option value="48">2天</option>
-                    <option value="96">4天</option>
-                    <option value="168">7天</option>
-                    <option value="720">30天</option>
-                </select>
-            </div>
-        </div>
+{% extends "base.html" %}
+
+{% block title %}服务器{% endblock %}
+
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
+{% endblock %}
+
+{% block sidebar_items %}
+<div class="sidebar-divider"></div>
+<div class="sidebar-item">
+    <label class="sidebar-label">时间跨度</label>
+    <select id="sidebar-range" class="sidebar-select">
+        <option value="4">4h</option>
+        <option value="8">8h</option>
+        <option value="12" selected>12h</option>
+        <option value="24">1d</option>
+        <option value="48">2d</option>
+        <option value="96">4d</option>
+        <option value="168">7d</option>
+        <option value="720">30d</option>
+    </select>
+</div>
+{% endblock %}
+
+{% block header_left %}
+<div class="header-title">服务器</div>
+{% endblock %}
+
+{% block header_right %}
+<span class="toolbar-label" id="last-update">--</span>
+<span class="toolbar-label">时间跨度</span>
+<select id="global-range" class="range-select">
+    <option value="4">4h</option>
+    <option value="8">8h</option>
+    <option value="12" selected>12h</option>
+    <option value="24">1d</option>
+    <option value="48">2d</option>
+    <option value="96">4d</option>
+    <option value="168">7d</option>
+    <option value="720">30d</option>
+</select>
+{% endblock %}
+
+{% block content %}
 
         <div id="groups-container">
             {% for group in groups %}
@@ -74,7 +58,7 @@
 
                 <div class="stats-grid">
                     <div class="stat-box">
-                        <div class="stat-label">在线率 (24h)</div>
+                        <div class="stat-label">24h在线率</div>
                         <div class="stat-value" id="uptime-{{ slug }}">--</div>
                     </div>
                     <div class="stat-box">
@@ -95,29 +79,23 @@
                     <div class="uptime-fill" id="uptime-fill-{{ slug }}">0% 在线</div>
                 </div>
 
-                <div class="chart-title">各节点延迟对比</div>
+                <div class="chart-title">节点延迟对比</div>
                 <div class="chart-container">
                     <canvas id="chart-latency-{{ slug }}"></canvas>
                 </div>
 
-                <div class="chart-title">👥 在线玩家趋势</div>
+                <div class="chart-title">在线玩家趋势</div>
                 <div class="chart-container">
                     <canvas id="chart-players-{{ slug }}"></canvas>
                 </div>
 
-                <div class="chart-title">在线状态历史</div>
+                <div class="chart-title">在线状态</div>
                 <div class="chart-container chart-small">
                     <canvas id="chart-status-{{ slug }}"></canvas>
                 </div>
 
-                <div class="chart-title">👥 服务器内玩家在线情况</div>
+                <div class="chart-title">在线玩家</div>
                 <div class="group-servers player-list" id="players-list-{{ slug }}">加载中...</div>
-
-                <div class="history-section">
-                    <div class="chart-title">📅 状态快照</div>
-                    <div class="history-grid collapsed" id="group-history-{{ slug }}"></div>
-                    <div class="history-toggle" onclick="toggleHistory('group-history-{{ slug }}')">展开</div>
-                </div>
             </div>
             {% endfor %}
         </div>
@@ -216,7 +194,6 @@ async function loadGroup(group){
         renderLatencyChart(slug, history);
         renderPlayersChart(slug, history);
         renderStatusChart(slug, history);
-        renderHistory(slug, history);
         renderPlayersList(slug, players);
     } catch(err){
         console.error('加载组数据失败', group.name, err);
@@ -227,18 +204,17 @@ function renderPlayersList(slug, players){
     const container = document.getElementById(`players-list-${slug}`);
     if (!container) return;
     if (!players || !players.length){
-        container.innerHTML = '<div class="loading">暂无玩家记录</div>';
+        container.innerHTML = '<div class="loading">暂无玩家</div>';
         return;
     }
     container.innerHTML = players.map(p => `
         <div class="player-row">
             <div>
                 <div class="player-name"><a href="/player/${encodeURIComponent(p.player_name)}">${escapeHtml(p.player_name)}</a></div>
-                <div class="player-meta">节点: ${escapeHtml(p.server_name)}</div>
             </div>
             <div class="player-meta">
-                <div style="color:${p.online ? '#16a34a' : '#94a3b8'};">${p.online ? `已在线 ${formatDuration(p.duration_seconds)}` : '已离线'}</div>
-                <div>${p.online ? `开始: ${formatTime(p.session_start)}` : `最后在线: ${formatTime(p.last_seen)}`}</div>
+                <div style="color:${p.online ? 'var(--success)' : 'var(--text-muted)'};">${p.online ? `在线 ${formatDuration(p.duration_seconds)}` : '离线'}</div>
+                <div>${p.online ? `${formatTime(p.session_start)}` : `${formatTime(p.last_seen)}`}</div>
             </div>
         </div>
     `).join('');
@@ -361,53 +337,12 @@ function renderStatusChart(slug, history){
     });
 }
 
-function renderHistory(slug, history){
-    const container = document.getElementById(`group-history-${slug}`);
-    if (!container) return;
-    container.innerHTML = '';
-    const desired = chartHours * 3 * 60;
-    const slice = history.slice(0, desired);
-    if (slice.length < desired){
-        const missing = desired - slice.length;
-        for (let i = 0; i < missing; i++) {
-            slice.push({ online: null, timestamp: null });
-        }
-    }
-    slice.reverse().forEach(h => {
-        const block = document.createElement('div');
-        block.className = 'history-block';
-        if (h.online === true){
-            block.classList.add('online');
-            block.title = h.timestamp ? `在线 - ${new Date(h.timestamp).toLocaleString('zh-CN')}` : '在线';
-        } else if (h.online === false){
-            block.classList.add('offline');
-            block.title = h.timestamp ? `离线 - ${new Date(h.timestamp).toLocaleString('zh-CN')}` : '离线';
-        } else {
-            block.classList.add('unknown');
-            block.title = '无数据';
-        }
-        container.appendChild(block);
-    });
-}
-
-function toggleHistory(elementId) {
-    const element = document.getElementById(elementId);
-    const toggle = element.nextElementSibling;
-    if (element.classList.contains('collapsed')) {
-        element.classList.remove('collapsed');
-        toggle.textContent = '收起';
-    } else {
-        element.classList.add('collapsed');
-        toggle.textContent = '展开';
-    }
-}
-
 function initWebSocket(){
     socket = io();
     const wsStatus = document.getElementById('ws-status');
     socket.on('connect', ()=>{ wsStatus.className='ws-status ws-connected'; wsStatus.textContent='已连接'; wsStatus.title='WebSocket已连接'; });
     socket.on('disconnect', ()=>{ wsStatus.className='ws-status ws-disconnected'; wsStatus.textContent='已断开'; wsStatus.title='WebSocket已断开'; });
-    socket.on('connect_error', (e)=>{ wsStatus.className='ws-status ws-error'; wsStatus.textContent='⚠️ 错误'; wsStatus.title='WebSocket错误: '+e.message; });
+    socket.on('connect_error', (e)=>{ wsStatus.className='ws-status ws-error'; wsStatus.textContent='错误'; wsStatus.title='WebSocket错误: '+e.message; });
     socket.on('server_update', ()=>{
         clearTimeout(window.wsRefreshTimer);
         window.wsRefreshTimer = setTimeout(loadAll, 800);
@@ -416,21 +351,21 @@ function initWebSocket(){
 
 function loadAll(){
     chartHours = parseInt(document.getElementById('global-range').value, 10) || 12;
-    document.getElementById('last-update').textContent = `数据更新于: ${new Date().toLocaleTimeString('zh-CN')}`;
+    document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
     groups.forEach(g => loadGroup(g));
-}
-
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    sidebar.classList.toggle('show');
-    overlay.classList.toggle('show');
 }
 
 document.getElementById('global-range').addEventListener('change', loadAll);
 window.addEventListener('beforeunload', ()=>{ if(socket) socket.disconnect(); Object.values(charts).forEach(c=>c.destroy?.()); });
+
+// Handle page restoration from cache (e.g., back button)
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        // Page was restored from BFCache, reload data
+        loadAll();
+    }
+});
+
 initWebSocket();
 loadAll();
-</script>
-</body>
-</html>
+{% endblock %}
