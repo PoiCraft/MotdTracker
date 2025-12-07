@@ -70,6 +70,9 @@
             <canvas id="chart-status-{{ server.id }}"></canvas>
         </div>
 
+        <div class="chart-title">延迟统计 (24小时)</div>
+        <div class="info-list" id="latency-stats-{{ server.id }}">加载中...</div>
+
         <div class="chart-title">节点信息</div>
         <div class="group-servers info-list" id="info-{{ server.id }}">加载中...</div>
 
@@ -311,6 +314,50 @@ async function loadServer(server){
     renderInfo(id, statusData);
     renderPlayersList(id, players);
     renderHeatmap24hNode(id, history);
+    renderNodeLatencyStats(id, stats, statusData);
+}
+
+function renderNodeLatencyStats(nodeId, stats, statusData) {
+    const container = document.getElementById(`latency-stats-${nodeId}`);
+    if (!container) return;
+    
+    const currentLatency = statusData && statusData.online && statusData.latency ? statusData.latency + 'ms' : '离线';
+    const avgLatency = stats.avg_latency ? Math.round(stats.avg_latency) + 'ms' : 'N/A';
+    const stdDev = stats.std_dev !== null && stats.std_dev !== undefined ? Math.round(stats.std_dev) + 'ms' : 'N/A';
+    const p95Latency = stats.p95_latency ? Math.round(stats.p95_latency) + 'ms' : 'N/A';
+    const cv = stats.cv !== null && stats.cv !== undefined ? stats.cv.toFixed(1) + '%' : 'N/A';
+    const online = statusData && statusData.online;
+    
+    // Color code CV: green if stable (<10%), yellow if moderate (10-30%), red if unstable (>30%)
+    let cvColor = 'var(--text-muted)';
+    if (stats.cv !== null && stats.cv !== undefined) {
+        if (stats.cv < 10) cvColor = 'var(--success)';
+        else if (stats.cv < 30) cvColor = 'var(--warning)';
+        else cvColor = 'var(--danger)';
+    }
+    
+    container.innerHTML = `
+        <div class="info-line">
+            <span>当前延迟</span>
+            <span style="color: ${online ? 'var(--success)' : 'var(--text-muted)'};">${currentLatency}</span>
+        </div>
+        <div class="info-line">
+            <span>平均延迟</span>
+            <span style="color: var(--text-secondary);">${avgLatency}</span>
+        </div>
+        <div class="info-line">
+            <span>标准差 (σ)</span>
+            <span style="color: var(--text-muted);" title="延迟波动幅度">${stdDev}</span>
+        </div>
+        <div class="info-line">
+            <span>P95 延迟</span>
+            <span style="color: var(--text-secondary);" title="95%的请求延迟低于此值">${p95Latency}</span>
+        </div>
+        <div class="info-line">
+            <span>变异系数 (CV)</span>
+            <span style="color: ${cvColor}; font-weight: 500;" title="稳定性指标: <10%很稳定, 10-30%中等, >30%不稳定">${cv}</span>
+        </div>
+    `;
 }
 
 function renderHeatmap24hNode(nodeId, history) {

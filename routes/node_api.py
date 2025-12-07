@@ -67,6 +67,9 @@ def register_node_routes(api, poller):
                 return {
                     'uptime_percentage': 0,
                     'avg_latency': None,
+                    'std_dev': None,
+                    'p95_latency': None,
+                    'cv': None,
                     'total_checks': 0,
                     'online_checks': 0
                 }
@@ -76,11 +79,28 @@ def register_node_routes(api, poller):
             uptime_percentage = (online_checks / total_checks * 100) if total_checks > 0 else 0
 
             latencies = [h['latency'] for h in history if h['online'] and h['latency'] is not None]
-            avg_latency = sum(latencies) / len(latencies) if latencies else None
+            if latencies:
+                import statistics
+                avg_latency = statistics.mean(latencies)
+                std_dev = statistics.stdev(latencies) if len(latencies) > 1 else 0
+                # Calculate P95 latency
+                sorted_latencies = sorted(latencies)
+                p95_index = int(len(sorted_latencies) * 0.95)
+                p95_latency = sorted_latencies[p95_index] if p95_index < len(sorted_latencies) else sorted_latencies[-1]
+                # Calculate coefficient of variation (CV)
+                cv = (std_dev / avg_latency * 100) if avg_latency > 0 else 0
+            else:
+                avg_latency = None
+                std_dev = None
+                p95_latency = None
+                cv = None
 
             return {
                 'uptime_percentage': round(uptime_percentage, 2),
                 'avg_latency': round(avg_latency, 2) if avg_latency else None,
+                'std_dev': round(std_dev, 2) if std_dev is not None else None,
+                'p95_latency': round(p95_latency, 2) if p95_latency else None,
+                'cv': round(cv, 2) if cv is not None else None,
                 'total_checks': total_checks,
                 'online_checks': online_checks
             }

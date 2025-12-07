@@ -11,7 +11,33 @@ def register_server_routes(api, poller):
     class ServerNodes(Resource):
         @server_ns.doc('获取服务器节点列表', description='获取服务器的所有节点及其最新状态')
         def get(self):
-            return get_server_nodes_data(poller)
+            nodes = get_server_nodes_data(poller)
+            # Add latency statistics for each node
+            for node in nodes:
+                history = poller.db.get_server_history(node['id'], limit=1440)  # 24h
+                if history:
+                    latencies = [h['latency'] for h in history if h.get('online') and h.get('latency') is not None]
+                    if latencies:
+                        import statistics
+                        avg_latency = statistics.mean(latencies)
+                        std_dev = statistics.stdev(latencies) if len(latencies) > 1 else 0
+                        # Calculate P95 latency
+                        sorted_latencies = sorted(latencies)
+                        p95_index = int(len(sorted_latencies) * 0.95)
+                        p95_latency = sorted_latencies[p95_index] if p95_index < len(sorted_latencies) else sorted_latencies[-1]
+                        # Calculate coefficient of variation (CV)
+                        cv = (std_dev / avg_latency * 100) if avg_latency > 0 else 0
+                        node['latency_stats'] = {
+                            'avg_latency': round(avg_latency, 2),
+                            'std_dev': round(std_dev, 2),
+                            'p95_latency': round(p95_latency, 2),
+                            'cv': round(cv, 2)
+                        }
+                    else:
+                        node['latency_stats'] = {'avg_latency': None, 'std_dev': None, 'p95_latency': None, 'cv': None}
+                else:
+                    node['latency_stats'] = {'avg_latency': None, 'std_dev': None, 'p95_latency': None, 'cv': None}
+            return nodes
 
     @server_ns.route('/head')
     class ServerHead(Resource):
