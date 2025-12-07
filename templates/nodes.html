@@ -81,7 +81,7 @@
             <canvas id="chart-status-{{ server.id }}"></canvas>
         </div>
 
-        <div class="chart-title">延迟统计 (24小时)</div>
+        <div class="chart-title">延迟统计 <span class="range-label" id="latency-stats-range-{{ server.id }}"></span></div>
         <div class="info-list" id="latency-stats-{{ server.id }}">加载中...</div>
 
         <div class="chart-title">节点信息</div>
@@ -412,6 +412,12 @@ async function loadServer(server){
 function renderNodeLatencyStats(nodeId, stats, statusData) {
     const container = document.getElementById(`latency-stats-${nodeId}`);
     if (!container) return;
+    
+    // Update range label
+    const rangeLabel = document.getElementById(`latency-stats-range-${nodeId}`);
+    if (rangeLabel) {
+        rangeLabel.textContent = `(过去 ${chartHours} 小时)`;
+    }
     
     const currentLatency = statusData && statusData.online && statusData.latency ? statusData.latency + 'ms' : '离线';
     const uptime = stats.uptime_percentage !== undefined ? stats.uptime_percentage.toFixed(1) + '%' : 'N/A';
