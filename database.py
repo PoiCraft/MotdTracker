@@ -61,6 +61,7 @@ class Database:
                 session_start DATETIME,
                 last_seen DATETIME NOT NULL,
                 online BOOLEAN NOT NULL DEFAULT 0,
+                duration_seconds INTEGER,
                 UNIQUE(server_id, player_name),
                 FOREIGN KEY (server_id) REFERENCES servers (id)
             )
@@ -88,6 +89,11 @@ class Database:
             cursor.execute('ALTER TABLE status_logs ADD COLUMN plugins TEXT')
         if 'map' not in existing_columns:
             cursor.execute('ALTER TABLE status_logs ADD COLUMN map TEXT')
+        
+        # 为 player_sessions 表添加 duration_seconds 列（如果不存在）
+        session_columns = {row[1] for row in cursor.execute('PRAGMA table_info(player_sessions)')}
+        if 'duration_seconds' not in session_columns:
+            cursor.execute('ALTER TABLE player_sessions ADD COLUMN duration_seconds INTEGER')
         
         # 创建索引以提高查询性能
         cursor.execute('''
@@ -180,24 +186,30 @@ class Database:
             ''', (server_id, name))
             row = cursor.fetchone()
             if row is None:
+                # 新玩家，插入记录，duration_seconds 初始为 0
                 cursor.execute('''
-                    INSERT INTO player_sessions (server_id, player_name, first_seen, session_start, last_seen, online)
-                    VALUES (?, ?, ?, ?, ?, 1)
+                    INSERT INTO player_sessions (server_id, player_name, first_seen, session_start, last_seen, online, duration_seconds)
+                    VALUES (?, ?, ?, ?, ?, 1, 0)
                 ''', (server_id, name, timestamp, timestamp, timestamp))
             else:
                 online_flag, session_start, first_seen = row
                 if online_flag:
-                    # 已在线，更新最后一次看到
+                    # 已在线，更新最后一次看到和计算 duration_seconds
+                    if session_start:
+                        session_start_dt = datetime.fromisoformat(session_start) if isinstance(session_start, str) else session_start
+                        duration_seconds = int((timestamp - session_start_dt).total_seconds())
+                    else:
+                        duration_seconds = 0
                     cursor.execute('''
                         UPDATE player_sessions
-                        SET last_seen = ?
+                        SET last_seen = ?, duration_seconds = ?
                         WHERE server_id = ? AND player_name = ?
-                    ''', (timestamp, server_id, name))
+                    ''', (timestamp, duration_seconds, server_id, name))
                 else:
-                    # 刚上线，开启新会话
+                    # 刚上线，开启新会话，duration_seconds 初始为 0
                     cursor.execute('''
                         UPDATE player_sessions
-                        SET online = 1, session_start = ?, last_seen = ?
+                        SET online = 1, session_start = ?, last_seen = ?, duration_seconds = 0
                         WHERE server_id = ? AND player_name = ?
                     ''', (timestamp, timestamp, server_id, name))
 
@@ -218,7 +230,7 @@ class Database:
                     ''', (server_id, name, session_start, timestamp))
                 cursor.execute('''
                     UPDATE player_sessions
-                    SET online = 0, last_seen = ?, session_start = NULL
+                    SET online = 0, last_seen = ?, session_start = NULL, duration_seconds = NULL
                     WHERE server_id = ? AND player_name = ?
                 ''', (timestamp, server_id, name))
 
@@ -230,7 +242,7 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT player_name, session_start, last_seen
+            SELECT player_name, session_start, last_seen, duration_seconds
             FROM player_sessions
             WHERE server_id = ? AND online = 1
             ORDER BY player_name
@@ -241,7 +253,8 @@ class Database:
             {
                 'player_name': r[0],
                 'session_start': r[1],
-                'last_seen': r[2]
+                'last_seen': r[2],
+                'duration_seconds': r[3]
             }
             for r in rows
         ]
@@ -251,7 +264,7 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT player_name, first_seen, session_start, last_seen, online
+            SELECT player_name, first_seen, session_start, last_seen, online, duration_seconds
             FROM player_sessions
             WHERE server_id = ?
             ORDER BY online DESC, last_seen DESC
@@ -264,7 +277,8 @@ class Database:
                 'first_seen': r[1],
                 'session_start': r[2],
                 'last_seen': r[3],
-                'online': bool(r[4])
+                'online': bool(r[4]),
+                'duration_seconds': r[5]
             }
             for r in rows
         ]
