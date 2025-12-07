@@ -107,18 +107,16 @@ def api_server_online_players(server_id):
             return None
 
     players = poller.db.get_online_players(server_id)
-    now = datetime.now()
     result = []
 
     for p in players:
         start_dt = _parse_dt(p.get('session_start'))
         last_dt = _parse_dt(p.get('last_seen'))
-        duration_seconds = int((now - start_dt).total_seconds()) if start_dt else None
         result.append({
             'player_name': p.get('player_name'),
             'session_start': start_dt.isoformat() if start_dt else None,
             'last_seen': last_dt.isoformat() if last_dt else None,
-            'duration_seconds': duration_seconds
+            'duration_seconds': p.get('duration_seconds')
         })
 
     return jsonify(result)
@@ -297,7 +295,6 @@ def api_servers_players(server_name):
             server_nodes.append(server)
 
     result = []
-    now = datetime.now()
 
     def _parse_dt(value):
         if value is None:
@@ -315,7 +312,6 @@ def api_servers_players(server_name):
         for s in sessions:
             start_dt = _parse_dt(s.get('session_start'))
             last_dt = _parse_dt(s.get('last_seen'))
-            duration_seconds = int((now - start_dt).total_seconds()) if start_dt else None
             result.append({
                 'server_id': server['id'],
                 'server_name': server['name'],
@@ -324,7 +320,7 @@ def api_servers_players(server_name):
                 'session_start': start_dt.isoformat() if start_dt else None,
                 'last_seen': last_dt.isoformat() if last_dt else None,
                 'last_seen_dt': last_dt,
-                'duration_seconds': duration_seconds,
+                'duration_seconds': s.get('duration_seconds'),
             })
 
     # 按最后在线时间倒序排序，去重保留每个玩家的最新记录
@@ -347,7 +343,6 @@ def api_servers_players(server_name):
 def api_all_players():
     """API - 获取全服玩家会话汇总"""
     servers = poller.db.get_all_servers()
-    now = datetime.now()
 
     def _parse_dt(value):
         if value is None:
@@ -369,7 +364,7 @@ def api_all_players():
                 continue
             start_dt = _parse_dt(s.get('session_start'))
             last_dt = _parse_dt(s.get('last_seen'))
-            duration_seconds = int((now - start_dt).total_seconds()) if start_dt and s.get('online') else None
+            duration_seconds = s.get('duration_seconds') if s.get('online') else None
 
             server_entry = {
                 'server_id': server['id'],
@@ -424,7 +419,6 @@ def api_all_players():
 def api_player_detail(player_name):
     """API - 获取单一玩家的在线详情（群组级别聚合）"""
     servers = poller.db.get_all_servers()
-    now = datetime.now()
 
     def _parse_dt(value):
         if value is None:
@@ -463,7 +457,8 @@ def api_player_detail(player_name):
                 'last_seen': None,
                 'duration_seconds': None,
                 'earliest_start': None,
-                'latest_seen': None
+                'latest_seen': None,
+                'max_duration': None
             }
         
         group = groups[server_name]
@@ -477,6 +472,10 @@ def api_player_detail(player_name):
                 if group['earliest_start'] is None or start_dt < group['earliest_start']:
                     group['earliest_start'] = start_dt
                     group['session_start'] = start_dt.isoformat()
+                # 取最大的 duration_seconds
+                if s.get('duration_seconds') is not None:
+                    if group['max_duration'] is None or s.get('duration_seconds') > group['max_duration']:
+                        group['max_duration'] = s.get('duration_seconds')
         
         # 更新最后在线时间 - 从所有会话中获取
         for s in player_sessions:
@@ -485,13 +484,14 @@ def api_player_detail(player_name):
                 group['latest_seen'] = last_dt
                 group['last_seen'] = last_dt.isoformat()
     
-    # 计算每个群组的在线时长
+    # 使用预计算的 duration_seconds
     for server_name, group in groups.items():
-        if group['online'] and group['earliest_start']:
-            group['duration_seconds'] = int((now - group['earliest_start']).total_seconds())
+        if group['online'] and group['max_duration'] is not None:
+            group['duration_seconds'] = group['max_duration']
         # 清理内部字段
         group.pop('earliest_start', None)
         group.pop('latest_seen', None)
+        group.pop('max_duration', None)
     
     # 全局摘要
     summary = {
@@ -507,9 +507,14 @@ def api_player_detail(player_name):
     if summary['online']:
         online_groups = [g for g in groups.values() if g['online']]
         if online_groups:
-            earliest = min((datetime.fromisoformat(g['session_start']) for g in online_groups if g['session_start']))
-            summary['session_start'] = earliest.isoformat()
-            summary['duration_seconds'] = int((now - earliest).total_seconds())
+            # 获取所有有效的 session_start
+            valid_starts = [datetime.fromisoformat(g['session_start']) for g in online_groups if g['session_start']]
+            if valid_starts:
+                earliest_start = min(valid_starts)
+                summary['session_start'] = earliest_start.isoformat()
+            # 使用最大的 duration_seconds 作为全局时长
+            max_duration = max((g['duration_seconds'] for g in online_groups if g['duration_seconds'] is not None), default=None)
+            summary['duration_seconds'] = max_duration
     
     # 全局最后在线时间
     all_last_seen = [datetime.fromisoformat(g['last_seen']) for g in groups.values() if g['last_seen']]
