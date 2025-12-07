@@ -357,6 +357,15 @@ function loadAll(){
 
 document.getElementById('global-range').addEventListener('change', loadAll);
 window.addEventListener('beforeunload', ()=>{ if(socket) socket.disconnect(); Object.values(charts).forEach(c=>c.destroy?.()); });
+
+// Handle page restoration from cache (e.g., back button)
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        // Page was restored from BFCache, reload data
+        loadAll();
+    }
+});
+
 initWebSocket();
 loadAll();
 {% endblock %}

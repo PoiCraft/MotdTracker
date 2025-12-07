@@ -178,6 +178,14 @@ function initWebSocket() {
 loadPlayers();
 initWebSocket();
 
+// Handle page restoration from cache (e.g., back button)
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        // Page was restored from BFCache, reload data
+        loadPlayers();
+    }
+});
+
 // Refresh every 60 seconds
 setInterval(loadPlayers, 60000);
 {% endblock %}
