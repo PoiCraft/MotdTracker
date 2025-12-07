@@ -285,7 +285,7 @@ def api_servers_stats(server_name):
 
 @app.route('/api/servers/<server_name>/players')
 def api_servers_players(server_name):
-    """API - 获取组内所有玩家会话信息"""
+    """API - 获取组内在线玩家信息"""
     servers = poller.db.get_all_servers()
 
     # 找到该组的所有服务器配置
@@ -310,27 +310,25 @@ def api_servers_players(server_name):
             return None
 
     for server in server_nodes:
-        sessions = poller.db.get_all_player_sessions(server['id'])
+        # 只获取在线玩家
+        sessions = poller.db.get_online_players(server['id'])
         for s in sessions:
             start_dt = _parse_dt(s.get('session_start'))
             last_dt = _parse_dt(s.get('last_seen'))
-            duration_seconds = int((now - start_dt).total_seconds()) if start_dt and s.get('online') else None
+            duration_seconds = int((now - start_dt).total_seconds()) if start_dt else None
             result.append({
                 'server_id': server['id'],
                 'server_name': server['name'],
                 'player_name': s.get('player_name'),
-                'online': s.get('online'),
+                'online': True,  # 只有在线玩家
                 'session_start': start_dt.isoformat() if start_dt else None,
                 'last_seen': last_dt.isoformat() if last_dt else None,
                 'last_seen_dt': last_dt,
                 'duration_seconds': duration_seconds,
             })
 
-    # 在线优先，其次按最后在线时间倒序，只保留每个玩家的第一条记录
-    result.sort(key=lambda x: (
-        not x['online'],
-        -(x['last_seen_dt'].timestamp() if x['last_seen_dt'] else float('-inf'))
-    ))
+    # 按最后在线时间倒序排序，去重保留每个玩家的最新记录
+    result.sort(key=lambda x: -(x['last_seen_dt'].timestamp() if x['last_seen_dt'] else float('-inf')))
 
     filtered = []
     seen = set()
@@ -447,35 +445,42 @@ def api_player_detail(player_name):
                              if s['host'] == server['host'] and s['port'] == server['port']), None)
         server_name = server_config.get('group', '默认') if server_config else '默认'
         
-        sessions = poller.db.get_all_player_sessions(server['id'])
-        for s in sessions:
-            if s.get('player_name') != player_name:
-                continue
-            
+        # 获取所有会话用于历史数据和离线状态
+        all_sessions = poller.db.get_all_player_sessions(server['id'])
+        # 只获取在线会话用于当前在线状态
+        online_sessions = [s for s in all_sessions if s.get('online') and s.get('player_name') == player_name]
+        
+        # 找到该玩家的所有会话（用于last_seen）
+        player_sessions = [s for s in all_sessions if s.get('player_name') == player_name]
+        
+        if not player_sessions:
+            continue
+        
+        if server_name not in groups:
+            groups[server_name] = {
+                'online': False,
+                'session_start': None,
+                'last_seen': None,
+                'duration_seconds': None,
+                'earliest_start': None,
+                'latest_seen': None
+            }
+        
+        group = groups[server_name]
+        
+        # 更新在线状态 - 只基于实际在线的会话
+        for s in online_sessions:
             start_dt = _parse_dt(s.get('session_start'))
-            last_dt = _parse_dt(s.get('last_seen'))
-            
-            if server_name not in groups:
-                groups[server_name] = {
-                    'online': False,
-                    'session_start': None,
-                    'last_seen': None,
-                    'duration_seconds': None,
-                    'earliest_start': None,
-                    'latest_seen': None
-                }
-            
-            group = groups[server_name]
-            
-            # 更新在线状态
-            if s.get('online'):
+            if start_dt:
                 group['online'] = True
                 # 取最早的会话开始时间
-                if start_dt and (group['earliest_start'] is None or start_dt < group['earliest_start']):
+                if group['earliest_start'] is None or start_dt < group['earliest_start']:
                     group['earliest_start'] = start_dt
                     group['session_start'] = start_dt.isoformat()
-            
-            # 更新最后在线时间
+        
+        # 更新最后在线时间 - 从所有会话中获取
+        for s in player_sessions:
+            last_dt = _parse_dt(s.get('last_seen'))
             if last_dt and (group['latest_seen'] is None or last_dt > group['latest_seen']):
                 group['latest_seen'] = last_dt
                 group['last_seen'] = last_dt.isoformat()
