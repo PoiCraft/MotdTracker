@@ -1,0 +1,180 @@
+from flask import Response
+from flask_restx import Namespace, Resource
+
+
+def register_exporter_routes(api, poller):
+    """Register Prometheus exporter endpoints."""
+    exporter_ns = Namespace('exporter', description='导出器接口', path='/exporter')
+
+    @exporter_ns.route('/metrics')
+    class PrometheusMetrics(Resource):
+        @exporter_ns.doc('获取Prometheus指标', description='导出Prometheus格式的监控数据')
+        def get(self):
+            """Export metrics in Prometheus format."""
+            metrics = []
+            metrics.append('# HELP motd_server_online 服务器是否在线 (1=在线, 0=离线)')
+            metrics.append('# TYPE motd_server_online gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_server_players_online 在线玩家数')
+            metrics.append('# TYPE motd_server_players_online gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_server_players_max 最大玩家数')
+            metrics.append('# TYPE motd_server_players_max gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_server_latency_ms 服务器延迟(毫秒)')
+            metrics.append('# TYPE motd_server_latency_ms gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_server_uptime_percentage 服务器在线时间占比(%)')
+            metrics.append('# TYPE motd_server_uptime_percentage gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_server_avg_latency_ms 平均延迟(毫秒)')
+            metrics.append('# TYPE motd_server_avg_latency_ms gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_server_max_latency_ms 最大延迟(毫秒)')
+            metrics.append('# TYPE motd_server_max_latency_ms gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_server_min_latency_ms 最小延迟(毫秒)')
+            metrics.append('# TYPE motd_server_min_latency_ms gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_player_online 玩家是否在线 (1=在线, 0=离线)')
+            metrics.append('# TYPE motd_player_online gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_player_session_duration_seconds 玩家当前会话时长(秒)')
+            metrics.append('# TYPE motd_player_session_duration_seconds gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_players_count 在线玩家总数')
+            metrics.append('# TYPE motd_players_count gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_server_count 服务器节点总数')
+            metrics.append('# TYPE motd_server_count gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_server_sample_players_count 玩家样本数')
+            metrics.append('# TYPE motd_server_sample_players_count gauge')
+            metrics.append('')
+
+            # Get all servers and their stats
+            servers = poller.db.get_all_servers()
+            online_servers_count = 0
+            total_online_players = 0
+
+            for server in servers:
+                server_id = server['id']
+                node_name = server['name']
+                server_host = server['host']
+                server_port = server['port']
+
+                labels = f'server_id="{server_id}",node_name="{node_name}",host="{server_host}",port="{server_port}"'
+
+                # Get latest status
+                status = poller.db.get_server_latest_status(server_id)
+                if status:
+                    online = 1 if status.get('online') else 0
+                    online_servers_count += online
+                    players_online = status.get('players_online', 0) or 0
+                    total_online_players += players_online
+                    players_max = status.get('players_max', 0) or 0
+                    latency = status.get('latency')
+
+                    metrics.append(f'motd_server_online{{{labels}}} {online}')
+                    metrics.append(f'motd_server_players_online{{{labels}}} {players_online}')
+                    metrics.append(f'motd_server_players_max{{{labels}}} {players_max}')
+
+                    if latency is not None:
+                        metrics.append(f'motd_server_latency_ms{{{labels}}} {latency}')
+
+                # Get uptime stats for past 24 hours
+                history = poller.db.get_server_history(server_id, limit=1440)
+                if history:
+                    total_checks = len(history)
+                    online_checks = sum(1 for h in history if h['online'])
+                    uptime_pct = (online_checks / total_checks * 100) if total_checks > 0 else 0
+
+                    latencies = [h['latency'] for h in history if h['online'] and h['latency'] is not None]
+                    avg_latency = sum(latencies) / len(latencies) if latencies else 0
+                    max_latency = max(latencies) if latencies else 0
+                    min_latency = min(latencies) if latencies else 0
+
+                    metrics.append(f'motd_server_uptime_percentage{{{labels}}} {uptime_pct:.2f}')
+                    metrics.append(f'motd_server_avg_latency_ms{{{labels}}} {avg_latency:.2f}')
+                    if latencies:
+                        metrics.append(f'motd_server_max_latency_ms{{{labels}}} {max_latency:.2f}')
+                        metrics.append(f'motd_server_min_latency_ms{{{labels}}} {min_latency:.2f}')
+
+                    # 玩家样本数
+                    sample_players_count = 0
+                    for h in history:
+                        if h.get('sample_players'):
+                            sample_players_count = max(sample_players_count, len(h['sample_players']))
+                    if sample_players_count > 0:
+                        metrics.append(f'motd_server_sample_players_count{{{labels}}} {sample_players_count}')
+
+            # Global counters
+            metrics.append(f'motd_server_count{{}} {len(servers)}')
+            metrics.append(f'motd_players_count{{}} {total_online_players}')
+
+            # Get player data
+            all_online_players = set()
+            player_durations = {}
+
+            for server in servers:
+                sessions = poller.db.get_online_players(server['id'])
+                for session in sessions:
+                    player_name = session.get('player_name')
+                    if player_name and player_name not in all_online_players:
+                        all_online_players.add(player_name)
+                        # 对于同一玩家在多个node的情况，记录最大duration
+                        duration_seconds = session.get('duration_seconds', 0) or 0
+                        if player_name not in player_durations:
+                            player_durations[player_name] = duration_seconds
+                        else:
+                            player_durations[player_name] = max(player_durations[player_name], duration_seconds)
+
+            # Export player metrics (deduplicated)
+            for player_name in all_online_players:
+                player_labels = f'player_name="{player_name}"'
+                metrics.append(f'motd_player_online{{{player_labels}}} 1')
+                if player_name in player_durations and player_durations[player_name]:
+                    metrics.append(f'motd_player_session_duration_seconds{{{player_labels}}} {player_durations[player_name]}')
+
+            # Add info metric with version
+            metrics.append('')
+            metrics.append('# HELP motd_info MotdTracker info')
+            metrics.append('# TYPE motd_info gauge')
+            metrics.append('motd_info{version="1.0"} 1')
+            metrics.append('')
+
+            return Response('\n'.join(metrics), mimetype='text/plain; charset=utf-8')
+
+    @exporter_ns.route('/health')
+    class ExporterHealth(Resource):
+        @exporter_ns.doc('健康检查', description='检查导出器和后端是否正常运行')
+        def get(self):
+            """Simple health check."""
+            try:
+                servers = poller.db.get_all_servers()
+                status = 'ok' if servers else 'no_servers'
+                return {
+                    'status': status,
+                    'servers_count': len(servers),
+                    'exporter_version': '1.0'
+                }
+            except Exception as e:
+                return {
+                    'status': 'error',
+                    'error': str(e)
+                }, 500
+
+    api.add_namespace(exporter_ns)
+    return exporter_ns
