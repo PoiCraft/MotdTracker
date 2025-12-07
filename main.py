@@ -110,6 +110,21 @@ class Node(Resource):
         return status
 
 
+@node_ns.route('/node/<int:node_id>/head')
+class NodeHead(Resource):
+    @node_ns.doc('获取节点实时状态', description='获取指定节点的最新状态（head），包含节点元数据')
+    def get(self, node_id):
+        server = next((s for s in poller.db.get_all_servers() if s['id'] == node_id), None)
+        if server is None:
+            abort(404, '节点不存在')
+
+        status = poller.db.get_server_latest_status(node_id)
+        if status is None:
+            return {**server, 'latest_status': None}
+
+        return {**server, 'latest_status': status}
+
+
 @node_ns.route('/node/<int:node_id>/online_players')
 class NodeOnlinePlayers(Resource):
     @node_ns.doc('获取节点在线玩家', description='获取指定节点当前在线的玩家列表')
@@ -165,6 +180,13 @@ class NodeStats(Resource):
         }
 
 
+@node_ns.route('/node/head')
+class NodeHeadList(Resource):
+    @node_ns.doc('获取节点实时状态列表', description='获取所有节点的最新状态数据（head）')
+    def get(self):
+        return get_server_nodes_data()
+
+
 @server_ns.route('/nodes')
 class ServerNodes(Resource):
     @server_ns.doc('获取服务器节点列表', description='获取服务器的所有节点及其最新状态')
@@ -173,17 +195,63 @@ class ServerNodes(Resource):
         return nodes
 
 
+@server_ns.route('/head')
+class ServerHead(Resource):
+    @server_ns.doc('获取服务器实时聚合状态', description='获取服务器的实时（head）聚合状态，包含各节点最新数据')
+    def get(self):
+        nodes = get_server_nodes_data()
+        if not nodes:
+            return {}
+
+        nodes_with_status = [n for n in nodes if n.get('latest_status')]
+        if not nodes_with_status:
+            return {'nodes': nodes}
+
+        online_nodes = [n for n in nodes_with_status if n['latest_status'].get('online')]
+        selected = online_nodes[0] if online_nodes else nodes_with_status[0]
+
+        latencies = {
+            n['name']: n['latest_status'].get('latency') if n['latest_status'].get('online') else None
+            for n in nodes_with_status
+        }
+
+        selected_status = selected['latest_status']
+
+        return {
+            'timestamp': selected_status.get('timestamp'),
+            'online': any(n['latest_status'].get('online') for n in nodes_with_status),
+            'players_online': selected_status.get('players_online'),
+            'players_max': selected_status.get('players_max'),
+            'latencies': latencies,
+            'version': selected_status.get('version'),
+            'motd': selected_status.get('motd'),
+            'nodes': nodes_with_status
+        }
+
+
 @server_ns.route('/history')
 class ServerHistory(Resource):
-    @server_ns.doc('获取服务器历史', description='获取服务器的聚合历史数据（所有节点的聚合，过去24小时）')
+    @server_ns.doc(
+        '获取服务器历史',
+        description='获取服务器的聚合历史数据（所有节点的聚合）',
+        params={'hours': '可选，整数小时，默认12，范围1-720，示例：?hours=24'}
+    )
     def get(self):
+        hours = 12
+        try:
+            hours = int(request.args.get('hours', hours))
+        except Exception:
+            pass
+        hours = max(1, min(hours, 720))
+        limit = hours * 60
+
         servers = poller.db.get_all_servers()
         if not servers:
             return []
 
         nodes_history = {}
         for server in servers:
-            history = poller.db.get_server_history(server['id'], limit=1440)
+            history = poller.db.get_server_history(server['id'], limit=limit)
             nodes_history[server['name']] = history
 
         all_histories = {}
@@ -222,8 +290,20 @@ class ServerHistory(Resource):
 
 @server_ns.route('/stats')
 class ServerStats(Resource):
-    @server_ns.doc('获取服务器统计', description='获取服务器的聚合统计数据（所有节点的总在线玩家数、服务器总状态等）')
+    @server_ns.doc(
+        '获取服务器统计',
+        description='获取服务器的聚合统计数据（所有节点的总在线玩家数、服务器总状态等）',
+        params={'hours': '可选，整数小时，默认12，范围1-720，示例：?hours=24'}
+    )
     def get(self):
+        hours = 12
+        try:
+            hours = int(request.args.get('hours', hours))
+        except Exception:
+            pass
+        hours = max(1, min(hours, 720))
+        limit = hours * 60
+
         servers = poller.db.get_all_servers()
         if not servers:
             return {
@@ -238,7 +318,7 @@ class ServerStats(Resource):
         all_latencies = []
 
         for server in servers:
-            history = poller.db.get_server_history(server['id'], limit=1440)
+            history = poller.db.get_server_history(server['id'], limit=limit)
             for h in history:
                 timestamp_status[h['timestamp']].append(h['online'])
                 if h['online'] and h['latency'] is not None:

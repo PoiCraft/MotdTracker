@@ -164,8 +164,8 @@
         try {
             const [nodesRes, historyRes, statsRes, playersRes] = await Promise.all([
                 fetch('/api/server/nodes'),
-                fetch('/api/server/history'),
-                fetch('/api/server/stats'),
+                fetch(`/api/server/history?hours=${chartHours}`),
+                fetch(`/api/server/stats?hours=${chartHours}`),
                 fetch('/api/server/players')
             ]);
             const nodes = await nodesRes.json();
@@ -221,7 +221,7 @@
     function renderLatencyChart(slug, history) {
         const ctx = document.getElementById(`chart-latency-${slug}`);
         if (!ctx) return;
-        const slice = history.slice(0, chartHours * 60).reverse();
+        const slice = [...history].reverse();
         const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
         const datasets = [];
         if (slice[0] && slice[0].latencies) {
@@ -284,7 +284,7 @@
     function renderPlayersChart(slug, history) {
         const ctx = document.getElementById(`chart-players-${slug}`);
         if (!ctx) return;
-        const slice = history.slice(0, chartHours * 60).reverse();
+        const slice = [...history].reverse();
         const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
         const playersOnline = slice.map(h => h.online ? h.players_online : null);
         const playersMax = slice.map(h => h.online ? h.players_max : null);
@@ -315,7 +315,7 @@
     function renderStatusChart(slug, history) {
         const ctx = document.getElementById(`chart-status-${slug}`);
         if (!ctx) return;
-        const slice = history.slice(0, chartHours * 60).reverse();
+        const slice = [...history].reverse();
         const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
         const data = slice.map(h => h.online ? 1 : 0);
         const key = `status-${slug}`;
