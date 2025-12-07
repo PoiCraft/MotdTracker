@@ -1120,6 +1120,30 @@ body {
         flex-direction: column;
         gap: 4px;
     }
+
+    /* 节点延迟统计移动端优化 */
+    .info-line {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 12px 0;
+    }
+
+    .info-line > span:last-child {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px 12px !important;
+        font-size: 0.8em !important;
+    }
+
+    .info-line > span:last-child > span {
+        min-width: auto !important;
+        text-align: left !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }
 
 /* 24h Heatmap for Server/Nodes */
