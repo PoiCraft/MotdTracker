@@ -160,32 +160,60 @@ function initWebSocket() {
     const wsStatus = document.getElementById('ws-status');
     
     socket.on('connect', () => {
-        wsStatus.className = 'ws-status ws-connected';
-        wsStatus.textContent = '已连接';
+        if (wsStatus) {
+            wsStatus.className = 'ws-status ws-connected';
+            wsStatus.textContent = '已连接';
+        }
+        console.log('WebSocket connected');
     });
     
     socket.on('disconnect', () => {
-        wsStatus.className = 'ws-status ws-disconnected';
-        wsStatus.textContent = '已断开';
+        if (wsStatus) {
+            wsStatus.className = 'ws-status ws-disconnected';
+            wsStatus.textContent = '已断开';
+        }
+        console.log('WebSocket disconnected');
     });
     
-    socket.on('status_update', () => {
-        loadPlayers();
+    socket.on('server_update', (data) => {
+        console.log('Received server_update:', data);
+        // 使用防抖，避免频繁刷新
+        clearTimeout(window.playersRefreshTimer);
+        window.playersRefreshTimer = setTimeout(() => {
+            loadPlayers();
+        }, 500);
+    });
+}
+
+// 初始化函数
+function init() {
+    loadPlayers();
+    initWebSocket();
+    
+    // 定期刷新
+    const refreshTimer = setInterval(loadPlayers, 60000);
+    
+    // 清理函数
+    window.addEventListener('beforeunload', () => {
+        clearInterval(refreshTimer);
+        clearTimeout(window.playersRefreshTimer);
+        if (socket) {
+            socket.disconnect();
+        }
     });
 }
 
 // Load data on page load
-loadPlayers();
-initWebSocket();
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
 
 // Handle page restoration from cache (e.g., back button)
 window.addEventListener('pageshow', (event) => {
     if (event.persisted) {
-        // Page was restored from BFCache, reload data
         loadPlayers();
     }
 });
-
-// Refresh every 60 seconds
-setInterval(loadPlayers, 60000);
 {% endblock %}

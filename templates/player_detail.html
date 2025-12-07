@@ -402,12 +402,22 @@ function initWebSocket() {
     });
     
     socket.on('server_update', (data) => {
+        // 检查是否与当前玩家相关
+        let shouldRefresh = false;
+        
         if (data.status.sample_players && Array.isArray(data.status.sample_players)) {
-            const playerInUpdate = data.status.sample_players.some(p => p.name === playerName);
-            if (playerInUpdate || data.status.players_online === 0) {
-                clearTimeout(window.wsRefreshTimer);
-                window.wsRefreshTimer = setTimeout(() => loadData(), 800);
-            }
+            // 玩家在当前在线列表中
+            shouldRefresh = data.status.sample_players.some(p => p === playerName || p.name === playerName);
+        }
+        
+        // 如果服务器从有玩家变为无玩家，可能是玩家离线了
+        if (!shouldRefresh && data.status.players_online === 0) {
+            shouldRefresh = true;
+        }
+        
+        if (shouldRefresh) {
+            clearTimeout(window.wsRefreshTimer);
+            window.wsRefreshTimer = setTimeout(() => loadData(), 800);
         }
     });
 }
