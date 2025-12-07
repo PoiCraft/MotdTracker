@@ -1,220 +1,107 @@
-# MotdTracker - Minecraft 服务器监控系统
+# MotdTracker — Minecraft 服务器多节点监控
 
-一个功能强大的 Minecraft Java 版服务器监控工具，支持多节点监控、实时数据展示、玩家追踪和 Prometheus 指标导出。
+基于 Flask + Flask-SocketIO + Flask-RESTX 的轻量监控面板，支持多节点聚合、实时图表、玩家追踪与 Prometheus 指标导出。
 
-## ✨ 核心功能
+## 功能概览
 
-- 📊 **多节点监控** - 支持监控多个服务器节点，自动聚合数据
-- ⏱️ **实时数据** - 延迟、在线玩家、服务器版本等实时监控
-- 👥 **玩家追踪** - 记录玩家上下线时间和在线时长
-- 📈 **数据可视化** - Chart.js 图表展示延迟趋势、玩家数量变化
-- 🔥 **热力图** - 24小时在线状态热力图
-- 📡 **WebSocket** - 实时推送更新，无需刷新页面
-- 🔌 **REST API** - 完整的 RESTful API 接口
-- 📊 **Prometheus 导出器** - 支持 Prometheus 监控集成
-- 💾 **SQLite 存储** - 轻量级数据库，无需额外配置
+- 多节点监控与聚合：按节点展示，也可在 Server 页聚合查看。
+- 实时数据：延迟、在线玩家、版本，WebSocket 推送。
+- 延迟统计（24h）：当前、在线率、平均、标准差、最小、最大、P95、CV。
+- 数据可视化：Chart.js 趋势图，24h 热力图，P95 自适应 Y 轴。
+- 玩家追踪：去重后的在线玩家列表与会话时长。
+- Prometheus 导出：完整节点级延迟与在线率指标。
+- 配色定制：节点可配置固定颜色用于图表与标识。
+- 轻量存储：SQLite；轮询间隔可配置，24h 统计窗口随 poll_interval 动态计算。
 
-## 🚀 快速开始
+## 环境要求
 
-### 安装依赖
+- Python >= 3.13
+- 依赖见 `pyproject.toml`
+
+## 快速开始
 
 ```bash
-# 使用 uv (推荐)
+# 安装依赖（推荐）
 uv sync
 
-# 或使用 pip
-pip install -r requirements.txt
-```
-
-### 配置服务器
-
-编辑 `config.json` 文件：
-
-```json
-{
-  "servers": [
-    {
-      "name": "主服务器",
-      "host": "mc.example.com",
-      "port": 25565,
-      "group": "MyServer"
-    },
-    {
-      "name": "备用节点",
-      "host": "backup.example.com",
-      "port": 25565,
-      "group": "MyServer"
-    }
-  ],
-  "database": "minecraft_stats.db",
-  "poll_interval": 60
-}
-```
-
-### 启动应用
-
-```bash
+# 运行
 uv run main.py
+# 默认监听 0.0.0.0:5011，可在 config.json 的 port 中调整
 ```
 
-访问 http://127.0.0.1:5000 查看监控面板
+打开：<http://127.0.0.1:5011>
 
-## ⚙️ 配置说明
-
-### config.json 配置项
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `servers` | Array | ✓ | 服务器列表 |
-| `servers[].name` | String | ✓ | 节点显示名称 |
-| `servers[].host` | String | ✓ | 服务器地址 |
-| `servers[].port` | Number | ✓ | 服务器端口（默认 25565） |
-| `servers[].group` | String | ✗ | 分组名称，同组节点会被聚合显示 |
-| `database` | String | ✓ | SQLite 数据库文件路径 |
-| `poll_interval` | Number | ✓ | 轮询间隔（秒），建议 60-300 |
-
-### 节点分组说明
-
-- **相同 `group` 的节点会被聚合为一个服务器**
-- 适用于同一服务器的多个区域节点（如 CDN、多线路入口）
-- 聚合数据包括：
-  - **在线玩家**：取任一在线节点的数据（共享玩家列表）
-  - **平均延迟**：所有在线节点的平均延迟
-  - **在线率**：整体可用性统计
-  - **活跃节点数**：当前在线的节点数量
-
-### 配置示例
+## 配置 (config.json)
 
 ```json
 {
-  "servers": [
-    {
-      "name": "主线入口",
-      "host": "play.example.com",
-      "port": 25565,
-      "group": "MainServer"
-    },
-    {
-      "name": "电信优化",
-      "host": "telecom.example.com",
-      "port": 25565,
-      "group": "MainServer"
-    },
-    {
-      "name": "联通优化",
-      "host": "unicom.example.com",
-      "port": 25565,
-      "group": "MainServer"
-    }
-  ],
-  "database": "minecraft_stats.db",
-  "poll_interval": 60
+    "server_name": "PoiCraft",
+    "nodes": [
+      { "name": "主线入口", "host": "play.example.com", "port": 25565, "color": "#10b981" },
+      { "name": "电信优化", "host": "ct.example.com", "port": 25565, "color": "#f59e0b" }
+    ],
+    "database": "minecraft_stats.db",
+    "poll_interval": 15,
+    "port": 5011
 }
 ```
 
-## 📊 监控数据
+- `nodes[].color` 可选，十六进制色值。
+- `poll_interval` 单位秒；24h 统计窗口自动计算为 `86400 / poll_interval` 条。
 
-### 服务器指标
+## 页面
 
-- **当前延迟** - 实时网络延迟（ms）
-- **24h 平均延迟** - 过去 24 小时的平均延迟
-- **标准差 (σ)** - 延迟波动幅度
-- **P95 延迟** - 95% 的请求延迟低于此值
-- **变异系数 (CV)** - 稳定性指标（<10% 稳定，>30% 不稳定）
-- **24h 在线率** - 服务器可用性百分比
-- **在线玩家** - 当前在线玩家数量和列表
+- `/` Server 聚合页：汇总在线率、延迟统计、趋势图、热力图、在线玩家。
+- `/nodes` 节点列表：每节点的实时与 24h 统计、趋势图、热力图、在线玩家。
+- `/players` 玩家页：去重在线玩家列表与会话信息。
+- Swagger 文档：`/api/docs`
 
-### 玩家数据
+## API (前缀 /api)
 
-- 玩家上下线时间记录
-- 在线时长统计
-- 历史会话查询
-- 跨节点去重（同一玩家不重复计数）
+- Server 聚合：`/server/nodes` (含延迟统计)、`/server/history`、`/server/stats`、`/server/players`
+- 节点：`/node`、`/node/<id>`、`/node/<id>/history`、`/node/<id>/stats`、`/node/<id>/online_players`
+- 玩家：`/player/<name>`、`/player/<name>/sessions`、`/players`
+- Prometheus：`/exporter/metrics`、`/exporter/health`
 
-## 🌐 Web 界面
+## 延迟与稳定性指标（24h窗口）
 
-### 页面导航
+- 当前延迟、在线率
+- 平均值、标准差、最小值、最大值、P95
+- CV (变异系数，%): <10% 稳定，10-30% 中等，>30% 不稳定
+- 图表：缺失值以 null 填充，支持 `spanGaps`，P95 驱动 Y 轴上限自适应
 
-- **服务器** (`/`) - 聚合视图，显示所有服务器整体状态
-- **节点** (`/nodes`) - 单节点详细视图
-- **玩家** (`/players`) - 玩家列表和统计
+## Prometheus 指标 (前缀 motd_)
 
-### 功能特性
+- 节点级：`motd_server_online`，`motd_server_players_online`，`motd_server_players_max`，`motd_server_latency_ms`
+- 24h 统计：`motd_server_uptime_percentage`，`motd_server_avg_latency_ms`，`motd_server_min_latency_ms`，`motd_server_max_latency_ms`，`motd_server_latency_stddev_ms`，`motd_server_latency_p95_ms`，`motd_server_latency_cv`
+- 玩家：`motd_player_online`，`motd_player_session_duration_seconds`
+- 汇总：`motd_players_count`，`motd_server_count`，`motd_server_sample_players_count`
+- 健康检查：`/api/exporter/health`
+  Prometheus 抓取示例：
 
-- 📱 响应式设计，支持移动端
-- 🔄 WebSocket 实时更新
-- 📈 交互式图表（延迟趋势、玩家数量、在线状态）
-- 🗓️ 24 小时热力图
-- 🎨 暗色主题
+  ```yaml
+  scrape_configs:
+    - job_name: 'motdtracker'
+      metrics_path: '/api/exporter/metrics'
+      static_configs:
+        - targets: ['127.0.0.1:5011']
+      scrape_interval: 60s
+  ```
 
-## 🔌 API 文档
+## 运行与维护
 
-### 节点接口
+- 终止：Ctrl+C，进程会优雅停止调度器。
+- 端口：`config.json` 的 `port`。
+- 数据库：SQLite 文件由应用自动创建/迁移必要表（首次启动）。
 
-- `GET /api/node` - 获取所有节点列表
-- `GET /api/node/<id>` - 获取节点详情
-- `GET /api/node/<id>/history` - 获取节点历史数据
-- `GET /api/node/<id>/stats` - 获取节点统计信息
-- `GET /api/node/<id>/online_players` - 获取节点在线玩家
+## 技术栈
 
-### 服务器接口（聚合）
+- 后端：Flask, Flask-SocketIO, Flask-RESTX
+- 计划任务：APScheduler
+- MC 查询：mcstatus
+- 前端：原生 JS + Chart.js
+- 存储：SQLite
 
-- `GET /api/server/nodes` - 获取所有节点（含延迟统计）
-- `GET /api/server/history` - 获取聚合历史数据
-- `GET /api/server/stats` - 获取聚合统计信息
-- `GET /api/server/players` - 获取所有在线玩家（去重）
+## 许可证
 
-### 玩家接口
-
-- `GET /api/players` - 获取所有玩家列表
-- `GET /api/player/<name>` - 获取玩家详细信息
-- `GET /api/player/<name>/sessions` - 获取玩家会话历史
-
-### Prometheus 导出器
-
-- `GET /api/exporter/metrics` - Prometheus 格式指标
-- `GET /api/exporter/health` - 健康检查
-
-## 📡 Prometheus 集成
-
-### 配置 Prometheus
-
-在 `prometheus.yml` 中添加：
-
-```yaml
-scrape_configs:
-  - job_name: 'minecraft'
-    static_configs:
-      - targets: ['localhost:5000']
-    metrics_path: '/api/exporter/metrics'
-    scrape_interval: 60s
-```
-
-### 导出指标
-
-- `minecraft_server_online` - 服务器在线状态（0/1）
-- `minecraft_server_players` - 在线玩家数
-- `minecraft_server_latency_avg_ms` - 平均延迟
-- `minecraft_server_latency_min_ms` - 最小延迟
-- `minecraft_server_latency_max_ms` - 最大延迟
-- `minecraft_server_uptime_percentage` - 在线率
-- `minecraft_server_sample_players_count` - 样本玩家数
-- `minecraft_player_online` - 玩家在线状态
-- `minecraft_player_session_duration_seconds` - 玩家在线时长
-
-## 🛠️ 技术栈
-
-- **后端**: Flask + Flask-SocketIO + Flask-RESTX
-- **数据库**: SQLite
-- **前端**: Vanilla JavaScript + Chart.js
-- **实时通信**: Socket.IO
-- **服务器查询**: mcstatus
-- **任务调度**: APScheduler
-
-## 📝 许可证
-
-MIT License
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
+MIT
