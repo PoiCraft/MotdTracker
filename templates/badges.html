@@ -1,0 +1,805 @@
+{% extends "base.html" %}
+
+{% block title %}Badge 生成器{% endblock %}
+
+{% block header_left %}
+<div class="header-title">Badge 生成器</div>
+{% endblock %}
+
+{% block header_right %}
+<span class="toolbar-label" id="last-update">--</span>
+<span class="range-badge" id="range-label">--</span>
+{% endblock %}
+
+{% block content %}
+
+<div class="container" style="max-width: 900px; margin: 0 auto; padding: 20px;">
+    
+    <!-- 工具栏 -->
+    <div class="server-card" style="margin-bottom: 20px;">
+        <div style="padding: 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; color: var(--text-color);">输出格式:</span>
+                <select id="output-format" class="time-range-selector" onchange="switchOutputFormat(this.value)">
+                    <option value="url">完整URL</option>
+                    <option value="html">HTML</option>
+                    <option value="markdown">Markdown</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; color: var(--text-color);">Badge样式:</span>
+                <select id="badge-style" class="time-range-selector" onchange="switchBadgeStyle(this.value)">
+                    <option value="flat">默认(flat)</option>
+                    <option value="flat-square">方形(flat-square)</option>
+                    <option value="plastic">塑料(plastic)</option>
+                    <option value="for-the-badge">大型(for-the-badge)</option>
+                    <option value="social">社交(social)</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-weight: 500; color: var(--text-color);">默认时间范围:</span>
+                <select id="default-time-range" class="time-range-selector" onchange="switchDefaultTimeRange(this.value)">
+                    <option value="" selected>24h (默认)</option>
+                    <option value="?hours=1">1h</option>
+                    <option value="?hours=3">3h</option>
+                    <option value="?hours=6">6h</option>
+                    <option value="?hours=12">12h</option>
+                    <option value="?hours=24">24h</option>
+                    <option value="?hours=72">3d (72h)</option>
+                    <option value="?hours=168">7d (168h)</option>
+                    <option value="?hours=720">30d (720h)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <div class="server-card">
+        <div class="server-header">
+            <div class="server-name">服务器 Badges</div>
+        </div>
+        
+        <div style="padding: 20px;">
+            <!-- 服务器状态 -->
+            <div class="badge-item">
+                <div class="badge-label">服务器状态</div>
+                <div class="badge-preview">
+                    <img src="/api/badge/server/status" alt="Server Status">
+                </div>
+                <div class="badge-code">
+                    <input type="text" readonly value="{{ base_url }}/api/badge/server/status" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-html">
+                    <input type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/server/status&quot; alt=&quot;Server Status&quot;>" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-markdown">
+                    <input type="text" readonly value="![Server Status]({{ base_url }}/api/badge/server/status)" class="code-input" onclick="this.select()">
+                </div>
+            </div>
+
+            <!-- 服务器在线率 -->
+            <div class="badge-item">
+                <div class="badge-label">在线率</div>
+                <div class="badge-preview">
+                    <img id="preview-server-uptime" src="/api/badge/server/uptime" alt="Server Uptime">
+                </div>
+                <div class="badge-code">
+                    <input id="api-server-uptime" type="text" readonly value="{{ base_url }}/api/badge/server/uptime" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-html">
+                    <input id="html-server-uptime" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/server/uptime&quot; alt=&quot;Server Uptime&quot;>" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-markdown">
+                    <input id="md-server-uptime" type="text" readonly value="![Server Uptime]({{ base_url }}/api/badge/server/uptime)" class="code-input" onclick="this.select()">
+                </div>
+            </div>
+
+            <!-- 在线玩家数 -->
+            <div class="badge-item">
+                <div class="badge-label">在线玩家数</div>
+                <div class="badge-preview">
+                    <img src="/api/badge/server/players" alt="Online Players">
+                </div>
+                <div class="badge-code">
+                    <input type="text" readonly value="{{ base_url }}/api/badge/server/players" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-html">
+                    <input type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/server/players&quot; alt=&quot;Online Players&quot;>" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-markdown">
+                    <input type="text" readonly value="![Online Players]({{ base_url }}/api/badge/server/players)" class="code-input" onclick="this.select()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="server-card" style="margin-top: 20px;">
+        <div class="server-header">
+            <div class="server-name">
+                节点 Badges
+                <select class="time-range-selector" onchange="switchNode(this)">
+                    {% for node in nodes %}
+                    <option value="{{ node.id }}" {% if loop.first %}selected{% endif %}>选择节点: {{ node.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div style="padding: 20px;">
+            <!-- 节点状态 -->
+            <div class="badge-item">
+                <div class="badge-label">节点状态</div>
+                <div class="badge-preview">
+                    <img id="preview-node-status" src="/api/badge/node/{{ nodes[0].id }}/status" alt="Node Status">
+                </div>
+                <div class="badge-code">
+                    <input id="api-node-status" type="text" readonly value="{{ base_url }}/api/badge/node/{{ nodes[0].id }}/status" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-html">
+                    <input id="html-node-status" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/node/{{ nodes[0].id }}/status&quot; alt=&quot;Node Status&quot;>" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-markdown">
+                    <input id="md-node-status" type="text" readonly value="![Node Status]({{ base_url }}/api/badge/node/{{ nodes[0].id }}/status)" class="code-input" onclick="this.select()">
+                </div>
+            </div>
+
+            <!-- 节点在线率 -->
+            <div class="badge-item">
+                <div class="badge-label">在线率</div>
+                <div class="badge-preview">
+                    <img id="preview-node-uptime" src="/api/badge/node/{{ nodes[0].id }}/uptime" alt="Node Uptime">
+                </div>
+                <div class="badge-code">
+                    <input id="api-node-uptime" type="text" readonly value="{{ base_url }}/api/badge/node/{{ nodes[0].id }}/uptime" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-html">
+                    <input id="html-node-uptime" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/node/{{ nodes[0].id }}/uptime&quot; alt=&quot;Node Uptime&quot;>" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-markdown">
+                    <input id="md-node-uptime" type="text" readonly value="![Node Uptime]({{ base_url }}/api/badge/node/{{ nodes[0].id }}/uptime)" class="code-input" onclick="this.select()">
+                </div>
+            </div>
+
+            <!-- 节点延迟 -->
+            <div class="badge-item">
+                <div class="badge-label">当前延迟</div>
+                <div class="badge-preview">
+                    <img id="preview-node-latency" src="/api/badge/node/{{ nodes[0].id }}/latency" alt="Node Latency">
+                </div>
+                <div class="badge-code">
+                    <input id="api-node-latency" type="text" readonly value="{{ base_url }}/api/badge/node/{{ nodes[0].id }}/latency" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-html">
+                    <input id="html-node-latency" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/node/{{ nodes[0].id }}/latency&quot; alt=&quot;Node Latency&quot;>" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-markdown">
+                    <input id="md-node-latency" type="text" readonly value="![Node Latency]({{ base_url }}/api/badge/node/{{ nodes[0].id }}/latency)" class="code-input" onclick="this.select()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="server-card" style="margin-top: 20px;">
+        <div class="server-header">
+            <div class="server-name">
+                玩家 Badges
+                <select class="time-range-selector" onchange="updatePlayerName(this.value)">
+                    {% if players %}
+                        {% for player in players %}
+                        <option value="{{ player }}" {% if player == 'Steve' or (loop.first and 'Steve' not in players) %}selected{% endif %}>选择玩家: {{ player }}</option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="Steve" selected>选择玩家: Steve</option>
+                    {% endif %}
+                </select>
+            </div>
+        </div>
+        
+        <div style="padding: 20px;">
+
+            <!-- 玩家状态 -->
+            <div class="badge-item">
+                <div class="badge-label">玩家在线状态</div>
+                <div class="badge-preview">
+                    <img id="preview-player-status" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status" alt="Player Status">
+                </div>
+                <div class="badge-code">
+                    <input id="api-player-status" type="text" readonly value="{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-html">
+                    <input id="html-player-status" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status&quot; alt=&quot;Player Status&quot;>" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-markdown">
+                    <input id="md-player-status" type="text" readonly value="![Player Status]({{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status)" class="code-input" onclick="this.select()">
+                </div>
+            </div>
+
+            <!-- 当前会话时长 -->
+            <div class="badge-item">
+                <div class="badge-label">当前会话游戏时长</div>
+                <div class="badge-preview">
+                    <img id="preview-player-current-session" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session" alt="Current Session">
+                </div>
+                <div class="badge-code">
+                    <input id="api-player-current-session" type="text" readonly value="{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-html">
+                    <input id="html-player-current-session" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session&quot; alt=&quot;Current Session&quot;>" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-markdown">
+                    <input id="md-player-current-session" type="text" readonly value="![Current Session]({{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session)" class="code-input" onclick="this.select()">
+                </div>
+            </div>
+
+            <!-- 时段游戏时长 -->
+            <div class="badge-item">
+                <div class="badge-label">时段游戏时长</div>
+                <div class="badge-preview">
+                    <img id="preview-player-period-playtime" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime" alt="Period Playtime">
+                </div>
+                <div class="badge-code">
+                    <input id="api-player-period-playtime" type="text" readonly value="{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-html">
+                    <input id="html-player-period-playtime" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime&quot; alt=&quot;Period Playtime&quot;>" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-markdown">
+                    <input id="md-player-period-playtime" type="text" readonly value="![Period Playtime]({{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime)" class="code-input" onclick="this.select()">
+                </div>
+            </div>
+
+            <!-- 实时状态 -->
+            <div class="badge-item">
+                <div class="badge-label">实时状态(在线显示会话时长,离线显示最后在线)</div>
+                <div class="badge-preview">
+                    <img id="preview-player-live" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live" alt="Player Live">
+                </div>
+                <div class="badge-code">
+                    <input id="api-player-live" type="text" readonly value="{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-html">
+                    <input id="html-player-live" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live&quot; alt=&quot;Player Live&quot;>" class="code-input" onclick="this.select()">
+                </div>
+                <div class="badge-markdown">
+                    <input id="md-player-live" type="text" readonly value="![Player Live]({{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live)" class="code-input" onclick="this.select()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="server-card" style="margin-top: 20px;">
+        <div class="server-header">
+            <div class="server-name">使用说明</div>
+        </div>
+        <div style="padding: 20px; color: var(--text-secondary); line-height: 1.8;">
+            <p>1. <strong>直接嵌入</strong>：复制 API 路径并在 HTML 中使用 <code>&lt;img src="..."&gt;</code></p>
+            <p>2. <strong>Markdown</strong>：复制 Markdown 格式并粘贴到 README.md 或文档中</p>
+            <p>3. <strong>自动更新</strong>：Badge 会实时反映服务器状态，无需手动更新</p>
+            <p>4. <strong>缓存</strong>：建议在引用时添加缓存控制，避免频繁刷新</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.badge-item {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.badge-label {
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 10px;
+    font-size: 0.9em;
+}
+
+.badge-preview {
+    margin-bottom: 10px;
+    padding: 10px;
+    background: var(--bg);
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.badge-code, .badge-markdown, .badge-html {
+    margin-top: 8px;
+}
+
+.badge-markdown, .badge-html {
+    display: none;
+}
+
+.code-input {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    font-size: 0.85em;
+    cursor: pointer;
+}
+
+.code-input:focus {
+    outline: none;
+    border-color: var(--info);
+}
+
+code {
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.container {
+    padding-bottom: 40px;
+}
+
+.time-range-selector {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.875em;
+    font-weight: 500;
+    outline: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.time-range-selector:hover {
+    border-color: var(--accent-primary);
+}
+
+.time-range-selector:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.time-range-selector option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+</style>
+
+<script src="/static/js/socket.io.min.js"></script>
+<script>
+// WebSocket连接
+let socket;
+
+// 格式切换函数
+function switchOutputFormat(format) {
+    const codeElements = document.querySelectorAll('.badge-code');
+    const htmlElements = document.querySelectorAll('.badge-html');
+    const markdownElements = document.querySelectorAll('.badge-markdown');
+    
+    if (format === 'url') {
+        codeElements.forEach(el => el.style.display = 'block');
+        htmlElements.forEach(el => el.style.display = 'none');
+        markdownElements.forEach(el => el.style.display = 'none');
+    } else if (format === 'html') {
+        codeElements.forEach(el => el.style.display = 'none');
+        htmlElements.forEach(el => el.style.display = 'block');
+        markdownElements.forEach(el => el.style.display = 'none');
+    } else if (format === 'markdown') {
+        codeElements.forEach(el => el.style.display = 'none');
+        htmlElements.forEach(el => el.style.display = 'none');
+        markdownElements.forEach(el => el.style.display = 'block');
+    }
+}
+
+// 样式切换函数
+function switchBadgeStyle(style) {
+    // 更新所有badge预览图片的样式参数
+    const allImages = document.querySelectorAll('.badge-preview img');
+    allImages.forEach(img => {
+        let src = img.src.split('?')[0];
+        let params = new URLSearchParams(img.src.split('?')[1] || '');
+        
+        // 移除旧的样式参数
+        params.delete('style');
+        params.delete('t');
+        
+        // 添加新样式(如果不是默认flat)
+        if (style !== 'flat') {
+            params.set('style', style);
+        }
+        
+        // 添加时间戳
+        params.set('t', Date.now());
+        
+        const paramStr = params.toString();
+        img.src = src + (paramStr ? '?' + paramStr : '');
+    });
+    
+    // 更新所有URL输入框
+    updateAllBadgeUrls();
+}
+
+// 默认时间范围切换函数
+function switchDefaultTimeRange(timeRange) {
+    // 更新所有支持时间范围的badge
+    const timeBasedBadges = ['server-uptime', 'node-uptime', 'player-period-playtime'];
+    
+    timeBasedBadges.forEach(badgeId => {
+        const previewImg = document.querySelector('#preview-' + badgeId);
+        if (previewImg) {
+            let src = previewImg.src.split('?')[0];
+            let params = new URLSearchParams();
+            
+            // 获取当前样式
+            const styleSelect = document.getElementById('badge-style');
+            if (styleSelect && styleSelect.value !== 'flat') {
+                params.set('style', styleSelect.value);
+            }
+            
+            // 添加时间范围参数
+            if (timeRange) {
+                const hours = timeRange.replace('?hours=', '');
+                params.set('hours', hours);
+            }
+            
+            // 添加时间戳
+            params.set('t', Date.now());
+            
+            const paramStr = params.toString();
+            previewImg.src = src + (paramStr ? '?' + paramStr : '');
+        }
+    });
+    
+    // 更新URL输入框
+    updateAllBadgeUrls();
+    
+    // 更新时间范围标签
+    updateRangeLabel();
+}
+
+// 更新所有badge的URL输入框
+function updateAllBadgeUrls() {
+    const styleSelect = document.getElementById('badge-style');
+    const timeRangeSelect = document.getElementById('default-time-range');
+    const currentStyle = styleSelect ? styleSelect.value : 'flat';
+    const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
+    
+    // 获取基础URL(不含时间戳)
+    const baseUrl = '{{ base_url }}';
+    
+    // 更新所有badge的URL
+    document.querySelectorAll('.badge-preview img').forEach(img => {
+        const imgId = img.id;
+        if (!imgId) return;
+        
+        const badgeId = imgId.replace('preview-', '');
+        const apiInput = document.getElementById('api-' + badgeId);
+        const htmlInput = document.getElementById('html-' + badgeId);
+        const mdInput = document.getElementById('md-' + badgeId);
+        
+        if (apiInput) {
+            let src = img.src.split('?')[0].replace(window.location.origin, baseUrl);
+            let params = new URLSearchParams();
+            
+            // 添加样式参数
+            if (currentStyle !== 'flat') {
+                params.set('style', currentStyle);
+            }
+            
+            // 如果是时间相关badge,添加时间参数
+            if (['server-uptime', 'node-uptime', 'player-period-playtime'].includes(badgeId) && currentTimeRange) {
+                const hours = currentTimeRange.replace('?hours=', '');
+                params.set('hours', hours);
+            }
+            
+            const paramStr = params.toString();
+            const fullUrl = src + (paramStr ? '?' + paramStr : '');
+            
+            apiInput.value = fullUrl;
+            
+            if (htmlInput) {
+                const altText = img.alt || 'Badge';
+                htmlInput.value = `<img src="${fullUrl}" alt="${altText}">`;
+            }
+            
+            if (mdInput) {
+                const altText = img.alt || 'Badge';
+                mdInput.value = `![${altText}](${fullUrl})`;
+            }
+        }
+    });
+}
+
+// 初始化WebSocket连接
+function initWebSocket() {
+    if (typeof io === 'undefined') {
+        console.warn('socket.io not loaded yet, retrying...');
+        setTimeout(initWebSocket, 100);
+        return;
+    }
+    socket = io({ path: '/api/socket.io' });
+    
+    const wsStatus = document.getElementById('ws-status');
+    
+    // 连接建立时的处理
+    socket.on('connect', function() {
+        console.log('WebSocket connected for badges page');
+        if (wsStatus) {
+            wsStatus.className = 'ws-status ws-connected';
+            wsStatus.textContent = '已连接';
+            wsStatus.title = 'WebSocket已连接';
+        }
+    });
+    
+    socket.on('disconnect', function() {
+        console.log('WebSocket disconnected');
+        if (wsStatus) {
+            wsStatus.className = 'ws-status ws-disconnected';
+            wsStatus.textContent = '已断开';
+            wsStatus.title = 'WebSocket已断开';
+        }
+    });
+    
+    socket.on('connect_error', function(error) {
+        console.error('WebSocket connection error:', error);
+        if (wsStatus) {
+            wsStatus.className = 'ws-status ws-error';
+            wsStatus.textContent = '错误';
+            wsStatus.title = 'WebSocket错误: ' + error.message;
+        }
+    });
+    
+    // 监听轮询完成事件
+    socket.on('poll_complete', function(data) {
+        refreshAllBadges();
+        updateLastRefreshTime();
+    });
+}
+
+// 更新最后刷新时间
+function updateLastRefreshTime() {
+    const lastUpdate = document.getElementById('last-update');
+    if (lastUpdate) {
+        lastUpdate.textContent = new Date().toLocaleTimeString('zh-CN');
+    }
+}
+
+// 更新时间范围标签
+function updateRangeLabel() {
+    const rangeLabel = document.getElementById('range-label');
+    const timeRangeSelect = document.getElementById('default-time-range');
+    
+    if (rangeLabel && timeRangeSelect) {
+        const selectedValue = timeRangeSelect.value;
+        if (!selectedValue || selectedValue === '') {
+            rangeLabel.textContent = '24H';
+        } else {
+            // 从?hours=X中提取小时数
+            const hours = selectedValue.replace('?hours=', '');
+            rangeLabel.textContent = hours + 'H';
+        }
+    }
+}
+
+// 页面加载完成后初始化WebSocket
+document.addEventListener('DOMContentLoaded', function() {
+    initWebSocket();
+    updateLastRefreshTime();
+    updateRangeLabel();
+});
+
+
+
+// 刷新所有badge
+function refreshAllBadges() {
+    refreshServerBadges();
+    refreshNodeBadges();
+    refreshPlayerBadges();
+}
+
+// 刷新服务器badges
+function refreshServerBadges() {
+    const serverStatusImg = document.querySelector('#preview-server-status');
+    const serverUptimeImg = document.querySelector('#preview-server-uptime');
+    const serverPlayersImg = document.querySelector('img[alt="Online Players"]');
+    
+    if (serverStatusImg) {
+        const baseSrc = serverStatusImg.src.split('?')[0];
+        serverStatusImg.src = baseSrc + '?t=' + Date.now();
+    }
+    if (serverUptimeImg) {
+        const baseSrc = serverUptimeImg.src.split('?')[0];
+        const params = getTimeRangeParams('server-uptime');
+        serverUptimeImg.src = baseSrc + (params ? params + '&' : '?') + 't=' + Date.now();
+    }
+    if (serverPlayersImg) {
+        const baseSrc = serverPlayersImg.src.split('?')[0];
+        serverPlayersImg.src = baseSrc + '?t=' + Date.now();
+    }
+}
+
+// 刷新节点badges
+function refreshNodeBadges() {
+    const nodeStatusImg = document.querySelector('#preview-node-status');
+    const nodeUptimeImg = document.querySelector('#preview-node-uptime');
+    const nodeLatencyImg = document.querySelector('#preview-node-latency');
+    
+    if (nodeStatusImg) {
+        const baseSrc = nodeStatusImg.src.split('?')[0];
+        nodeStatusImg.src = baseSrc + '?t=' + Date.now();
+    }
+    if (nodeUptimeImg) {
+        const baseSrc = nodeUptimeImg.src.split('?')[0];
+        const params = getTimeRangeParams('node-uptime');
+        nodeUptimeImg.src = baseSrc + (params ? params + '&' : '?') + 't=' + Date.now();
+    }
+    if (nodeLatencyImg) {
+        const baseSrc = nodeLatencyImg.src.split('?')[0];
+        nodeLatencyImg.src = baseSrc + '?t=' + Date.now();
+    }
+}
+
+// 刷新玩家badges
+function refreshPlayerBadges() {
+    const playerStatusImg = document.querySelector('#preview-player-status');
+    const playerSessionImg = document.querySelector('#preview-player-current-session');
+    const playerPlaytimeImg = document.querySelector('#preview-player-period-playtime');
+    const playerLiveImg = document.querySelector('#preview-player-live');
+    
+    if (playerStatusImg) {
+        const baseSrc = playerStatusImg.src.split('?')[0];
+        playerStatusImg.src = baseSrc + '?t=' + Date.now();
+    }
+    if (playerSessionImg) {
+        const baseSrc = playerSessionImg.src.split('?')[0];
+        playerSessionImg.src = baseSrc + '?t=' + Date.now();
+    }
+    if (playerPlaytimeImg) {
+        const baseSrc = playerPlaytimeImg.src.split('?')[0];
+        const params = getTimeRangeParams('player-period-playtime');
+        playerPlaytimeImg.src = baseSrc + (params ? params + '&' : '?') + 't=' + Date.now();
+    }
+    if (playerLiveImg) {
+        const baseSrc = playerLiveImg.src.split('?')[0];
+        playerLiveImg.src = baseSrc + '?t=' + Date.now();
+    }
+}
+
+// 获取时间范围参数
+function getTimeRangeParams(badgeId) {
+    const selector = document.querySelector(`[onchange*="${badgeId}"]`);
+    if (selector && selector.value) {
+        return selector.value;
+    }
+    return '';
+}
+
+function updateBadgeUrl(selector, badgeId) {
+    const params = selector.value;
+    const baseUrl = '{{ base_url }}';
+    
+    // 更新预览图片
+    const previewImg = document.getElementById('preview-' + badgeId);
+    if (previewImg) {
+        const baseSrc = previewImg.src.split('?')[0];
+        previewImg.src = baseSrc + (params ? params + '&' : '?') + 't=' + Date.now();
+    }
+    
+    // 更新API路径输入框
+    const apiInput = document.getElementById('api-' + badgeId);
+    if (apiInput) {
+        const currentPath = apiInput.value.split('?')[0];
+        apiInput.value = currentPath + params;
+    }
+    
+    // 更新Markdown输入框
+    const mdInput = document.getElementById('md-' + badgeId);
+    if (mdInput) {
+        const match = mdInput.value.match(/!\[([^\]]+)\]\(([^)]+)\)/);
+        if (match) {
+            const label = match[1];
+            const currentPath = match[2].split('?')[0];
+            mdInput.value = `![${label}](${currentPath}${params})`;
+        }
+    }
+}
+
+function switchNode(selector) {
+    const nodeId = selector.value;
+    const baseUrl = '{{ base_url }}';
+    
+    // 更新节点状态badge
+    updateNodeBadge('node-status', nodeId, '/status', '');
+    
+    // 更新节点在线率badge
+    const uptimeSelector = document.querySelector('[onchange*="node-uptime"]');
+    const uptimeParams = uptimeSelector ? uptimeSelector.value : '';
+    updateNodeBadge('node-uptime', nodeId, '/uptime', uptimeParams);
+    
+    // 更新节点延迟badge
+    updateNodeBadge('node-latency', nodeId, '/latency', '');
+}
+
+function updateNodeBadge(badgeId, nodeId, endpoint, params) {
+    const baseUrl = '{{ base_url }}';
+    const apiPath = `/api/badge/node/${nodeId}${endpoint}`;
+    
+    // 更新预览图片
+    const previewImg = document.getElementById('preview-' + badgeId);
+    if (previewImg) {
+        previewImg.src = apiPath + (params ? params + '&' : '?') + 't=' + Date.now();
+    }
+    
+    // 更新API路径输入框
+    const apiInput = document.getElementById('api-' + badgeId);
+    if (apiInput) {
+        apiInput.value = apiPath + params;
+    }
+    
+    // 更新Markdown输入框
+    const mdInput = document.getElementById('md-' + badgeId);
+    if (mdInput) {
+        const match = mdInput.value.match(/!\[([^\]]+)\]/);
+        const label = match ? match[1] : 'Node Badge';
+        mdInput.value = `![${label}](${baseUrl}${apiPath}${params})`;
+    }
+}
+
+function updatePlayerName(playerName) {
+    if (!playerName || playerName.trim() === '') {
+        // 如果为空,使用选择器的首个选项
+        const selector = document.querySelector('[onchange*="updatePlayerName"]');
+        if (selector && selector.options.length > 0) {
+            playerName = selector.options[0].value;
+        } else {
+            playerName = 'Steve';
+        }
+    }
+    
+    const baseUrl = '{{ base_url }}';
+    const badges = [
+        { id: 'player-status', endpoint: '/status', hasParams: false },
+        { id: 'player-current-session', endpoint: '/current-session', hasParams: false },
+        { id: 'player-period-playtime', endpoint: '/period-playtime', hasParams: true },
+        { id: 'player-live', endpoint: '/live', hasParams: false }
+    ];
+    
+    badges.forEach(badge => {
+        const apiPath = `/api/badge/player/${playerName}${badge.endpoint}`;
+        let params = '';
+        
+        if (badge.hasParams) {
+            const selector = document.querySelector(`[onchange*="${badge.id}"]`);
+            params = selector ? selector.value : '';
+        }
+        
+        // 更新预览图片
+        const previewImg = document.getElementById('preview-' + badge.id);
+        if (previewImg) {
+            previewImg.src = apiPath + (params ? params + '&' : '?') + 't=' + Date.now();
+        }
+        
+        // 更新API路径输入框
+        const apiInput = document.getElementById('api-' + badge.id);
+        if (apiInput) {
+            apiInput.value = apiPath + params;
+        }
+        
+        // 更新Markdown输入框
+        const mdInput = document.getElementById('md-' + badge.id);
+        if (mdInput) {
+            const match = mdInput.value.match(/!\[([^\]]+)\]/);
+            const label = match ? match[1] : 'Player Badge';
+            mdInput.value = `![${label}](${baseUrl}${apiPath}${params})`;
+        }
+    });
+}
+</script>
+
+{% endblock %}

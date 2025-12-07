@@ -11,6 +11,7 @@ from routes.node_api import register_node_routes
 from routes.server_api import register_server_routes
 from routes.player_api import register_player_routes
 from routes.exporter import register_exporter_routes
+from routes.badge_api import register_badge_routes
 
 
 # 创建Flask应用
@@ -38,6 +39,7 @@ register_node_routes(api, poller)
 register_server_routes(api, poller)
 register_player_routes(api, poller)
 register_exporter_routes(api, poller)
+register_badge_routes(api, poller)
 
 
 def main():
