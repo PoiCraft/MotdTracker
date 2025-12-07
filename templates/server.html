@@ -27,6 +27,7 @@
 {% block header_right %}
 <span class="toolbar-label" id="last-update">--</span>
 <span class="range-badge" id="range-label">--</span>
+<span class="loading-spinner hidden" id="loading-spinner"></span>
 {% endblock %}
 
 {% block content %}
@@ -158,6 +159,9 @@
     }
 
     async function loadServer() {
+        const spinner = document.getElementById('loading-spinner');
+        if (spinner) spinner.classList.remove('hidden');
+        
         try {
             const [nodesRes, historyRes, uptimeRes, statusTimelineRes, playersRes, headRes] = await Promise.all([
                 fetch('/api/server/nodes'),
@@ -234,6 +238,9 @@
             renderNodesLatencyStats(nodes, statsById);
         } catch (err) {
             console.error('加载服务器数据失败', err);
+        } finally {
+            const spinner = document.getElementById('loading-spinner');
+            if (spinner) spinner.classList.add('hidden');
         }
     }
 
