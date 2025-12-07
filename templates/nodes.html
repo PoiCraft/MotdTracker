@@ -327,7 +327,3 @@ window.addEventListener('beforeunload', ()=>{ if(socket) socket.disconnect(); Ob
 initWebSocket();
 loadAll();
 {% endblock %}
-
-{% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
-{% endblock %}
