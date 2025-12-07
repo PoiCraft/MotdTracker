@@ -2,10 +2,6 @@
 
 {% block title %}玩家{% endblock %}
 
-{% block extra_head %}
-<script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
-{% endblock %}
-
 {% block header_left %}
 <div class="header-title">玩家</div>
 {% endblock %}
@@ -15,12 +11,6 @@
 {% endblock %}
 
 {% block content %}
-<div id="online-count-chart-section" class="online-count-chart-section">
-    <div class="chart-title">过去24h在线玩家趋势</div>
-    <div class="chart-container chart-container-tall">
-        <canvas id="online-count-chart"></canvas>
-    </div>
-</div>
 <div id="players-container" class="players-list">
     <div class="loading">加载中...</div>
 </div>
@@ -93,103 +83,6 @@ function renderHeatmap(heatmap) {
     </div>`;
 }
 
-let onlineCountChart = null;
-const chartColors = {
-    text: '#cbd5e1',
-    grid: '#334155'
-};
-
-function renderOnlineCountChart(history) {
-    if (!history || history.length === 0) {
-        return;
-    }
-    
-    // Get past 24 hours data
-    const now = new Date();
-    const past24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    
-    // Filter history for past 24 hours
-    const filteredHistory = history.filter(h => {
-        const time = new Date(h.timestamp * 1000);
-        return time >= past24h && time <= now;
-    }).reverse();
-    
-    if (filteredHistory.length === 0) {
-        return;
-    }
-    
-    const labels = filteredHistory.map(h => new Date(h.timestamp * 1000).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
-    const playersOnline = filteredHistory.map(h => h.players_online || 0);
-    const playersMax = filteredHistory.map(h => h.players_max || 0);
-    
-    const ctx = document.getElementById('online-count-chart');
-    if (!ctx) return;
-    
-    if (onlineCountChart) onlineCountChart.destroy();
-    
-    onlineCountChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [
-                { 
-                    label: '在线玩家', 
-                    data: playersOnline, 
-                    borderColor: '#10b981', 
-                    backgroundColor: 'rgba(16,185,129,0.1)', 
-                    borderWidth: 3, 
-                    fill: true, 
-                    tension: 0.4, 
-                    pointRadius: 0, 
-                    pointHoverRadius: 5, 
-                    spanGaps: true 
-                },
-                { 
-                    label: '最大玩家数', 
-                    data: playersMax, 
-                    borderColor: '#6b7280', 
-                    backgroundColor: 'rgba(107,114,128,0.05)', 
-                    borderWidth: 1, 
-                    borderDash: [5, 5], 
-                    fill: false, 
-                    tension: 0.4, 
-                    pointRadius: 0, 
-                    pointHoverRadius: 3, 
-                    spanGaps: true 
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { 
-                legend: { 
-                    display: true, 
-                    position: 'top', 
-                    labels: { usePointStyle: true, padding: 15, color: chartColors.text } 
-                }, 
-                tooltip: { mode: 'index', intersect: false } 
-            },
-            scales: {
-                x: { 
-                    display: true, 
-                    ticks: { maxTicksLimit: 8, color: chartColors.text }, 
-                    grid: { color: chartColors.grid } 
-                },
-                y: { 
-                    display: true, 
-                    beginAtZero: true, 
-                    ticks: { callback: (v) => Math.floor(v), stepSize: 1, color: chartColors.text }, 
-                    grid: { color: chartColors.grid } 
-                }
-            },
-            interaction: { mode: 'nearest', axis: 'x', intersect: false }
-        }
-    });
-    
-    document.getElementById('online-count-chart-section').style.display = 'block';
-}
-
 async function loadPlayers() {
     try {
         const res = await fetch('/api/players');
@@ -228,19 +121,6 @@ async function loadPlayers() {
                 }
             })
         );
-        
-        // Get server online count history
-        try {
-            // Get aggregated server history
-            const historyRes = await fetch('/api/server/history');
-            const history = await historyRes.json();
-            
-            if (history && history.length > 0) {
-                renderOnlineCountChart(history);
-            }
-        } catch (e) {
-            console.error('Failed to load server history:', e);
-        }
         
         renderPlayersList(playersWithHeatmap);
         document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
