@@ -6,22 +6,7 @@
 <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
 {% endblock %}
 
-{% block sidebar_items %}
-<div class="sidebar-divider"></div>
-<div class="sidebar-item">
-    <label class="sidebar-label">时间跨度</label>
-    <select id="sidebar-range" class="sidebar-select">
-        <option value="4">4h</option>
-        <option value="8">8h</option>
-        <option value="12" selected>12h</option>
-        <option value="24">1d</option>
-        <option value="48">2d</option>
-        <option value="96">4d</option>
-        <option value="168">7d</option>
-        <option value="720">30d</option>
-    </select>
-</div>
-{% endblock %}
+{% block sidebar_items %}{% endblock %}
 
 {% block header_left %}
 <div class="header-title">服务器</div>
@@ -29,17 +14,6 @@
 
 {% block header_right %}
 <span class="toolbar-label" id="last-update">--</span>
-<span class="toolbar-label">时间跨度</span>
-<select id="global-range" class="range-select">
-    <option value="4">4h</option>
-    <option value="8">8h</option>
-    <option value="12" selected>12h</option>
-    <option value="24">1d</option>
-    <option value="48">2d</option>
-    <option value="96">4d</option>
-    <option value="168">7d</option>
-    <option value="720">30d</option>
-</select>
 {% endblock %}
 
 {% block content %}
@@ -433,12 +407,11 @@
     }
 
     function loadAll() {
-        chartHours = parseInt(document.getElementById('global-range').value, 10) || 12;
+        chartHours = 12;
         document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
         loadServer();
     }
 
-    document.getElementById('global-range').addEventListener('change', loadAll);
     window.addEventListener('beforeunload', () => { if (socket) socket.disconnect(); Object.values(charts).forEach(c => c.destroy?.()); });
 
     // Handle page restoration from cache (e.g., back button)

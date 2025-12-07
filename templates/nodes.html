@@ -12,17 +12,6 @@
 
 {% block header_right %}
 <span class="toolbar-label" id="last-update">--</span>
-<span class="toolbar-label">时间跨度</span>
-<select id="global-range" class="range-select">
-    <option value="4">4h</option>
-    <option value="8">8h</option>
-    <option value="12" selected>12h</option>
-    <option value="24">1d</option>
-    <option value="48">2d</option>
-    <option value="96">4d</option>
-    <option value="168">7d</option>
-    <option value="720">30d</option>
-</select>
 {% endblock %}
 
 {% block content %}
@@ -390,12 +379,11 @@ function initWebSocket(){
 }
 
 function loadAll(){
-    chartHours = parseInt(document.getElementById('global-range').value, 10) || 12;
+    chartHours = 12;
     document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
     servers.forEach(s => loadServer(s));
 }
 
-document.getElementById('global-range').addEventListener('change', loadAll);
 window.addEventListener('beforeunload', ()=>{ if(socket) socket.disconnect(); Object.values(charts).forEach(c=>c.destroy?.()); });
 
 // Handle page restoration from cache (e.g., back button)
