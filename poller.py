@@ -100,9 +100,10 @@ class ServerPoller:
             timestamp=timestamp
         )
 
-        # 更新玩家在线会话
-        if status.get('sample_players') is not None:
-            self.db.update_player_sessions(server_id, status.get('sample_players'), timestamp or datetime.now())
+        # 更新玩家在线会话（无论服务器是否离线，都需要更新）
+        # 如果服务器离线或没有获取到玩家列表，传入空列表会标记所有在线玩家为离线
+        sample_players = status.get('sample_players') if status.get('online') else None
+        self.db.update_player_sessions(server_id, sample_players, timestamp or datetime.now())
         
         # 输出状态
         status_str = self.monitor.format_status(status)

@@ -44,170 +44,170 @@
 
 {% block content %}
 
-        <div id="groups-container">
-            {% for group in groups %}
-            {% set slug = group.server_name | replace(' ', '-') | replace('/', '-') %}
-            <div class="server-card" data-group="{{ group.server_name }}" data-slug="{{ slug }}">
-                <div class="server-header">
-                    <div>
-                        <div class="server-name">{{ group.server_name }}</div>
-                        <div class="server-address">{{ group.servers|length }} 个节点入口</div>
-                    </div>
-                    <div class="status-badge status-offline" id="badge-{{ slug }}">--</div>
-                </div>
-
-                <div class="stats-grid">
-                    <div class="stat-box">
-                        <div class="stat-label">24h在线率</div>
-                        <div class="stat-value" id="uptime-{{ slug }}">--</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-label">平均延迟</div>
-                        <div class="stat-value" id="latency-{{ slug }}">--</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-label">在线玩家</div>
-                        <div class="stat-value" id="players-{{ slug }}">--</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-label">活跃节点</div>
-                        <div class="stat-value" id="active-{{ slug }}">--</div>
-                    </div>
-                </div>
-
-                <div class="uptime-bar">
-                    <div class="uptime-fill" id="uptime-fill-{{ slug }}">0% 在线</div>
-                </div>
-
-                <div class="chart-title">节点延迟对比</div>
-                <div class="chart-container">
-                    <canvas id="chart-latency-{{ slug }}"></canvas>
-                </div>
-
-                <div class="chart-title">在线玩家趋势</div>
-                <div class="chart-container">
-                    <canvas id="chart-players-{{ slug }}"></canvas>
-                </div>
-
-                <div class="chart-title">在线状态</div>
-                <div class="chart-container chart-small">
-                    <canvas id="chart-status-{{ slug }}"></canvas>
-                </div>
-
-                <div class="chart-title">在线玩家</div>
-                <div class="group-servers player-list" id="players-list-{{ slug }}">加载中...</div>
+<div id="groups-container">
+    {% for group in groups %}
+    {% set slug = group.server_name | replace(' ', '-') | replace('/', '-') %}
+    <div class="server-card" data-group="{{ group.server_name }}" data-slug="{{ slug }}">
+        <div class="server-header">
+            <div>
+                <div class="server-name">{{ group.server_name }}</div>
+                <div class="server-address">{{ group.servers|length }} 个节点入口</div>
             </div>
-            {% endfor %}
+            <div class="status-badge status-offline" id="badge-{{ slug }}">--</div>
         </div>
+
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-label">24h在线率</div>
+                <div class="stat-value" id="uptime-{{ slug }}">--</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">平均延迟</div>
+                <div class="stat-value" id="latency-{{ slug }}">--</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">在线玩家</div>
+                <div class="stat-value" id="players-{{ slug }}">--</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">活跃节点</div>
+                <div class="stat-value" id="active-{{ slug }}">--</div>
+            </div>
+        </div>
+
+        <div class="uptime-bar">
+            <div class="uptime-fill" id="uptime-fill-{{ slug }}">0% 在线</div>
+        </div>
+
+        <div class="chart-title">节点延迟对比</div>
+        <div class="chart-container">
+            <canvas id="chart-latency-{{ slug }}"></canvas>
+        </div>
+
+        <div class="chart-title">在线玩家趋势</div>
+        <div class="chart-container">
+            <canvas id="chart-players-{{ slug }}"></canvas>
+        </div>
+
+        <div class="chart-title">在线状态</div>
+        <div class="chart-container chart-small">
+            <canvas id="chart-status-{{ slug }}"></canvas>
+        </div>
+
+        <div class="chart-title">在线玩家</div>
+        <div class="group-servers player-list" id="players-list-{{ slug }}">加载中...</div>
     </div>
+    {% endfor %}
+</div>
+</div>
 
 <script>
-const charts = {};
-let socket = null;
-let chartHours = 12;
-const groups = Array.from(document.querySelectorAll('[data-group]')).map(el => ({
-    name: el.dataset.group,
-    slug: el.dataset.slug
-}));
+    const charts = {};
+    let socket = null;
+    let chartHours = 12;
+    const groups = Array.from(document.querySelectorAll('[data-group]')).map(el => ({
+        name: el.dataset.group,
+        slug: el.dataset.slug
+    }));
 
-// Chart.js color configuration for dark theme
-const chartColors = {
-    text: '#cbd5e1',
-    grid: '#334155',
-    textSecondary: '#94a3b8'
-};
+    // Chart.js color configuration for dark theme
+    const chartColors = {
+        text: '#cbd5e1',
+        grid: '#334155',
+        textSecondary: '#94a3b8'
+    };
 
-function formatDuration(seconds){
-    if (seconds === null || seconds === undefined) return '未知';
-    const mins = Math.floor(seconds / 60);
-    const hours = Math.floor(mins / 60);
-    const minutes = mins % 60;
-    return hours > 0 ? `${hours}小时${minutes}分` : `${minutes}分`;
-}
-
-function formatTime(value){
-    if (!value) return '未知';
-    return new Date(value).toLocaleString('zh-CN');
-}
-
-function escapeHtml(unsafe){
-    if (!unsafe) return '';
-    return unsafe
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-function updateGroupCard(slug, {uptime, latency, players, maxPlayers, active, total, online}){
-    const uptimeEl = document.getElementById(`uptime-${slug}`);
-    const latencyEl = document.getElementById(`latency-${slug}`);
-    const playersEl = document.getElementById(`players-${slug}`);
-    const activeEl = document.getElementById(`active-${slug}`);
-    const fillEl = document.getElementById(`uptime-fill-${slug}`);
-    const badge = document.getElementById(`badge-${slug}`);
-    if (uptimeEl) uptimeEl.textContent = `${uptime ?? 0}%`;
-    if (latencyEl) latencyEl.textContent = latency ? `${latency}ms` : 'N/A';
-    if (playersEl) playersEl.textContent = online ? `${players}/${maxPlayers}` : 'N/A';
-    if (activeEl) activeEl.textContent = `${active}/${total}`;
-    if (fillEl) {
-        const val = uptime ?? 0;
-        fillEl.style.width = `${val}%`;
-        fillEl.textContent = `${val}% 在线`;
+    function formatDuration(seconds) {
+        if (seconds === null || seconds === undefined) return '未知';
+        const mins = Math.floor(seconds / 60);
+        const hours = Math.floor(mins / 60);
+        const minutes = mins % 60;
+        return hours > 0 ? `${hours}小时${minutes}分` : `${minutes}分`;
     }
-    if (badge) {
-        badge.textContent = online ? '在线' : '离线';
-        badge.className = online ? 'status-badge status-online' : 'status-badge status-offline';
+
+    function formatTime(value) {
+        if (!value) return '未知';
+        return new Date(value).toLocaleString('zh-CN');
     }
-}
 
-async function loadGroup(group){
-    const g = encodeURIComponent(group.name);
-    const slug = group.slug;
-    try {
-        const [historyRes, statsRes, playersRes] = await Promise.all([
-            fetch(`/api/servers/${g}/history`),
-            fetch(`/api/servers/${g}/stats`),
-            fetch(`/api/servers/${g}/players`)
-        ]);
-        const history = await historyRes.json();
-        const stats = await statsRes.json();
-        const players = await playersRes.json();
-
-        const latest = history[0];
-        const anyOnline = !!(latest && latest.online);
-        const playersOnline = latest && latest.players_online ? latest.players_online : 0;
-        const playersMax = latest && latest.players_max ? latest.players_max : 0;
-        const activeEntrances = (history && history.length && latest && latest.latencies) ?
-            Object.values(latest.latencies).filter(v => v !== null).length : 0;
-        updateGroupCard(slug, {
-            uptime: stats.uptime_percentage ?? 0,
-            latency: stats.avg_latency,
-            players: playersOnline,
-            maxPlayers: playersMax,
-            active: activeEntrances,
-            total: latest && latest.latencies ? Object.keys(latest.latencies).length : players.length,
-            online: anyOnline
-        });
-
-        renderLatencyChart(slug, history);
-        renderPlayersChart(slug, history);
-        renderStatusChart(slug, history);
-        renderPlayersList(slug, players);
-    } catch(err){
-        console.error('加载组数据失败', group.name, err);
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
-}
 
-function renderPlayersList(slug, players){
-    const container = document.getElementById(`players-list-${slug}`);
-    if (!container) return;
-    if (!players || !players.length){
-        container.innerHTML = '<div class="loading">暂无玩家</div>';
-        return;
+    function updateGroupCard(slug, { uptime, latency, players, maxPlayers, active, total, online }) {
+        const uptimeEl = document.getElementById(`uptime-${slug}`);
+        const latencyEl = document.getElementById(`latency-${slug}`);
+        const playersEl = document.getElementById(`players-${slug}`);
+        const activeEl = document.getElementById(`active-${slug}`);
+        const fillEl = document.getElementById(`uptime-fill-${slug}`);
+        const badge = document.getElementById(`badge-${slug}`);
+        if (uptimeEl) uptimeEl.textContent = `${uptime ?? 0}%`;
+        if (latencyEl) latencyEl.textContent = latency ? `${latency}ms` : 'N/A';
+        if (playersEl) playersEl.textContent = online ? `${players}/${maxPlayers}` : 'N/A';
+        if (activeEl) activeEl.textContent = `${active}/${total}`;
+        if (fillEl) {
+            const val = uptime ?? 0;
+            fillEl.style.width = `${val}%`;
+            fillEl.textContent = `${val}% 在线`;
+        }
+        if (badge) {
+            badge.textContent = online ? '在线' : '离线';
+            badge.className = online ? 'status-badge status-online' : 'status-badge status-offline';
+        }
     }
-    container.innerHTML = players.map(p => `
+
+    async function loadGroup(group) {
+        const g = encodeURIComponent(group.name);
+        const slug = group.slug;
+        try {
+            const [historyRes, statsRes, playersRes] = await Promise.all([
+                fetch(`/api/servers/${g}/history`),
+                fetch(`/api/servers/${g}/stats`),
+                fetch(`/api/servers/${g}/players`)
+            ]);
+            const history = await historyRes.json();
+            const stats = await statsRes.json();
+            const players = await playersRes.json();
+
+            const latest = history[0];
+            const anyOnline = !!(latest && latest.online);
+            const playersOnline = latest && latest.players_online ? latest.players_online : 0;
+            const playersMax = latest && latest.players_max ? latest.players_max : 0;
+            const activeEntrances = (history && history.length && latest && latest.latencies) ?
+                Object.values(latest.latencies).filter(v => v !== null).length : 0;
+            updateGroupCard(slug, {
+                uptime: stats.uptime_percentage ?? 0,
+                latency: stats.avg_latency,
+                players: playersOnline,
+                maxPlayers: playersMax,
+                active: activeEntrances,
+                total: latest && latest.latencies ? Object.keys(latest.latencies).length : players.length,
+                online: anyOnline
+            });
+
+            renderLatencyChart(slug, history);
+            renderPlayersChart(slug, history);
+            renderStatusChart(slug, history);
+            renderPlayersList(slug, players);
+        } catch (err) {
+            console.error('加载组数据失败', group.name, err);
+        }
+    }
+
+    function renderPlayersList(slug, players) {
+        const container = document.getElementById(`players-list-${slug}`);
+        if (!container) return;
+        if (!players || !players.length) {
+            container.innerHTML = '<div class="loading">暂无玩家</div>';
+            return;
+        }
+        container.innerHTML = players.map(p => `
         <div class="player-row">
             <div>
                 <div class="player-name"><a href="/player/${encodeURIComponent(p.player_name)}">${escapeHtml(p.player_name)}</a></div>
@@ -218,154 +218,165 @@ function renderPlayersList(slug, players){
             </div>
         </div>
     `).join('');
-}
+    }
 
-function renderLatencyChart(slug, history){
-    const ctx = document.getElementById(`chart-latency-${slug}`);
-    if (!ctx) return;
-    const slice = history.slice(0, chartHours * 60).reverse();
-    const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
-    const datasets = [];
-    if (slice[0] && slice[0].latencies){
-        const keys = Object.keys(slice[0].latencies);
-        const colors = [
-            { border: '#667eea', bg: 'rgba(102, 126, 234, 0.1)' },
-            { border: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
-            { border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
-            { border: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' },
-            { border: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' },
-            { border: '#ec4899', bg: 'rgba(236, 72, 153, 0.1)' }
-        ];
-        keys.forEach((name, idx) => {
-            const color = colors[idx % colors.length];
-            const data = slice.map(h => h.latencies[name] ?? null);
-            datasets.push({
-                label: name,
-                data,
-                borderColor: color.border,
-                backgroundColor: color.bg,
-                borderWidth: 2,
-                fill: false,
-                tension: 0.4,
-                pointRadius: 0,
-                pointHoverRadius: 5,
-                spanGaps: true
+    function renderLatencyChart(slug, history) {
+        const ctx = document.getElementById(`chart-latency-${slug}`);
+        if (!ctx) return;
+        const slice = history.slice(0, chartHours * 60).reverse();
+        const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
+        const datasets = [];
+        if (slice[0] && slice[0].latencies) {
+            const keys = Object.keys(slice[0].latencies);
+            const colors = [
+                { border: '#667eea', bg: 'rgba(102, 126, 234, 0.1)' },
+                { border: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
+                { border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
+                { border: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' },
+                { border: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' },
+                { border: '#ec4899', bg: 'rgba(236, 72, 153, 0.1)' }
+            ];
+            keys.forEach((name, idx) => {
+                const color = colors[idx % colors.length];
+                const data = slice.map(h => h.latencies[name] ?? null);
+                datasets.push({
+                    label: name,
+                    data,
+                    borderColor: color.border,
+                    backgroundColor: color.bg,
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    spanGaps: true
+                });
             });
+        }
+        const key = `latency-${slug}`;
+        if (charts[key]) charts[key].destroy();
+        charts[key] = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top', labels: { usePointStyle: true, padding: 10, font: { size: 11 }, color: chartColors.text } },
+                    tooltip: {
+                        mode: 'index', intersect: false, callbacks: {
+                            label: (ctx) => {
+                                let label = ctx.dataset.label || '';
+                                if (label) label += ': ';
+                                if (ctx.parsed.y !== null) label += ctx.parsed.y + 'ms';
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { display: true, ticks: { maxTicksLimit: 8, color: chartColors.text }, grid: { color: chartColors.grid } },
+                    y: { display: true, beginAtZero: true, ticks: { callback: (v) => v + 'ms', color: chartColors.text }, grid: { color: chartColors.grid } }
+                },
+                interaction: { mode: 'nearest', axis: 'x', intersect: false }
+            }
         });
     }
-    const key = `latency-${slug}`;
-    if (charts[key]) charts[key].destroy();
-    charts[key] = new Chart(ctx, {
-        type: 'line',
-        data: { labels, datasets },
-        options: {
-            responsive:true,
-            maintainAspectRatio:false,
-            plugins:{
-                legend:{display:true, position:'top', labels:{usePointStyle:true, padding:10, font:{size:11}, color: chartColors.text}},
-                tooltip:{mode:'index', intersect:false, callbacks:{label:(ctx)=>{
-                    let label = ctx.dataset.label || '';
-                    if (label) label += ': ';
-                    if (ctx.parsed.y !== null) label += ctx.parsed.y + 'ms';
-                    return label;
-                }}}
+
+    function renderPlayersChart(slug, history) {
+        const ctx = document.getElementById(`chart-players-${slug}`);
+        if (!ctx) return;
+        const slice = history.slice(0, chartHours * 60).reverse();
+        const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
+        const playersOnline = slice.map(h => h.online ? h.players_online : null);
+        const playersMax = slice.map(h => h.online ? h.players_max : null);
+        const key = `players-${slug}`;
+        if (charts[key]) charts[key].destroy();
+        charts[key] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: '在线玩家', data: playersOnline, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 5, spanGaps: true },
+                    { label: '最大玩家数', data: playersMax, borderColor: '#6b7280', backgroundColor: 'rgba(107,114,128,0.05)', borderWidth: 1, borderDash: [5, 5], fill: false, tension: 0.4, pointRadius: 0, pointHoverRadius: 3, spanGaps: true }
+                ]
             },
-            scales:{
-                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
-                y:{display:true, beginAtZero:true, ticks:{callback:(v)=>v+'ms', color: chartColors.text}, grid:{color: chartColors.grid}}
-            },
-            interaction:{mode:'nearest', axis:'x', intersect:false}
-        }
-    });
-}
-
-function renderPlayersChart(slug, history){
-    const ctx = document.getElementById(`chart-players-${slug}`);
-    if (!ctx) return;
-    const slice = history.slice(0, chartHours * 60).reverse();
-    const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
-    const playersOnline = slice.map(h => h.online ? h.players_online : null);
-    const playersMax = slice.map(h => h.online ? h.players_max : null);
-    const key = `players-${slug}`;
-    if (charts[key]) charts[key].destroy();
-    charts[key] = new Chart(ctx, {
-        type: 'line',
-        data:{ 
-            labels, 
-            datasets:[
-                {label:'在线玩家', data: playersOnline, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.1)', borderWidth:3, fill:true, tension:0.4, pointRadius:0, pointHoverRadius:5, spanGaps:true},
-                {label:'最大玩家数', data: playersMax, borderColor:'#6b7280', backgroundColor:'rgba(107,114,128,0.05)', borderWidth:1, borderDash:[5,5], fill:false, tension:0.4, pointRadius:0, pointHoverRadius:3, spanGaps:true}
-            ]
-        },
-        options:{
-            responsive:true,
-            maintainAspectRatio:false,
-            plugins:{legend:{display:true, position:'top', labels:{usePointStyle:true, padding:15, color: chartColors.text}}, tooltip:{mode:'index', intersect:false}},
-            scales:{
-                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
-                y:{display:true, beginAtZero:true, ticks:{callback:(v)=>Math.floor(v), stepSize:1, color: chartColors.text}, grid:{color: chartColors.grid}}
-            },
-            interaction:{mode:'nearest', axis:'x', intersect:false}
-        }
-    });
-}
-
-function renderStatusChart(slug, history){
-    const ctx = document.getElementById(`chart-status-${slug}`);
-    if (!ctx) return;
-    const slice = history.slice(0, chartHours * 60).reverse();
-    const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
-    const data = slice.map(h => h.online ? 1 : 0);
-    const key = `status-${slug}`;
-    if (charts[key]) charts[key].destroy();
-    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 100);
-    gradient.addColorStop(0, 'rgba(16, 185, 129, 0.8)');
-    gradient.addColorStop(1, 'rgba(16, 185, 129, 0.2)');
-    charts[key] = new Chart(ctx, {
-        type: 'line',
-        data:{ labels, datasets:[{label:'在线状态', data, borderColor:'#10b981', backgroundColor:gradient, borderWidth:2, fill:true, stepped:true, pointRadius:0, pointHoverRadius:5}]},
-        options:{
-            responsive:true,
-            maintainAspectRatio:false,
-            plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=> ctx.parsed.y===1?'在线':'离线'}}},
-            scales:{
-                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
-                y:{display:true, min:0, max:1, ticks:{stepSize:1, callback:(v)=>v===1?'在线':'离线', color: chartColors.text}, grid:{color: chartColors.grid}}
-            },
-            interaction:{mode:'nearest', axis:'x', intersect:false}
-        }
-    });
-}
-
-function initWebSocket(){
-    socket = io();
-    const wsStatus = document.getElementById('ws-status');
-    socket.on('connect', ()=>{ wsStatus.className='ws-status ws-connected'; wsStatus.textContent='已连接'; wsStatus.title='WebSocket已连接'; });
-    socket.on('disconnect', ()=>{ wsStatus.className='ws-status ws-disconnected'; wsStatus.textContent='已断开'; wsStatus.title='WebSocket已断开'; });
-    socket.on('connect_error', (e)=>{ wsStatus.className='ws-status ws-error'; wsStatus.textContent='错误'; wsStatus.title='WebSocket错误: '+e.message; });
-    socket.on('server_update', ()=>{
-        clearTimeout(window.wsRefreshTimer);
-        window.wsRefreshTimer = setTimeout(loadAll, 800);
-    });
-}
-
-function loadAll(){
-    chartHours = parseInt(document.getElementById('global-range').value, 10) || 12;
-    document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
-    groups.forEach(g => loadGroup(g));
-}
-
-document.getElementById('global-range').addEventListener('change', loadAll);
-window.addEventListener('beforeunload', ()=>{ if(socket) socket.disconnect(); Object.values(charts).forEach(c=>c.destroy?.()); });
-
-// Handle page restoration from cache (e.g., back button)
-window.addEventListener('pageshow', (event) => {
-    if (event.persisted) {
-        // Page was restored from BFCache, reload data
-        loadAll();
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: true, position: 'top', labels: { usePointStyle: true, padding: 15, color: chartColors.text } }, tooltip: { mode: 'index', intersect: false } },
+                scales: {
+                    x: { display: true, ticks: { maxTicksLimit: 8, color: chartColors.text }, grid: { color: chartColors.grid } },
+                    y: { display: true, beginAtZero: true, ticks: { callback: (v) => Math.floor(v), stepSize: 1, color: chartColors.text }, grid: { color: chartColors.grid } }
+                },
+                interaction: { mode: 'nearest', axis: 'x', intersect: false }
+            }
+        });
     }
-});
 
-initWebSocket();
-loadAll();
+    function renderStatusChart(slug, history) {
+        const ctx = document.getElementById(`chart-status-${slug}`);
+        if (!ctx) return;
+        const slice = history.slice(0, chartHours * 60).reverse();
+        const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
+        const data = slice.map(h => h.online ? 1 : 0);
+        const key = `status-${slug}`;
+        if (charts[key]) charts[key].destroy();
+        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 100);
+        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.8)');
+        gradient.addColorStop(1, 'rgba(16, 185, 129, 0.2)');
+        charts[key] = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets: [{ label: '在线状态', data, borderColor: '#10b981', backgroundColor: gradient, borderWidth: 2, fill: true, stepped: true, pointRadius: 0, pointHoverRadius: 5 }] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ctx.parsed.y === 1 ? '在线' : '离线' } } },
+                scales: {
+                    x: { display: true, ticks: { maxTicksLimit: 8, color: chartColors.text }, grid: { color: chartColors.grid } },
+                    y: { display: true, min: 0, max: 1, ticks: { stepSize: 1, callback: (v) => v === 1 ? '在线' : '离线', color: chartColors.text }, grid: { color: chartColors.grid } }
+                },
+                interaction: { mode: 'nearest', axis: 'x', intersect: false }
+            }
+        });
+    }
+
+    function initWebSocket() {
+        if (typeof io === 'undefined') {
+            console.warn('socket.io not loaded yet, retrying...');
+            setTimeout(initWebSocket, 100);
+            return;
+        }
+        socket = io();
+        const wsStatus = document.getElementById('ws-status');
+        socket.on('connect', () => { wsStatus.className = 'ws-status ws-connected'; wsStatus.textContent = '已连接'; wsStatus.title = 'WebSocket已连接'; });
+        socket.on('disconnect', () => { wsStatus.className = 'ws-status ws-disconnected'; wsStatus.textContent = '已断开'; wsStatus.title = 'WebSocket已断开'; });
+        socket.on('connect_error', (e) => { wsStatus.className = 'ws-status ws-error'; wsStatus.textContent = '错误'; wsStatus.title = 'WebSocket错误: ' + e.message; });
+        socket.on('server_update', () => {
+            clearTimeout(window.wsRefreshTimer);
+            window.wsRefreshTimer = setTimeout(loadAll, 800);
+        });
+    }
+
+    function loadAll() {
+        chartHours = parseInt(document.getElementById('global-range').value, 10) || 12;
+        document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
+        groups.forEach(g => loadGroup(g));
+    }
+
+    document.getElementById('global-range').addEventListener('change', loadAll);
+    window.addEventListener('beforeunload', () => { if (socket) socket.disconnect(); Object.values(charts).forEach(c => c.destroy?.()); });
+
+    // Handle page restoration from cache (e.g., back button)
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted) {
+            // Page was restored from BFCache, reload data
+            loadAll();
+        }
+    });
+
+    initWebSocket();
+    loadAll();
+
+</script>
 {% endblock %}

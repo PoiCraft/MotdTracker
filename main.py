@@ -114,6 +114,7 @@ def api_server_online_players(server_id):
         last_dt = _parse_dt(p.get('last_seen'))
         result.append({
             'player_name': p.get('player_name'),
+            'online': True,  # 只有在线玩家
             'session_start': start_dt.isoformat() if start_dt else None,
             'last_seen': last_dt.isoformat() if last_dt else None,
             'duration_seconds': p.get('duration_seconds')
