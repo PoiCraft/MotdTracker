@@ -90,7 +90,8 @@ def register_server_routes(api, poller):
         )
         def get(self):
             hours = clamp_hours_param(request)
-            limit = hours * 60
+            poll_interval = poller.config.get('poll_interval', 60)
+            limit = max(1, int(hours * 3600 / poll_interval))
 
             servers = poller.db.get_all_servers()
             if not servers:
@@ -143,7 +144,8 @@ def register_server_routes(api, poller):
         )
         def get(self):
             hours = clamp_hours_param(request)
-            limit = hours * 60
+            poll_interval = poller.config.get('poll_interval', 60)
+            limit = max(1, int(hours * 3600 / poll_interval))
 
             servers = poller.db.get_all_servers()
             if not servers:

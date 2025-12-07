@@ -1,5 +1,6 @@
+from flask import request
 from flask_restx import Namespace, Resource, abort
-from app_utils import get_server_nodes_data, parse_dt
+from app_utils import clamp_hours_param, get_server_nodes_data, parse_dt
 
 
 def register_node_routes(api, poller):
@@ -54,15 +55,29 @@ def register_node_routes(api, poller):
 
     @node_ns.route('/<int:node_id>/history')
     class NodeHistory(Resource):
-        @node_ns.doc('获取节点历史', description='获取指定节点的历史状态记录（过去24小时）')
+        @node_ns.doc(
+            '获取节点历史',
+            description='获取指定节点的历史状态记录',
+            params={'hours': '可选，整数小时，默认12，范围1-720，示例：?hours=24'}
+        )
         def get(self, node_id):
-            return poller.db.get_server_history(node_id, limit=poller.get_24h_limit())
+            hours = clamp_hours_param(request)
+            poll_interval = poller.config.get('poll_interval', 60)
+            limit = max(1, int(hours * 3600 / poll_interval))
+            return poller.db.get_server_history(node_id, limit=limit)
 
     @node_ns.route('/<int:node_id>/stats')
     class NodeStats(Resource):
-        @node_ns.doc('获取节点统计', description='获取指定节点的统计信息（在线率、平均延迟等）')
+        @node_ns.doc(
+            '获取节点统计',
+            description='获取指定节点的统计信息（在线率、平均延迟等）',
+            params={'hours': '可选，整数小时，默认12，范围1-720，示例：?hours=24'}
+        )
         def get(self, node_id):
-            history = poller.db.get_server_history(node_id, limit=poller.get_24h_limit())
+            hours = clamp_hours_param(request)
+            poll_interval = poller.config.get('poll_interval', 60)
+            limit = max(1, int(hours * 3600 / poll_interval))
+            history = poller.db.get_server_history(node_id, limit=limit)
             if not history:
                 return {
                     'uptime_percentage': 0,

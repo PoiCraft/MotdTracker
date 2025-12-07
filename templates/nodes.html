@@ -6,6 +6,20 @@
 <script src="{{ url_for('static', filename='js/chart.min.js') }}"></script>
 {% endblock %}
 
+{% block sidebar_items %}
+<div class="sidebar-item">
+    <div class="sidebar-label">时间范围</div>
+    <select id="chart-range" class="sidebar-select">
+        <option value="3">过去 3 小时</option>
+        <option value="6">过去 6 小时</option>
+        <option value="12">过去 12 小时</option>
+        <option value="24">过去 24 小时</option>
+        <option value="48">过去 48 小时</option>
+        <option value="72">过去 72 小时</option>
+    </select>
+</div>
+{% endblock %}
+
 {% block header_left %}
 <div class="header-title">节点</div>
 {% endblock %}
@@ -46,10 +60,6 @@
                 <div class="stat-label">版本</div>
                 <div class="stat-value" id="version-{{ server.id }}">--</div>
             </div>
-        </div>
-
-        <div class="uptime-bar">
-            <div class="uptime-fill" id="uptime-fill-{{ server.id }}">0% 在线</div>
         </div>
 
         <div class="chart-title">延迟趋势</div>
@@ -296,15 +306,17 @@ function renderStatusChart(id, history){
 
 async function loadServer(server){
     const id = server.id;
-    const [statusRes, historyRes, statsRes, playersRes] = await Promise.all([
+    const [statusRes, historyRes, statsRes, history24Res, playersRes] = await Promise.all([
         fetch(`/api/node/${id}`),
-        fetch(`/api/node/${id}/history`),
-        fetch(`/api/node/${id}/stats`),
+        fetch(`/api/node/${id}/history?hours=${chartHours}`),
+        fetch(`/api/node/${id}/stats?hours=${chartHours}`),
+        fetch(`/api/node/${id}/history?hours=24`),
         fetch(`/api/node/${id}/online_players`)
     ]);
     const statusData = statusRes.ok ? await statusRes.json() : null;
     const history = historyRes.ok ? await historyRes.json() : [];
     const stats = statsRes.ok ? await statsRes.json() : {};
+    const history24 = history24Res.ok ? await history24Res.json() : [];
     const players = playersRes.ok ? await playersRes.json() : [];
 
     const historySlice = history.slice(0, chartHours * 60);
@@ -325,7 +337,7 @@ async function loadServer(server){
     renderStatusChart(id, historySlice);
     renderInfo(id, statusData);
     renderPlayersList(id, players);
-    renderHeatmap24hNode(id, history);
+    renderHeatmap24hNode(id, history24);
     renderNodeLatencyStats(id, stats, statusData);
 }
 
@@ -356,19 +368,19 @@ function renderNodeLatencyStats(nodeId, stats, statusData) {
             <span style="min-width: 75px; text-align: right;">
                 <span style="color: ${online ? 'var(--success)' : 'var(--text-muted)'};" title="当前延迟">当前: ${currentLatency}</span>
             </span>
-            <span style="min-width: 75px; text-align: right; color: var(--info);" title="24小时在线率">
+            <span style="min-width: 75px; text-align: right; color: var(--info);" title="在线率">
                 在线率: ${uptime}
             </span>
-            <span style="min-width: 85px; text-align: right; color: var(--text-secondary);" title="24小时平均延迟">
+            <span style="min-width: 85px; text-align: right; color: var(--text-secondary);" title="平均延迟">
                 平均: ${avgLatency}
             </span>
             <span style="min-width: 75px; text-align: right; color: var(--text-muted);" title="标准差">
                 σ: ${stdDev}
             </span>
-            <span style="min-width: 75px; text-align: right; color: var(--success);" title="24小时最小延迟">
+            <span style="min-width: 75px; text-align: right; color: var(--success);" title="最小延迟">
                 最小: ${minLatency}
             </span>
-            <span style="min-width: 75px; text-align: right; color: var(--warning);" title="24小时最大延迟">
+            <span style="min-width: 75px; text-align: right; color: var(--warning);" title="最大延迟">
                 最大: ${maxLatency}
             </span>
             <span style="min-width: 75px; text-align: right; color: var(--text-secondary);" title="95%延迟低于此值">
@@ -447,22 +459,49 @@ function initWebSocket(){
     });
 }
 
+const RANGE_STORAGE_KEY = 'chartRangeHours';
+
+function getPreferredHours(){
+    const stored = localStorage.getItem(RANGE_STORAGE_KEY);
+    const parsed = stored ? parseInt(stored, 10) : NaN;
+    if (Number.isFinite(parsed)) return parsed;
+    const width = window.innerWidth || 0;
+    return width >= 1200 ? 24 : 6;
+}
+
+function getSelectedHours(){
+    const selector = document.getElementById('chart-range');
+    const val = selector ? parseInt(selector.value, 10) : NaN;
+    return Number.isFinite(val) ? val : getPreferredHours();
+}
+
+function bindRangeSelector(){
+    const selector = document.getElementById('chart-range');
+    if (!selector) return;
+    const preferred = getPreferredHours();
+    const hasPreferred = selector.querySelector(`option[value="${preferred}"]`);
+    selector.value = hasPreferred ? String(preferred) : selector.value;
+    chartHours = getSelectedHours();
+    localStorage.setItem(RANGE_STORAGE_KEY, String(chartHours));
+    selector.addEventListener('change', () => {
+        chartHours = getSelectedHours();
+        localStorage.setItem(RANGE_STORAGE_KEY, String(chartHours));
+        servers.forEach(s => loadServer(s));
+    });
+}
+
 function loadAll(){
-    chartHours = 12;
+    chartHours = getSelectedHours();
     document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
     servers.forEach(s => loadServer(s));
 }
-
-window.addEventListener('beforeunload', ()=>{ if(socket) socket.disconnect(); Object.values(charts).forEach(c=>c.destroy?.()); });
-
-// Handle page restoration from cache (e.g., back button)
+bindRangeSelector();
+initWebSocket();
+loadAll();
 window.addEventListener('pageshow', (event) => {
     if (event.persisted) {
         // Page was restored from BFCache, reload data
         loadAll();
     }
 });
-
-initWebSocket();
-loadAll();
 {% endblock %}
