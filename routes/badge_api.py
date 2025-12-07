@@ -245,6 +245,7 @@ def register_badge_routes(api, poller):
         def get(self, player_name):
             """玩家在线状态badge"""
             try:
+                style = request.args.get('style', 'flat')
                 # 检查玩家是否在任何服务器在线
                 servers = poller.db.get_all_servers()
                 is_online = False
