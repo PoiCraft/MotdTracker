@@ -196,8 +196,12 @@ class Database:
                 if online_flag:
                     # 已在线，更新最后一次看到和计算 duration_seconds
                     if session_start:
-                        session_start_dt = datetime.fromisoformat(session_start) if isinstance(session_start, str) else session_start
-                        duration_seconds = int((timestamp - session_start_dt).total_seconds())
+                        try:
+                            session_start_dt = datetime.fromisoformat(session_start) if isinstance(session_start, str) else session_start
+                            duration_seconds = int((timestamp - session_start_dt).total_seconds())
+                        except (ValueError, TypeError):
+                            # 如果解析失败，使用当前时间作为起点
+                            duration_seconds = 0
                     else:
                         duration_seconds = 0
                     cursor.execute('''

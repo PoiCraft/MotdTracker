@@ -507,8 +507,11 @@ def api_player_detail(player_name):
     if summary['online']:
         online_groups = [g for g in groups.values() if g['online']]
         if online_groups:
-            earliest_start = min((datetime.fromisoformat(g['session_start']) for g in online_groups if g['session_start']))
-            summary['session_start'] = earliest_start.isoformat()
+            # 获取所有有效的 session_start
+            valid_starts = [datetime.fromisoformat(g['session_start']) for g in online_groups if g['session_start']]
+            if valid_starts:
+                earliest_start = min(valid_starts)
+                summary['session_start'] = earliest_start.isoformat()
             # 使用最大的 duration_seconds 作为全局时长
             max_duration = max((g['duration_seconds'] for g in online_groups if g['duration_seconds'] is not None), default=None)
             summary['duration_seconds'] = max_duration
