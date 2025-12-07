@@ -220,8 +220,10 @@
             const status = node.latest_status;
             const stats = node.latency_stats || {};
             const currentLatency = status && status.online ? (status.latency || 'N/A') : '离线';
+            const uptime = stats.uptime_percentage !== undefined ? stats.uptime_percentage.toFixed(1) + '%' : 'N/A';
             const avgLatency = stats.avg_latency ? Math.round(stats.avg_latency) + 'ms' : 'N/A';
             const stdDev = stats.std_dev ? Math.round(stats.std_dev) + 'ms' : 'N/A';
+            const minLatency = stats.min_latency ? Math.round(stats.min_latency) + 'ms' : 'N/A';
             const maxLatency = stats.max_latency ? Math.round(stats.max_latency) + 'ms' : 'N/A';
             const p95Latency = stats.p95_latency ? Math.round(stats.p95_latency) + 'ms' : 'N/A';
             const cv = stats.cv !== null && stats.cv !== undefined ? stats.cv.toFixed(1) + '%' : 'N/A';
@@ -242,15 +244,21 @@
                             ${escapeHtml(node.name)}
                         </a>
                     </span>
-                    <span style="display: flex; gap: 15px; align-items: center; font-size: 0.9em;">
+                    <span style="display: flex; gap: 15px; align-items: center; font-size: 0.9em; flex-wrap: wrap;">
                         <span style="min-width: 75px; text-align: right;">
                             <span style="color: ${online ? 'var(--success)' : 'var(--text-muted)'};" title="当前延迟">当前: ${currentLatency}</span>
+                        </span>
+                        <span style="min-width: 75px; text-align: right; color: var(--info);" title="24小时在线率">
+                            在线率: ${uptime}
                         </span>
                         <span style="min-width: 85px; text-align: right; color: var(--text-secondary);" title="24小时平均延迟">
                             平均: ${avgLatency}
                         </span>
                         <span style="min-width: 75px; text-align: right; color: var(--text-muted);" title="标准差">
                             σ: ${stdDev}
+                        </span>
+                        <span style="min-width: 75px; text-align: right; color: var(--success);" title="24小时最小延迟">
+                            最小: ${minLatency}
                         </span>
                         <span style="min-width: 75px; text-align: right; color: var(--warning);" title="24小时最大延迟">
                             最大: ${maxLatency}

@@ -68,6 +68,7 @@ def register_node_routes(api, poller):
                     'uptime_percentage': 0,
                     'avg_latency': None,
                     'std_dev': None,
+                    'min_latency': None,
                     'max_latency': None,
                     'p95_latency': None,
                     'cv': None,
@@ -84,6 +85,7 @@ def register_node_routes(api, poller):
                 import statistics
                 avg_latency = statistics.mean(latencies)
                 std_dev = statistics.stdev(latencies) if len(latencies) > 1 else 0
+                min_latency = min(latencies)
                 max_latency = max(latencies)
                 # Calculate P95 latency
                 sorted_latencies = sorted(latencies)
@@ -94,6 +96,7 @@ def register_node_routes(api, poller):
             else:
                 avg_latency = None
                 std_dev = None
+                min_latency = None
                 max_latency = None
                 p95_latency = None
                 cv = None
@@ -102,6 +105,7 @@ def register_node_routes(api, poller):
                 'uptime_percentage': round(uptime_percentage, 2),
                 'avg_latency': round(avg_latency, 2) if avg_latency else None,
                 'std_dev': round(std_dev, 2) if std_dev is not None else None,
+                'min_latency': round(min_latency, 2) if min_latency else None,
                 'max_latency': round(max_latency, 2) if max_latency else None,
                 'p95_latency': round(p95_latency, 2) if p95_latency else None,
                 'cv': round(cv, 2) if cv is not None else None,

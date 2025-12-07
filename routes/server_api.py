@@ -16,11 +16,16 @@ def register_server_routes(api, poller):
             for node in nodes:
                 history = poller.db.get_server_history(node['id'], limit=poller.get_24h_limit())
                 if history:
+                    total_checks = len(history)
+                    online_checks = sum(1 for h in history if h.get('online'))
+                    uptime_pct = (online_checks / total_checks * 100) if total_checks > 0 else 0
+                    
                     latencies = [h['latency'] for h in history if h.get('online') and h.get('latency') is not None]
                     if latencies:
                         import statistics
                         avg_latency = statistics.mean(latencies)
                         std_dev = statistics.stdev(latencies) if len(latencies) > 1 else 0
+                        min_latency = min(latencies)
                         max_latency = max(latencies)
                         # Calculate P95 latency
                         sorted_latencies = sorted(latencies)
@@ -29,16 +34,18 @@ def register_server_routes(api, poller):
                         # Calculate coefficient of variation (CV)
                         cv = (std_dev / avg_latency * 100) if avg_latency > 0 else 0
                         node['latency_stats'] = {
+                            'uptime_percentage': round(uptime_pct, 2),
                             'avg_latency': round(avg_latency, 2),
                             'std_dev': round(std_dev, 2),
+                            'min_latency': round(min_latency, 2),
                             'max_latency': round(max_latency, 2),
                             'p95_latency': round(p95_latency, 2),
                             'cv': round(cv, 2)
                         }
                     else:
-                        node['latency_stats'] = {'avg_latency': None, 'std_dev': None, 'max_latency': None, 'p95_latency': None, 'cv': None}
+                        node['latency_stats'] = {'uptime_percentage': round(uptime_pct, 2), 'avg_latency': None, 'std_dev': None, 'min_latency': None, 'max_latency': None, 'p95_latency': None, 'cv': None}
                 else:
-                    node['latency_stats'] = {'avg_latency': None, 'std_dev': None, 'max_latency': None, 'p95_latency': None, 'cv': None}
+                    node['latency_stats'] = {'uptime_percentage': 0, 'avg_latency': None, 'std_dev': None, 'max_latency': None, 'p95_latency': None, 'cv': None}
             return nodes
 
     @server_ns.route('/head')

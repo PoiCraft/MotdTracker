@@ -18,7 +18,7 @@
 <div id="servers-container">
     {% for server in servers %}
     {% set status = server.latest_status %}
-    <div class="server-card" data-server-id="{{ server.id }}" data-name="{{ server.name }}" data-host="{{ server.host }}" data-port="{{ server.port }}">
+    <div class="server-card" id="node-{{ server.id }}" data-server-id="{{ server.id }}" data-name="{{ server.name }}" data-host="{{ server.host }}" data-port="{{ server.port }}">
         <div class="server-header">
             <div>
                 <div class="server-name">{{ server.name }}</div>
@@ -334,8 +334,10 @@ function renderNodeLatencyStats(nodeId, stats, statusData) {
     if (!container) return;
     
     const currentLatency = statusData && statusData.online && statusData.latency ? statusData.latency + 'ms' : '离线';
+    const uptime = stats.uptime_percentage !== undefined ? stats.uptime_percentage.toFixed(1) + '%' : 'N/A';
     const avgLatency = stats.avg_latency ? Math.round(stats.avg_latency) + 'ms' : 'N/A';
     const stdDev = stats.std_dev !== null && stats.std_dev !== undefined ? Math.round(stats.std_dev) + 'ms' : 'N/A';
+    const minLatency = stats.min_latency ? Math.round(stats.min_latency) + 'ms' : 'N/A';
     const maxLatency = stats.max_latency ? Math.round(stats.max_latency) + 'ms' : 'N/A';
     const p95Latency = stats.p95_latency ? Math.round(stats.p95_latency) + 'ms' : 'N/A';
     const cv = stats.cv !== null && stats.cv !== undefined ? stats.cv.toFixed(1) + '%' : 'N/A';
@@ -350,30 +352,32 @@ function renderNodeLatencyStats(nodeId, stats, statusData) {
     }
     
     container.innerHTML = `
-        <div class="info-line">
-            <span>当前延迟</span>
-            <span style="color: ${online ? 'var(--success)' : 'var(--text-muted)'};">${currentLatency}</span>
-        </div>
-        <div class="info-line">
-            <span>平均延迟</span>
-            <span style="color: var(--text-secondary);">${avgLatency}</span>
-        </div>
-        <div class="info-line">
-            <span>标准差 (σ)</span>
-            <span style="color: var(--text-muted);" title="延迟波动幅度">${stdDev}</span>
-        </div>
-        <div class="info-line">
-            <span>最大延迟</span>
-            <span style="color: var(--warning);" title="24小时内最大延迟">${maxLatency}</span>
-        </div>
-        <div class="info-line">
-            <span>P95 延迟</span>
-            <span style="color: var(--text-secondary);" title="95%的请求延迟低于此值">${p95Latency}</span>
-        </div>
-        <div class="info-line">
-            <span>变异系数 (CV)</span>
-            <span style="color: ${cvColor}; font-weight: 500;" title="稳定性指标: <10%很稳定, 10-30%中等, >30%不稳定">${cv}</span>
-        </div>
+        <span style="display: flex; gap: 15px; align-items: center; font-size: 0.9em; flex-wrap: wrap;">
+            <span style="min-width: 75px; text-align: right;">
+                <span style="color: ${online ? 'var(--success)' : 'var(--text-muted)'};" title="当前延迟">当前: ${currentLatency}</span>
+            </span>
+            <span style="min-width: 75px; text-align: right; color: var(--info);" title="24小时在线率">
+                在线率: ${uptime}
+            </span>
+            <span style="min-width: 85px; text-align: right; color: var(--text-secondary);" title="24小时平均延迟">
+                平均: ${avgLatency}
+            </span>
+            <span style="min-width: 75px; text-align: right; color: var(--text-muted);" title="标准差">
+                σ: ${stdDev}
+            </span>
+            <span style="min-width: 75px; text-align: right; color: var(--success);" title="24小时最小延迟">
+                最小: ${minLatency}
+            </span>
+            <span style="min-width: 75px; text-align: right; color: var(--warning);" title="24小时最大延迟">
+                最大: ${maxLatency}
+            </span>
+            <span style="min-width: 75px; text-align: right; color: var(--text-secondary);" title="95%延迟低于此值">
+                P95: ${p95Latency}
+            </span>
+            <span style="min-width: 70px; text-align: right; color: ${cvColor}; font-weight: 500;" title="变异系数 - 稳定性指标">
+                CV: ${cv}
+            </span>
+        </span>
     `;
 }
 
