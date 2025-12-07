@@ -27,6 +27,7 @@
 {% block header_right %}
 <span class="toolbar-label" id="last-update">--</span>
 <span class="range-badge" id="range-label">--</span>
+<span class="loading-spinner hidden" id="loading-spinner"></span>
 {% endblock %}
 
 {% block content %}
@@ -81,7 +82,7 @@
             <canvas id="chart-status-{{ server.id }}"></canvas>
         </div>
 
-        <div class="chart-title">延迟统计 <span class="range-label" id="latency-stats-range-{{ server.id }}"></span></div>
+        <div class="chart-title">延迟统计</div>
         <div class="info-list" id="latency-stats-{{ server.id }}">加载中...</div>
 
         <div class="chart-title">节点信息</div>
@@ -98,6 +99,7 @@
 const charts = {};
 let socket = null;
 let chartHours = 12;
+let loadingCount = 0;
 const servers = Array.from(document.querySelectorAll('[data-server-id]')).map(el => ({
     id: Number(el.dataset.serverId),
     name: el.dataset.name,
@@ -343,7 +345,14 @@ function renderStatusChart(id, history){
 
 async function loadServer(server){
     const id = server.id;
-    const [statusRes, historyRes, statsRes, uptimeRes, statusTimelineRes, playersRes, headRes] = await Promise.all([
+    
+    // Show spinner when starting a load
+    loadingCount++;
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.classList.remove('hidden');
+    
+    try {
+        const [statusRes, historyRes, statsRes, uptimeRes, statusTimelineRes, playersRes, headRes] = await Promise.all([
         fetch(`/api/node/${id}`),
         fetch(`/api/node/${id}/history-compact?hours=${chartHours}`),
         fetch(`/api/node/${id}/stats?hours=${chartHours}`),
@@ -408,22 +417,41 @@ async function loadServer(server){
     renderInfo(id, latest);
     renderPlayersList(id, players);
     renderHeatmap24hNode(id, statusTimeline);
-    renderNodeLatencyStats(id, uptime24, latest);
+    renderNodeLatencyStats(id, stats, uptime24, latest);
+    } catch (err) {
+        console.error('加载节点数据失败', err);
+    } finally {
+        // Hide spinner when all loads are done
+        loadingCount--;
+        const spinner = document.getElementById('loading-spinner');
+        if (spinner && loadingCount === 0) spinner.classList.add('hidden');
+    }
 }
 
-function renderNodeLatencyStats(nodeId, uptimeData, statusData) {
+function renderNodeLatencyStats(nodeId, stats, uptimeData, statusData) {
     const container = document.getElementById(`latency-stats-${nodeId}`);
     if (!container) return;
     
-    // Update range label
-    const rangeLabel = document.getElementById(`latency-stats-range-${nodeId}`);
-    if (rangeLabel) {
-        rangeLabel.textContent = `(过去 ${chartHours} 小时)`;
-    }
+    // Ensure stats object exists with defaults
+    const safeStats = stats || {};
     
-    const currentLatency = statusData && statusData.online && statusData.latency ? statusData.latency + 'ms' : '离线';
+    const currentLatency = statusData && statusData.online ? (statusData.latency ? statusData.latency + 'ms' : 'N/A') : '离线';
     const uptime = uptimeData.uptime_percentage !== undefined ? uptimeData.uptime_percentage.toFixed(1) + '%' : 'N/A';
+    const avgLatency = safeStats.avg_latency ? Math.round(safeStats.avg_latency) + 'ms' : 'N/A';
+    const stdDev = safeStats.std_dev ? Math.round(safeStats.std_dev) + 'ms' : 'N/A';
+    const minLatency = safeStats.min_latency ? Math.round(safeStats.min_latency) + 'ms' : 'N/A';
+    const maxLatency = safeStats.max_latency ? Math.round(safeStats.max_latency) + 'ms' : 'N/A';
+    const p95Latency = safeStats.p95_latency ? Math.round(safeStats.p95_latency) + 'ms' : 'N/A';
+    const cv = safeStats.cv !== null && safeStats.cv !== undefined ? safeStats.cv.toFixed(1) + '%' : 'N/A';
     const online = statusData && statusData.online;
+    
+    // Color code CV: green if stable (<10%), yellow if moderate (10-30%), red if unstable (>30%)
+    let cvColor = 'var(--text-muted)';
+    if (safeStats.cv !== null && safeStats.cv !== undefined) {
+        if (safeStats.cv < 10) cvColor = 'var(--success)';
+        else if (safeStats.cv < 30) cvColor = 'var(--warning)';
+        else cvColor = 'var(--danger)';
+    }
     
     container.innerHTML = `
         <span style="display: flex; gap: 15px; align-items: center; font-size: 0.9em; flex-wrap: wrap;">
@@ -432,6 +460,24 @@ function renderNodeLatencyStats(nodeId, uptimeData, statusData) {
             </span>
             <span style="min-width: 75px; text-align: right; color: var(--info);" title="24小时在线率">
                 在线率: ${uptime}
+            </span>
+            <span style="min-width: 85px; text-align: right; color: var(--text-secondary);" title="平均延迟">
+                平均: ${avgLatency}
+            </span>
+            <span style="min-width: 75px; text-align: right; color: var(--text-muted);" title="标准差">
+                σ: ${stdDev}
+            </span>
+            <span style="min-width: 75px; text-align: right; color: var(--success);" title="最小延迟">
+                最小: ${minLatency}
+            </span>
+            <span style="min-width: 75px; text-align: right; color: var(--warning);" title="最大延迟">
+                最大: ${maxLatency}
+            </span>
+            <span style="min-width: 75px; text-align: right; color: var(--text-secondary);" title="95%延迟低于此值">
+                P95: ${p95Latency}
+            </span>
+            <span style="min-width: 70px; text-align: right; color: ${cvColor}; font-weight: 500;" title="变异系数 - 稳定性指标">
+                CV: ${cv}
             </span>
         </span>
     `;
