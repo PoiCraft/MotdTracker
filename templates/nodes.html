@@ -418,6 +418,8 @@ async function loadServer(server){
     renderPlayersList(id, players);
     renderHeatmap24hNode(id, statusTimeline);
     renderNodeLatencyStats(id, stats, uptime24, latest);
+    } catch (err) {
+        console.error('加载节点数据失败', err);
     } finally {
         // Hide spinner when all loads are done
         loadingCount--;
@@ -433,7 +435,7 @@ function renderNodeLatencyStats(nodeId, stats, uptimeData, statusData) {
     // Ensure stats object exists with defaults
     const safeStats = stats || {};
     
-    const currentLatency = statusData && statusData.online && statusData.latency ? statusData.latency + 'ms' : '离线';
+    const currentLatency = statusData && statusData.online ? (statusData.latency ? statusData.latency + 'ms' : 'N/A') : '离线';
     const uptime = uptimeData.uptime_percentage !== undefined ? uptimeData.uptime_percentage.toFixed(1) + '%' : 'N/A';
     const avgLatency = safeStats.avg_latency ? Math.round(safeStats.avg_latency) + 'ms' : 'N/A';
     const stdDev = safeStats.std_dev ? Math.round(safeStats.std_dev) + 'ms' : 'N/A';
