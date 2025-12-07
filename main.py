@@ -12,8 +12,8 @@ from datetime import datetime, timedelta
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'minecraft-tracker-secret-key'
 
-# 初始化SocketIO
-socketio = SocketIO(app, cors_allowed_origins="*")
+# 初始化SocketIO，调整路径到 /api/socket.io，便于与 API 前缀保持一致
+socketio = SocketIO(app, cors_allowed_origins="*", path="/api/socket.io")
 
 # 初始化 Swagger API（基础路径 /api）
 api = Api(

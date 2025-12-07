@@ -263,7 +263,7 @@ async function loadData() {
 // WebSocket connection
 let socket = null;
 function initWebSocket() {
-    socket = io();
+    socket = io({ path: '/api/socket.io' });
     const wsStatus = document.getElementById('ws-status');
     
     socket.on('connect', () => {
@@ -284,24 +284,8 @@ function initWebSocket() {
         wsStatus.title = 'WebSocket错误: ' + error.message;
     });
     
-    socket.on('server_update', (data) => {
-        // 检查是否与当前玩家相关
-        let shouldRefresh = false;
-        
-        if (data.status.sample_players && Array.isArray(data.status.sample_players)) {
-            // 玩家在当前在线列表中
-            shouldRefresh = data.status.sample_players.some(p => p === playerName || p.name === playerName);
-        }
-        
-        // 如果服务器从有玩家变为无玩家，可能是玩家离线了
-        if (!shouldRefresh && data.status.players_online === 0) {
-            shouldRefresh = true;
-        }
-        
-        if (shouldRefresh) {
-            clearTimeout(window.wsRefreshTimer);
-            window.wsRefreshTimer = setTimeout(() => loadData(), 800);
-        }
+    socket.on('poll_complete', () => {
+        loadData();
     });
 }
 

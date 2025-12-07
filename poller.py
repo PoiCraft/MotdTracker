@@ -108,15 +108,6 @@ class ServerPoller:
         # 输出状态
         status_str = self.monitor.format_status(status)
         self.logger.info(f"{name}: {status_str}")
-        
-        # 通过 WebSocket 推送更新
-        if self.socketio:
-            self.socketio.emit('server_update', {
-                'server_id': server_id,
-                'name': name,
-                'status': status,
-                'timestamp': (timestamp or datetime.now()).isoformat() if timestamp else datetime.now().isoformat()
-            })
     
     def poll_all_servers(self):
         """轮询所有服务器"""
@@ -144,6 +135,12 @@ class ServerPoller:
                     future.result()
                 except Exception as e:
                     self.logger.error(f"轮询服务器 {server['name']} 时出错: {str(e)}")
+        
+        # 所有服务器轮询完成后，发送一次 WebSocket 通知
+        if self.socketio:
+            self.socketio.emit('poll_complete', {
+                'timestamp': round_timestamp.isoformat()
+            })
         
         self.logger.info("本轮轮询完成")
         self.logger.info("=" * 60)

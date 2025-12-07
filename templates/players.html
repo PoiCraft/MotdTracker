@@ -158,7 +158,7 @@ function renderPlayersList(players) {
 }
 
 function initWebSocket() {
-    socket = io();
+    socket = io({ path: '/api/socket.io' });
     const wsStatus = document.getElementById('ws-status');
     
     socket.on('connect', () => {
@@ -177,13 +177,8 @@ function initWebSocket() {
         console.log('WebSocket disconnected');
     });
     
-    socket.on('server_update', (data) => {
-        console.log('Received server_update:', data);
-        // 使用防抖，避免频繁刷新
-        clearTimeout(window.playersRefreshTimer);
-        window.playersRefreshTimer = setTimeout(() => {
-            loadPlayers();
-        }, 500);
+    socket.on('poll_complete', () => {
+        loadPlayers();
     });
 }
 
