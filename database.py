@@ -209,10 +209,15 @@ class Database:
                     # 已在线，更新最后一次看到和计算 duration_seconds
                     if session_start:
                         try:
-                            session_start_dt = datetime.fromisoformat(session_start) if isinstance(session_start, str) else session_start
+                            # Parse session_start as UTC+8 naive datetime
+                            if isinstance(session_start, str):
+                                session_start_dt = datetime.fromisoformat(session_start)
+                            else:
+                                session_start_dt = session_start
+                            # timestamp is also UTC+8 naive, so direct subtraction works
                             duration_seconds = int((timestamp - session_start_dt).total_seconds())
                         except (ValueError, TypeError):
-                            # 如果解析失败，使用当前时间作为起点
+                            # 如果解析失败，使用 0
                             duration_seconds = 0
                     else:
                         duration_seconds = 0

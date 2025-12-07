@@ -1,10 +1,13 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 from flask import Request
 
+# UTC+8 timezone constant
+UTC8 = timezone(timedelta(hours=8))
+
 
 def parse_dt(value: Any) -> Optional[datetime]:
-    """Convert database datetime values (string or datetime) to datetime."""
+    """Convert database datetime values (string or datetime) to naive datetime (treated as UTC+8)."""
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -13,6 +16,11 @@ def parse_dt(value: Any) -> Optional[datetime]:
         return datetime.fromisoformat(value)  # type: ignore[arg-type]
     except Exception:
         return None
+
+
+def utc8_now() -> datetime:
+    """Get current datetime in UTC+8 timezone (naive)."""
+    return datetime.now(UTC8).replace(tzinfo=None)
 
 
 def clamp_hours_param(request: Request, default: int = 12, max_hours: int = 720) -> int:

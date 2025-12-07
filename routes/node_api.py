@@ -1,6 +1,7 @@
+from datetime import timedelta
 from flask import request
 from flask_restx import Namespace, Resource, abort
-from app_utils import clamp_hours_param, get_server_nodes_data, parse_dt
+from app_utils import clamp_hours_param, get_server_nodes_data, parse_dt, utc8_now
 
 
 def register_node_routes(api, poller):
@@ -64,7 +65,40 @@ def register_node_routes(api, poller):
             hours = clamp_hours_param(request)
             poll_interval = poller.config.get('poll_interval', 60)
             limit = max(1, int(hours * 3600 / poll_interval))
-            return poller.db.get_server_history(node_id, limit=limit)
+            cutoff = utc8_now() - timedelta(hours=hours)
+            history_raw = poller.db.get_server_history(node_id, limit=limit)
+            history = []
+            for record in history_raw:
+                ts = parse_dt(record.get('timestamp'))
+                if ts is None or ts >= cutoff:
+                    history.append(record)
+            return history
+
+    @node_ns.route('/<int:node_id>/history-compact')
+    class NodeHistoryCompact(Resource):
+        @node_ns.doc(
+            '获取节点历史（精简版）',
+            description='获取指定节点的历史状态记录（仅返回图表必需字段以减少传输体积）',
+            params={'hours': '可选，整数小时，默认12，范围1-720，示例：?hours=24'}
+        )
+        def get(self, node_id):
+            hours = clamp_hours_param(request)
+            poll_interval = poller.config.get('poll_interval', 60)
+            limit = max(1, int(hours * 3600 / poll_interval))
+            cutoff = utc8_now() - timedelta(hours=hours)
+            history_raw = poller.db.get_server_history(node_id, limit=limit)
+            history = []
+            for record in history_raw:
+                ts = parse_dt(record.get('timestamp'))
+                if ts is None or ts >= cutoff:
+                    history.append(record)
+            return {
+                'timestamps': [h['timestamp'] for h in history],
+                'online': [h['online'] for h in history],
+                'latency': [h.get('latency') for h in history],
+                'players_online': [h.get('players_online') for h in history],
+                'players_max': [h.get('players_max') for h in history]
+            }
 
     @node_ns.route('/<int:node_id>/stats')
     class NodeStats(Resource):
@@ -77,7 +111,15 @@ def register_node_routes(api, poller):
             hours = clamp_hours_param(request)
             poll_interval = poller.config.get('poll_interval', 60)
             limit = max(1, int(hours * 3600 / poll_interval))
-            history = poller.db.get_server_history(node_id, limit=limit)
+            cutoff = utc8_now() - timedelta(hours=hours)
+            history_raw = poller.db.get_server_history(node_id, limit=limit)
+            history = []
+            for h in history_raw:
+                ts = parse_dt(h.get('timestamp'))
+                if ts is not None and ts < cutoff:
+                    continue
+                history.append(h)
+
             if not history:
                 return {
                     'uptime_percentage': 0,

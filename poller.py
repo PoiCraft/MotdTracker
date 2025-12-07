@@ -1,6 +1,7 @@
 import json
 import logging
 from datetime import datetime
+from app_utils import utc8_now
 from typing import Dict, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -45,15 +46,15 @@ class ServerPoller:
         )
         self.logger = logging.getLogger(__name__)
         
-        # 注册服务器
+        # 注册节点
         self._register_servers()
     
     def get_24h_limit(self) -> int:
         """
-        计算24小时的记录数量
+        计算24小时的记录数限制
         
         Returns:
-            24小时内的记录数（基于poll_interval）
+            24小时内的记录数（基于poll_interval计算）
         """
         poll_interval = self.config.get('poll_interval', 60)  # 默认60秒
         return int(24 * 60 * 60 / poll_interval)  # 24小时的秒数 / 轮询间隔
@@ -70,29 +71,29 @@ class ServerPoller:
             key = f"{host}:{port}"
             self.server_ids[key] = server_id
             
-            self.logger.info(f"已注册节点: {name} ({host}:{port}) - ID: {server_id}")
+            self.logger.info(f"已注册节点 {name} ({host}:{port}) - ID: {server_id}")
     
     def poll_server(self, server_info: Dict, timestamp=None):
         """
-        轮询单个服务器
+        轮询单个节点
         
         Args:
-            server_info: 服务器信息字典
+            server_info: 节点信息字典
         """
         name = server_info['name']
         host = server_info['host']
         port = server_info.get('port', 25565)
         
-        # 获取服务器ID
+        # 获取节点ID
         key = f"{host}:{port}"
         server_id = self.server_ids.get(key)
         
         if server_id is None:
-            self.logger.error(f"未找到服务器ID: {name}")
+            self.logger.error(f"未找到节点ID: {name}")
             return
         
-        # 查询服务器状态
-        self.logger.info(f"正在查询服务器: {name} ({host}:{port})")
+        # 查询节点状态
+        self.logger.info(f"正在查询节点 {name} ({host}:{port})")
         status = self.monitor.query_server(host, port)
         
         # 记录到数据库
@@ -114,7 +115,7 @@ class ServerPoller:
         # 更新玩家在线会话（无论服务器是否离线，都需要更新）
         # 如果服务器离线或没有获取到玩家列表，传入空列表会标记所有在线玩家为离线
         sample_players = status.get('sample_players') if status.get('online') else None
-        self.db.update_player_sessions(server_id, sample_players, timestamp or datetime.now())
+        self.db.update_player_sessions(server_id, sample_players, timestamp or utc8_now())
         
         # 输出状态
         status_str = self.monitor.format_status(status)
@@ -125,7 +126,7 @@ class ServerPoller:
         self.logger.info("=" * 60)
         self.logger.info("开始轮询所有节点")
         
-        round_timestamp = datetime.now()
+        round_timestamp = utc8_now()
 
         nodes = self.config.get('nodes', [])
         max_workers = min(8, len(nodes)) if nodes else 0
@@ -145,9 +146,9 @@ class ServerPoller:
                 try:
                     future.result()
                 except Exception as e:
-                    self.logger.error(f"轮询服务器 {server['name']} 时出错: {str(e)}")
+                    self.logger.error(f"轮询节点 {server['name']} 时出错 {str(e)}")
         
-        # 所有服务器轮询完成后，发送一次 WebSocket 通知
+        # 所有节点轮询完成后，发送一次WebSocket 通知
         if self.socketio:
             self.socketio.emit('poll_complete', {
                 'timestamp': round_timestamp.isoformat()

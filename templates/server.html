@@ -133,7 +133,15 @@
         const nodeCountEl = document.getElementById('node-count');
         if (uptimeEl) uptimeEl.textContent = `${uptime ?? 0}%`;
         if (latencyEl) latencyEl.textContent = latency ? `${latency}ms` : 'N/A';
-        if (playersEl) playersEl.textContent = online ? `${players}/${maxPlayers}` : 'N/A';
+        if (playersEl) {
+            if (online) {
+                const maxText = maxPlayers !== null && maxPlayers !== undefined ? maxPlayers : 'N/A';
+                const playersText = players !== null && players !== undefined ? players : 0;
+                playersEl.textContent = `${playersText}/${maxText}`;
+            } else {
+                playersEl.textContent = 'N/A';
+            }
+        }
         if (activeEl) activeEl.textContent = `${active}/${total}`;
         if (fillEl) {
             const val = uptime ?? 0;
@@ -151,18 +159,20 @@
 
     async function loadServer() {
         try {
-            const [nodesRes, historyRes, stats24Res, history24Res, playersRes] = await Promise.all([
+            const [nodesRes, historyRes, stats24Res, history24Res, playersRes, headRes] = await Promise.all([
                 fetch('/api/server/nodes'),
-                fetch(`/api/server/history?hours=${chartHours}`),
+                fetch(`/api/server/history-compact?hours=${chartHours}`),
                 fetch(`/api/server/stats?hours=24`),
-                fetch(`/api/server/history?hours=24`),
-                fetch('/api/server/players')
+                fetch(`/api/server/history-compact?hours=24`),
+                fetch('/api/server/players'),
+                fetch('/api/server/head')
             ]);
             const nodes = await nodesRes.json();
             const history = await historyRes.json();
             const stats = await stats24Res.json();
             const history24 = await history24Res.json();
             const players = await playersRes.json();
+            const head = await headRes.json();
 
             // 针对当前选择范围获取每个节点的统计
             const nodeStats = await Promise.all(nodes.map(async (node) => {
@@ -185,12 +195,27 @@
                 }
             });
 
-            const latest = history[0];
-            const anyOnline = !!(latest && latest.online);
-            const playersOnline = latest && latest.players_online ? latest.players_online : 0;
-            const playersMax = latest && latest.players_max ? latest.players_max : 0;
-            const activeEntrances = (history && history.length && latest && latest.latencies) ?
-                Object.values(latest.latencies).filter(v => v !== null).length : 0;
+            // 从紧凑格式重构最新的数据
+            let latestOnline = false, latestPlayersOnline = 0, latestPlayersMax = 0, latestLatencies = {};
+            if (history.timestamps && history.timestamps.length > 0) {
+                const idx = history.timestamps.length - 1; // 最新的是最后一条
+                latestOnline = history.online ? history.online[idx] : false;
+                latestPlayersOnline = history.players_online ? history.players_online[idx] : 0;
+                latestPlayersMax = history.players_max ? history.players_max[idx] : 0;
+                latestLatencies = history.latencies || {};
+            }
+            
+            const anyOnline = head && head.online !== undefined ? head.online : latestOnline;
+            const playersOnline = head && head.players_online !== undefined && head.players_online !== null
+                ? head.players_online
+                : latestPlayersOnline;
+            const playersMax = head && head.players_max !== undefined && head.players_max !== null
+                ? head.players_max
+                : latestPlayersMax;
+            const activeEntrances = Object.keys(latestLatencies).filter(name => {
+                const latArray = latestLatencies[name];
+                return latArray && latArray.some(v => v !== null);
+            }).length;
             updateServerCard({
                 uptime: stats.uptime_percentage ?? 0,
                 latency: stats.avg_latency,
@@ -304,12 +329,26 @@
     function renderLatencyChart(slug, history) {
         const ctx = document.getElementById(`chart-latency-${slug}`);
         if (!ctx) return;
-        const slice = [...history].reverse();
+        
+        // Reconstruct records from compact format
+        const records = [];
+        if (history.timestamps && Array.isArray(history.timestamps)) {
+            for (let i = 0; i < history.timestamps.length; i++) {
+                records.push({
+                    timestamp: history.timestamps[i],
+                    latencies: history.latencies ? Object.fromEntries(
+                        Object.entries(history.latencies).map(([name, arr]) => [name, arr[i]])
+                    ) : {}
+                });
+            }
+        }
+        
+        const slice = [...records].reverse();
         const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
         const datasets = [];
         const allLatencies = [];
         
-        // Collect all node names from all history records (not just the latest one)
+        // Collect all node names
         const allNodeNames = new Set();
         slice.forEach(h => {
             if (h.latencies) {
@@ -329,11 +368,9 @@
             ];
             
             keys.forEach((name, idx) => {
-                // 使用节点配置的颜色，如果没有则使用默认颜色
                 let color;
                 if (window.nodeColorMap && window.nodeColorMap[name]) {
                     const borderColor = window.nodeColorMap[name];
-                    // 将hex颜色转为rgba
                     const r = parseInt(borderColor.slice(1, 3), 16);
                     const g = parseInt(borderColor.slice(3, 5), 16);
                     const b = parseInt(borderColor.slice(5, 7), 16);
@@ -346,7 +383,6 @@
                 }
                 
                 const data = slice.map(h => h.latencies && h.latencies[name] !== undefined ? h.latencies[name] : null);
-                // Collect all valid latencies for P95 calculation
                 data.forEach(v => { if (v !== null && v !== undefined) allLatencies.push(v); });
                 datasets.push({
                     label: name,
@@ -363,13 +399,11 @@
             });
         }
         
-        // Calculate P95 for dynamic Y-axis max to avoid extreme outliers compressing the chart
         let yMax = undefined;
         if (allLatencies.length > 0) {
             const sorted = [...allLatencies].sort((a, b) => a - b);
             const p95Index = Math.floor(sorted.length * 0.95);
             const p95 = sorted[p95Index] || sorted[sorted.length - 1];
-            // Add 20% padding above P95, with a minimum of 100ms
             yMax = Math.max(100, Math.ceil(p95 * 1.2));
         }
         
@@ -406,10 +440,24 @@
     function renderPlayersChart(slug, history) {
         const ctx = document.getElementById(`chart-players-${slug}`);
         if (!ctx) return;
-        const slice = [...history].reverse();
+        
+        // Reconstruct records from compact format
+        const records = [];
+        if (history.timestamps && Array.isArray(history.timestamps)) {
+            for (let i = 0; i < history.timestamps.length; i++) {
+                records.push({
+                    timestamp: history.timestamps[i],
+                    online: history.online ? history.online[i] : true,
+                    players_online: history.players_online ? history.players_online[i] : null,
+                    players_max: history.players_max ? history.players_max[i] : null
+                });
+            }
+        }
+        
+        const slice = [...records].reverse();
         const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
         const playersOnline = slice.map(h => h.online ? h.players_online : null);
-        const playersMax = slice.map(h => h.online ? h.players_max : null);
+        const playersMax = slice.map(h => h.players_max);
         const key = `players-${slug}`;
         if (charts[key]) charts[key].destroy();
         charts[key] = new Chart(ctx, {
@@ -437,7 +485,18 @@
     function renderStatusChart(slug, history) {
         const ctx = document.getElementById(`chart-status-${slug}`);
         if (!ctx) return;
-        const slice = [...history].reverse();
+           // Reconstruct records from compact format
+           const records = [];
+           if (history.timestamps && Array.isArray(history.timestamps)) {
+               for (let i = 0; i < history.timestamps.length; i++) {
+                   records.push({
+                       timestamp: history.timestamps[i],
+                       online: history.online ? history.online[i] : true
+                   });
+               }
+           }
+       
+           const slice = [...records].reverse();
         const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
         const data = slice.map(h => h.online ? 1 : 0);
         const key = `status-${slug}`;
@@ -484,7 +543,18 @@
         const now = new Date();
         const past24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         
-        // Group history by hour
+        // Reconstruct records from compact format
+        const records = [];
+        if (history.timestamps && Array.isArray(history.timestamps)) {
+            for (let i = 0; i < history.timestamps.length; i++) {
+                records.push({
+                    timestamp: history.timestamps[i],
+                    online: history.online ? history.online[i] : true
+                });
+            }
+        }
+        
+        // Group by hour
         const hourlyData = {};
         for (let i = 0; i < 24; i++) {
             const hourStart = new Date(now.getTime() - (23 - i) * 60 * 60 * 1000);
@@ -493,7 +563,7 @@
             hourlyData[hourKey] = [];
         }
         
-        history.forEach(h => {
+        records.forEach(h => {
             const ts = new Date(h.timestamp);
             if (ts >= past24h && ts <= now) {
                 const hourStart = new Date(ts);
@@ -523,12 +593,8 @@
                     }
                 }
                 
-                const avgLatency = data.length > 0
-                    ? (data.reduce((sum, d) => sum + (d.latencies ? Object.values(d.latencies).filter(v => v !== null).reduce((s, v) => s + v, 0) / Object.values(d.latencies).filter(v => v !== null).length : 0), 0) / data.length).toFixed(0)
-                    : 'N/A';
-                
                 return `<div class="heatmap-24h-block status-${status}" 
-                    title="时间: ${hourDate.toLocaleTimeString('zh-CN')} | 数据点: ${data.length} | 平均延迟: ${avgLatency}ms"></div>`;
+                    title="时间: ${hourDate.toLocaleTimeString('zh-CN')} | 数据点: ${data.length}"></div>`;
             }).join('');
         
         container.innerHTML = blocks || '<div style="color: var(--text-muted);">暂无数据</div>';
@@ -576,8 +642,7 @@
         const selector = document.getElementById('chart-range');
         if (!selector) return;
         const preferred = getPreferredHours();
-        const hasPreferred = selector.querySelector(`option[value="${preferred}"]`);
-        selector.value = hasPreferred ? String(preferred) : selector.value;
+        selector.value = String(preferred);
         chartHours = getSelectedHours();
         localStorage.setItem(RANGE_STORAGE_KEY, String(chartHours));
         updateRangeLabel();

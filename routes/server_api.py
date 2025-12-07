@@ -1,7 +1,8 @@
 from collections import defaultdict
+from datetime import timedelta
 from flask import request
 from flask_restx import Namespace, Resource
-from app_utils import clamp_hours_param, get_server_nodes_data, parse_dt
+from app_utils import clamp_hours_param, get_server_nodes_data, parse_dt, utc8_now
 
 
 def register_server_routes(api, poller):
@@ -97,9 +98,17 @@ def register_server_routes(api, poller):
             if not servers:
                 return []
 
+            cutoff = utc8_now() - timedelta(hours=hours)
+
             nodes_history = {}
             for server in servers:
-                history = poller.db.get_server_history(server['id'], limit=limit)
+                history_raw = poller.db.get_server_history(server['id'], limit=limit)
+                # Filter by actual time window to avoid over-fetch when poll interval is irregular
+                history = []
+                for record in history_raw:
+                    ts = parse_dt(record.get('timestamp'))
+                    if ts is None or ts >= cutoff:
+                        history.append(record)
                 nodes_history[server['name']] = history
 
             all_histories = {}
@@ -135,6 +144,87 @@ def register_server_routes(api, poller):
 
             return aggregated_history
 
+    @server_ns.route('/history-compact')
+    class ServerHistoryCompact(Resource):
+        @server_ns.doc(
+            '获取服务器历史（精简版）',
+            description='获取服务器的聚合历史数据（仅返回图表必需字段以减少传输体积）',
+            params={'hours': '可选，整数小时，默认12，范围1-720，示例：?hours=24'}
+        )
+        def get(self):
+            hours = clamp_hours_param(request)
+            poll_interval = poller.config.get('poll_interval', 60)
+            limit = max(1, int(hours * 3600 / poll_interval))
+
+            servers = poller.db.get_all_servers()
+            if not servers:
+                return {
+                    'timestamps': [],
+                    'online': [],
+                    'players_online': [],
+                    'players_max': [],
+                    'latencies': []
+                }
+
+            cutoff = utc8_now() - timedelta(hours=hours)
+
+            nodes_history = {}
+            for server in servers:
+                history_raw = poller.db.get_server_history(server['id'], limit=limit)
+                # Filter by actual time window to respect requested hours even if poll interval varies
+                history = []
+                for record in history_raw:
+                    ts = parse_dt(record.get('timestamp'))
+                    if ts is None or ts >= cutoff:
+                        history.append(record)
+                nodes_history[server['name']] = history
+
+            all_histories = {}
+            for node_name, history in nodes_history.items():
+                for record in history:
+                    timestamp = record['timestamp']
+                    if timestamp not in all_histories:
+                        all_histories[timestamp] = {
+                            'timestamp': timestamp,
+                            'nodes': {}
+                        }
+                    all_histories[timestamp]['nodes'][node_name] = record
+
+            timestamps = []
+            online_list = []
+            players_online_list = []
+            players_max_list = []
+            latencies_list = {}
+
+            for timestamp in sorted(all_histories.keys(), reverse=True):
+                data = all_histories[timestamp]
+                nodes_data = data['nodes']
+
+                latencies = {node_name: record.get('latency') if record['online'] else None for node_name, record in nodes_data.items()}
+
+                # Pick a representative record (prefer online)
+                selected_record = next((r for r in nodes_data.values() if r.get('online')), None)
+                if not selected_record:
+                    selected_record = next(iter(nodes_data.values())) if nodes_data else None
+
+                timestamps.append(timestamp)
+                online_list.append(any(r['online'] for r in nodes_data.values()))
+                players_online_list.append(selected_record.get('players_online') if selected_record else None)
+                players_max_list.append(selected_record.get('players_max') if selected_record else None)
+                
+                for node_name, latency in latencies.items():
+                    if node_name not in latencies_list:
+                        latencies_list[node_name] = []
+                    latencies_list[node_name].append(latency)
+
+            return {
+                'timestamps': timestamps,
+                'online': online_list,
+                'players_online': players_online_list,
+                'players_max': players_max_list,
+                'latencies': latencies_list
+            }
+
     @server_ns.route('/stats')
     class ServerStats(Resource):
         @server_ns.doc(
@@ -158,10 +248,14 @@ def register_server_routes(api, poller):
 
             timestamp_status = defaultdict(list)
             all_latencies = []
+            cutoff = utc8_now() - timedelta(hours=hours)
 
             for server in servers:
-                history = poller.db.get_server_history(server['id'], limit=limit)
-                for h in history:
+                history_raw = poller.db.get_server_history(server['id'], limit=limit)
+                for h in history_raw:
+                    ts = parse_dt(h.get('timestamp'))
+                    if ts is not None and ts < cutoff:
+                        continue
                     timestamp_status[h['timestamp']].append(h['online'])
                     if h['online'] and h['latency'] is not None:
                         all_latencies.append(h['latency'])

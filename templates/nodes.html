@@ -201,7 +201,20 @@ function renderPlayersList(id, players){
 function renderLatencyChart(id, history){
     const ctx = document.getElementById(`chart-latency-${id}`);
     if (!ctx) return;
-    const slice = history.slice(0, chartHours * 60).reverse();
+    
+    // Reconstruct records from compact format
+    const records = [];
+    if (history.timestamps && Array.isArray(history.timestamps)) {
+        for (let i = 0; i < history.timestamps.length; i++) {
+            records.push({
+                timestamp: history.timestamps[i],
+                online: history.online ? history.online[i] : true,
+                latency: history.latency ? history.latency[i] : null
+            });
+        }
+    }
+    
+    const slice = [...records].reverse();
     const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
     const latencies = slice.map(h => h.online ? h.latency : null);
     
@@ -237,17 +250,28 @@ function renderLatencyChart(id, history){
 function renderPlayersChart(id, history){
     const ctx = document.getElementById(`chart-players-${id}`);
     if (!ctx) return;
-    const slice = history.slice(0, chartHours * 60).reverse();
+    
+    // Reconstruct records from compact format
+    const records = [];
+    if (history.timestamps && Array.isArray(history.timestamps)) {
+        for (let i = 0; i < history.timestamps.length; i++) {
+            records.push({
+                timestamp: history.timestamps[i],
+                online: history.online ? history.online[i] : true,
+                players_online: history.players_online ? history.players_online[i] : null
+            });
+        }
+    }
+    
+    const slice = [...records].reverse();
     const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
     const playersOnline = slice.map(h => h.online ? h.players_online : null);
-    const playersMax = slice.map(h => h.online ? h.players_max : null);
     const key = `players-${id}`;
     if (charts[key]) charts[key].destroy();
     charts[key] = new Chart(ctx, {
         type: 'line',
         data:{ labels, datasets:[
-            {label:'在线', data: playersOnline, borderColor:'#10b981', backgroundColor:'rgba(16, 185, 129, 0.1)', borderWidth:2, fill:true, tension:0.4, pointRadius:0, pointHoverRadius:5, spanGaps:true},
-            {label:'最大', data: playersMax, borderColor:'#6b7280', backgroundColor:'rgba(107, 114, 128, 0.05)', borderWidth:1, borderDash:[5,5], fill:false, tension:0.4, pointRadius:0, pointHoverRadius:3, spanGaps:true}
+            {label:'在线', data: playersOnline, borderColor:'#10b981', backgroundColor:'rgba(16, 185, 129, 0.1)', borderWidth:2, fill:true, tension:0.4, pointRadius:0, pointHoverRadius:5, spanGaps:true}
         ]},
         options:{
             responsive:true,
@@ -265,7 +289,19 @@ function renderPlayersChart(id, history){
 function renderStatusChart(id, history){
     const ctx = document.getElementById(`chart-status-${id}`);
     if (!ctx) return;
-    const slice = history.slice(0, chartHours * 60).reverse();
+    
+    // Reconstruct records from compact format
+    const records = [];
+    if (history.timestamps && Array.isArray(history.timestamps)) {
+        for (let i = 0; i < history.timestamps.length; i++) {
+            records.push({
+                timestamp: history.timestamps[i],
+                online: history.online ? history.online[i] : true
+            });
+        }
+    }
+    
+    const slice = [...records].reverse();
     const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
     const data = slice.map(h => h.online ? 1 : 0);
     const key = `status-${id}`;
@@ -307,39 +343,70 @@ function renderStatusChart(id, history){
 
 async function loadServer(server){
     const id = server.id;
-    const [statusRes, historyRes, statsRes, history24Res, playersRes] = await Promise.all([
+    const [statusRes, historyRes, statsRes, history24Res, playersRes, headRes] = await Promise.all([
         fetch(`/api/node/${id}`),
-        fetch(`/api/node/${id}/history?hours=${chartHours}`),
+        fetch(`/api/node/${id}/history-compact?hours=${chartHours}`),
         fetch(`/api/node/${id}/stats?hours=${chartHours}`),
-        fetch(`/api/node/${id}/history?hours=24`),
-        fetch(`/api/node/${id}/online_players`)
+        fetch(`/api/node/${id}/history-compact?hours=24`),
+        fetch(`/api/node/${id}/online_players`),
+        fetch(`/api/node/${id}/head`)
     ]);
     const statusData = statusRes.ok ? await statusRes.json() : null;
     const history = historyRes.ok ? await historyRes.json() : [];
     const stats = statsRes.ok ? await statsRes.json() : {};
     const history24 = history24Res.ok ? await history24Res.json() : [];
     const players = playersRes.ok ? await playersRes.json() : [];
+    const head = headRes.ok ? await headRes.json() : null;
 
-    const historySlice = history.slice(0, chartHours * 60);
-    const latest = statusData && statusData.timestamp ? statusData : history[0];
-    const isOnline = latest ? !!latest.online : false;
+    // Reconstruct latest from compact history
+    let latestOnline = false, latestPlayersOnline = 0, latestPlayersMax = 0, latestVersion = null;
+    if (history.timestamps && history.timestamps.length > 0) {
+        const idx = history.timestamps.length - 1;
+        latestOnline = history.online ? history.online[idx] : false;
+        latestPlayersOnline = history.players_online ? history.players_online[idx] : 0;
+        latestPlayersMax = history.players_max ? history.players_max[idx] : 0;
+    }
+
+    const anyOnline = head && head.latest_status ? !!head.latest_status.online : latestOnline;
+    const playersOnline = head && head.latest_status && head.latest_status.players_online !== undefined && head.latest_status.players_online !== null
+        ? head.latest_status.players_online
+        : latestPlayersOnline;
+    const playersMax = head && head.latest_status && head.latest_status.players_max !== undefined && head.latest_status.players_max !== null
+        ? head.latest_status.players_max
+        : latestPlayersMax;
+    const version = head && head.latest_status ? head.latest_status.version : latestVersion;
+
+    const records = [];
+    if (history.timestamps && Array.isArray(history.timestamps)) {
+        for (let i = 0; i < history.timestamps.length; i++) {
+            records.push({
+                timestamp: history.timestamps[i],
+                online: history.online ? history.online[i] : true,
+                latency: history.latency ? history.latency[i] : null,
+                players_online: history.players_online ? history.players_online[i] : null,
+                players_max: history.players_max ? history.players_max[i] : null
+            });
+        }
+    }
+
+    const latest = head && head.latest_status ? head.latest_status : (records.length ? records[records.length - 1] : null);
 
     updateServerCard(id, {
         uptime: stats.uptime_percentage ?? 0,
         latency: stats.avg_latency,
-        players: latest && latest.players_online ? latest.players_online : 0,
-        maxPlayers: latest && latest.players_max ? latest.players_max : 0,
-        version: latest ? latest.version : null,
-        online: isOnline
+        players: playersOnline,
+        maxPlayers: playersMax,
+        version: version,
+        online: anyOnline
     });
 
-    renderLatencyChart(id, historySlice);
-    renderPlayersChart(id, historySlice);
-    renderStatusChart(id, historySlice);
-    renderInfo(id, statusData);
+    renderLatencyChart(id, history);
+    renderPlayersChart(id, history);
+    renderStatusChart(id, history);
+    renderInfo(id, latest);
     renderPlayersList(id, players);
     renderHeatmap24hNode(id, history24);
-    renderNodeLatencyStats(id, stats, statusData);
+    renderNodeLatencyStats(id, stats, latest);
 }
 
 function renderNodeLatencyStats(nodeId, stats, statusData) {
@@ -401,6 +468,17 @@ function renderHeatmap24hNode(nodeId, history) {
     const now = new Date();
     const past24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     
+    // Reconstruct records from compact format
+    const records = [];
+    if (history.timestamps && Array.isArray(history.timestamps)) {
+        for (let i = 0; i < history.timestamps.length; i++) {
+            records.push({
+                timestamp: history.timestamps[i],
+                online: history.online ? history.online[i] : true
+            });
+        }
+    }
+    
     // Group history by hour
     const hourlyData = {};
     for (let i = 0; i < 24; i++) {
@@ -410,7 +488,7 @@ function renderHeatmap24hNode(nodeId, history) {
         hourlyData[hourKey] = [];
     }
     
-    history.forEach(h => {
+    records.forEach(h => {
         const ts = new Date(h.timestamp);
         if (ts >= past24h && ts <= now) {
             const hourStart = new Date(ts);
@@ -436,12 +514,8 @@ function renderHeatmap24hNode(nodeId, history) {
                 else status = 'offline';
             }
             
-            const avgLatency = totalCount > 0 
-                ? (data.reduce((sum, d) => sum + (d.latency || 0), 0) / totalCount).toFixed(0)
-                : 'N/A';
-            
             return `<div class="heatmap-24h-block status-${status}" 
-                title="时间: ${hourDate.toLocaleTimeString('zh-CN')} | 数据点: ${totalCount} | 在线: ${onlineCount} | 平均延迟: ${avgLatency}ms"></div>`;
+                title="时间: ${hourDate.toLocaleTimeString('zh-CN')} | 数据点: ${totalCount} | 在线: ${onlineCount}"></div>`;
         }).join('');
     
     container.innerHTML = blocks || '<div style="color: var(--text-muted);">暂无数据</div>';
@@ -486,8 +560,7 @@ function bindRangeSelector(){
     const selector = document.getElementById('chart-range');
     if (!selector) return;
     const preferred = getPreferredHours();
-    const hasPreferred = selector.querySelector(`option[value="${preferred}"]`);
-    selector.value = hasPreferred ? String(preferred) : selector.value;
+    selector.value = String(preferred);
     chartHours = getSelectedHours();
     localStorage.setItem(RANGE_STORAGE_KEY, String(chartHours));
     updateRangeLabel();
