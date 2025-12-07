@@ -26,6 +26,7 @@
 
 {% block header_right %}
 <span class="toolbar-label" id="last-update">--</span>
+<span class="toolbar-label" id="range-label">--</span>
 {% endblock %}
 
 {% block content %}
@@ -551,6 +552,12 @@
 
     const RANGE_STORAGE_KEY = 'chartRangeHours';
 
+    function updateRangeLabel() {
+        const el = document.getElementById('range-label');
+        if (!el) return;
+        el.textContent = `范围: 过去 ${chartHours} 小时`;
+    }
+
     function getPreferredHours() {
         const stored = localStorage.getItem(RANGE_STORAGE_KEY);
         const parsed = stored ? parseInt(stored, 10) : NaN;
@@ -573,9 +580,11 @@
         selector.value = hasPreferred ? String(preferred) : selector.value;
         chartHours = getSelectedHours();
         localStorage.setItem(RANGE_STORAGE_KEY, String(chartHours));
+        updateRangeLabel();
         selector.addEventListener('change', () => {
             chartHours = getSelectedHours();
             localStorage.setItem(RANGE_STORAGE_KEY, String(chartHours));
+            updateRangeLabel();
             loadServer();
         });
     }
@@ -583,6 +592,7 @@
     function loadAll() {
         chartHours = getSelectedHours();
         document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
+        updateRangeLabel();
         loadServer();
     }
 

@@ -142,7 +142,9 @@ function escapeHtml(unsafe) {
 }
 
 function renderSummary(data) {
-    document.getElementById('player-title').textContent = `玩家 - ${data.player_name}`;
+    const titleEl = document.getElementById('player-title');
+    const isNarrow = window.innerWidth < 768;
+    titleEl.textContent = isNarrow ? data.player_name : `玩家 - ${data.player_name}`;
     document.getElementById('player-name').textContent = data.player_name;
     document.getElementById('updated-at').textContent = new Date().toLocaleTimeString('zh-CN');
     document.getElementById('summary-text').textContent = data.online ? '在线' : '离线';
