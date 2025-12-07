@@ -273,6 +273,83 @@ def register_server_routes(api, poller):
                 'online_checks': online_checks
             }
 
+    @server_ns.route('/uptime')
+    class ServerUptime(Resource):
+        @server_ns.doc(
+            '获取服务器24小时在线率',
+            description='计算过去24小时的在线率（仅返回百分比）',
+            params={'hours': '可选，整数小时，默认24，范围1-720'}
+        )
+        def get(self):
+            hours = clamp_hours_param(request, default=24)
+            poll_interval = poller.config.get('poll_interval', 60)
+            limit = max(1, int(hours * 3600 / poll_interval))
+            cutoff = utc8_now() - timedelta(hours=hours)
+
+            servers = poller.db.get_all_servers()
+            if not servers:
+                return {'uptime_percentage': 0, 'total_checks': 0, 'online_checks': 0}
+
+            timestamp_status = defaultdict(list)
+            for server in servers:
+                history_raw = poller.db.get_server_history(server['id'], limit=limit)
+                for h in history_raw:
+                    ts = parse_dt(h.get('timestamp'))
+                    if ts is not None and ts < cutoff:
+                        continue
+                    timestamp_status[h['timestamp']].append(h['online'])
+
+            total_checks = len(timestamp_status)
+            online_checks = sum(1 for statuses in timestamp_status.values() if any(statuses))
+            uptime_percentage = (online_checks / total_checks * 100) if total_checks > 0 else 0
+
+            return {
+                'uptime_percentage': round(uptime_percentage, 2),
+                'total_checks': total_checks,
+                'online_checks': online_checks
+            }
+
+    @server_ns.route('/status-timeline')
+    class ServerStatusTimeline(Resource):
+        @server_ns.doc(
+            '获取服务器24小时在线状态时间轴',
+            description='返回用于在线状态图表的数据（仅timestamps和online状态）',
+            params={'hours': '可选，整数小时，默认24，范围1-720'}
+        )
+        def get(self):
+            hours = clamp_hours_param(request, default=24)
+            poll_interval = poller.config.get('poll_interval', 60)
+            limit = max(1, int(hours * 3600 / poll_interval))
+            cutoff = utc8_now() - timedelta(hours=hours)
+
+            servers = poller.db.get_all_servers()
+            if not servers:
+                return {'timestamps': [], 'online': []}
+
+            all_histories = {}
+            for server in servers:
+                history_raw = poller.db.get_server_history(server['id'], limit=limit)
+                for record in history_raw:
+                    ts = parse_dt(record.get('timestamp'))
+                    if ts is None or ts < cutoff:
+                        continue
+                    timestamp = record['timestamp']
+                    if timestamp not in all_histories:
+                        all_histories[timestamp] = {'timestamp': timestamp, 'nodes': {}}
+                    all_histories[timestamp]['nodes'][server['name']] = record
+
+            timestamps = []
+            online_list = []
+            for timestamp in sorted(all_histories.keys(), reverse=True):
+                nodes_data = all_histories[timestamp]['nodes']
+                timestamps.append(timestamp)
+                online_list.append(any(r['online'] for r in nodes_data.values()))
+
+            return {
+                'timestamps': timestamps,
+                'online': online_list
+            }
+
     @server_ns.route('/players')
     class ServerPlayers(Resource):
         @server_ns.doc('获取服务器在线玩家', description='获取所有节点的在线玩家列表（实时）')

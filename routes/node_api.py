@@ -170,6 +170,67 @@ def register_node_routes(api, poller):
                 'online_checks': online_checks
             }
 
+    @node_ns.route('/<int:node_id>/uptime')
+    class NodeUptime(Resource):
+        @node_ns.doc(
+            '获取节点24小时在线率',
+            description='计算指定节点过去24小时的在线率（仅返回百分比）',
+            params={'hours': '可选，整数小时，默认24，范围1-720'}
+        )
+        def get(self, node_id):
+            hours = clamp_hours_param(request, default=24)
+            poll_interval = poller.config.get('poll_interval', 60)
+            limit = max(1, int(hours * 3600 / poll_interval))
+            cutoff = utc8_now() - timedelta(hours=hours)
+            history_raw = poller.db.get_server_history(node_id, limit=limit)
+            history = []
+            for h in history_raw:
+                ts = parse_dt(h.get('timestamp'))
+                if ts is not None and ts < cutoff:
+                    continue
+                history.append(h)
+
+            if not history:
+                return {'uptime_percentage': 0, 'total_checks': 0, 'online_checks': 0}
+
+            total_checks = len(history)
+            online_checks = sum(1 for h in history if h['online'])
+            uptime_percentage = (online_checks / total_checks * 100) if total_checks > 0 else 0
+
+            return {
+                'uptime_percentage': round(uptime_percentage, 2),
+                'total_checks': total_checks,
+                'online_checks': online_checks
+            }
+
+    @node_ns.route('/<int:node_id>/status-timeline')
+    class NodeStatusTimeline(Resource):
+        @node_ns.doc(
+            '获取节点24小时在线状态时间轴',
+            description='返回用于在线状态图表的数据（仅timestamps和online状态）',
+            params={'hours': '可选，整数小时，默认24，范围1-720'}
+        )
+        def get(self, node_id):
+            hours = clamp_hours_param(request, default=24)
+            poll_interval = poller.config.get('poll_interval', 60)
+            limit = max(1, int(hours * 3600 / poll_interval))
+            cutoff = utc8_now() - timedelta(hours=hours)
+            history_raw = poller.db.get_server_history(node_id, limit=limit)
+            
+            timestamps = []
+            online_list = []
+            for record in history_raw:
+                ts = parse_dt(record.get('timestamp'))
+                if ts is None or ts < cutoff:
+                    continue
+                timestamps.append(record['timestamp'])
+                online_list.append(record['online'])
+
+            return {
+                'timestamps': timestamps,
+                'online': online_list
+            }
+
     @node_ns.route('/head')
     class NodeHeadList(Resource):
         @node_ns.doc('获取节点实时状态列表', description='获取所有节点的最新状态数据（head）')

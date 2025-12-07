@@ -159,18 +159,18 @@
 
     async function loadServer() {
         try {
-            const [nodesRes, historyRes, stats24Res, history24Res, playersRes, headRes] = await Promise.all([
+            const [nodesRes, historyRes, uptimeRes, statusTimelineRes, playersRes, headRes] = await Promise.all([
                 fetch('/api/server/nodes'),
                 fetch(`/api/server/history-compact?hours=${chartHours}`),
-                fetch(`/api/server/stats?hours=24`),
-                fetch(`/api/server/history-compact?hours=24`),
+                fetch('/api/server/uptime?hours=24'),
+                fetch('/api/server/status-timeline?hours=24'),
                 fetch('/api/server/players'),
                 fetch('/api/server/head')
             ]);
             const nodes = await nodesRes.json();
             const history = await historyRes.json();
-            const stats = await stats24Res.json();
-            const history24 = await history24Res.json();
+            const uptime24 = await uptimeRes.json();
+            const statusTimeline = await statusTimelineRes.json();
             const players = await playersRes.json();
             const head = await headRes.json();
 
@@ -217,8 +217,8 @@
                 return latArray && latArray.some(v => v !== null);
             }).length;
             updateServerCard({
-                uptime: stats.uptime_percentage ?? 0,
-                latency: stats.avg_latency,
+                uptime: uptime24.uptime_percentage ?? 0,
+                latency: head && head.latencies ? Object.values(head.latencies).find(l => l !== null) : null,
                 players: playersOnline,
                 maxPlayers: playersMax,
                 active: activeEntrances,
@@ -230,7 +230,7 @@
             renderPlayersChart(slug, history);
             renderStatusChart(slug, history);
             renderPlayersList(slug, players);
-            renderHeatmap24hServer(history24);
+            renderHeatmap24hServer(statusTimeline);
             renderNodesLatencyStats(nodes, statsById);
         } catch (err) {
             console.error('加载服务器数据失败', err);

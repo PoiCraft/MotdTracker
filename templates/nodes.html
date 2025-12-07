@@ -343,18 +343,20 @@ function renderStatusChart(id, history){
 
 async function loadServer(server){
     const id = server.id;
-    const [statusRes, historyRes, statsRes, history24Res, playersRes, headRes] = await Promise.all([
+    const [statusRes, historyRes, statsRes, uptimeRes, statusTimelineRes, playersRes, headRes] = await Promise.all([
         fetch(`/api/node/${id}`),
         fetch(`/api/node/${id}/history-compact?hours=${chartHours}`),
         fetch(`/api/node/${id}/stats?hours=${chartHours}`),
-        fetch(`/api/node/${id}/history-compact?hours=24`),
+        fetch(`/api/node/${id}/uptime?hours=24`),
+        fetch(`/api/node/${id}/status-timeline?hours=24`),
         fetch(`/api/node/${id}/online_players`),
         fetch(`/api/node/${id}/head`)
     ]);
     const statusData = statusRes.ok ? await statusRes.json() : null;
     const history = historyRes.ok ? await historyRes.json() : [];
     const stats = statsRes.ok ? await statsRes.json() : {};
-    const history24 = history24Res.ok ? await history24Res.json() : [];
+    const uptime24 = uptimeRes.ok ? await uptimeRes.json() : { uptime_percentage: 0 };
+    const statusTimeline = statusTimelineRes.ok ? await statusTimelineRes.json() : { timestamps: [], online: [] };
     const players = playersRes.ok ? await playersRes.json() : [];
     const head = headRes.ok ? await headRes.json() : null;
 
@@ -392,8 +394,8 @@ async function loadServer(server){
     const latest = head && head.latest_status ? head.latest_status : (records.length ? records[records.length - 1] : null);
 
     updateServerCard(id, {
-        uptime: stats.uptime_percentage ?? 0,
-        latency: stats.avg_latency,
+        uptime: uptime24.uptime_percentage ?? 0,
+        latency: latest ? latest.latency : null,
         players: playersOnline,
         maxPlayers: playersMax,
         version: version,
@@ -405,11 +407,11 @@ async function loadServer(server){
     renderStatusChart(id, history);
     renderInfo(id, latest);
     renderPlayersList(id, players);
-    renderHeatmap24hNode(id, history24);
-    renderNodeLatencyStats(id, stats, latest);
+    renderHeatmap24hNode(id, statusTimeline);
+    renderNodeLatencyStats(id, uptime24, latest);
 }
 
-function renderNodeLatencyStats(nodeId, stats, statusData) {
+function renderNodeLatencyStats(nodeId, uptimeData, statusData) {
     const container = document.getElementById(`latency-stats-${nodeId}`);
     if (!container) return;
     
@@ -420,48 +422,16 @@ function renderNodeLatencyStats(nodeId, stats, statusData) {
     }
     
     const currentLatency = statusData && statusData.online && statusData.latency ? statusData.latency + 'ms' : '离线';
-    const uptime = stats.uptime_percentage !== undefined ? stats.uptime_percentage.toFixed(1) + '%' : 'N/A';
-    const avgLatency = stats.avg_latency ? Math.round(stats.avg_latency) + 'ms' : 'N/A';
-    const stdDev = stats.std_dev !== null && stats.std_dev !== undefined ? Math.round(stats.std_dev) + 'ms' : 'N/A';
-    const minLatency = stats.min_latency ? Math.round(stats.min_latency) + 'ms' : 'N/A';
-    const maxLatency = stats.max_latency ? Math.round(stats.max_latency) + 'ms' : 'N/A';
-    const p95Latency = stats.p95_latency ? Math.round(stats.p95_latency) + 'ms' : 'N/A';
-    const cv = stats.cv !== null && stats.cv !== undefined ? stats.cv.toFixed(1) + '%' : 'N/A';
+    const uptime = uptimeData.uptime_percentage !== undefined ? uptimeData.uptime_percentage.toFixed(1) + '%' : 'N/A';
     const online = statusData && statusData.online;
-    
-    // Color code CV: green if stable (<10%), yellow if moderate (10-30%), red if unstable (>30%)
-    let cvColor = 'var(--text-muted)';
-    if (stats.cv !== null && stats.cv !== undefined) {
-        if (stats.cv < 10) cvColor = 'var(--success)';
-        else if (stats.cv < 30) cvColor = 'var(--warning)';
-        else cvColor = 'var(--danger)';
-    }
     
     container.innerHTML = `
         <span style="display: flex; gap: 15px; align-items: center; font-size: 0.9em; flex-wrap: wrap;">
             <span style="min-width: 75px; text-align: right;">
                 <span style="color: ${online ? 'var(--success)' : 'var(--text-muted)'};" title="当前延迟">当前: ${currentLatency}</span>
             </span>
-            <span style="min-width: 75px; text-align: right; color: var(--info);" title="在线率">
+            <span style="min-width: 75px; text-align: right; color: var(--info);" title="24小时在线率">
                 在线率: ${uptime}
-            </span>
-            <span style="min-width: 85px; text-align: right; color: var(--text-secondary);" title="平均延迟">
-                平均: ${avgLatency}
-            </span>
-            <span style="min-width: 75px; text-align: right; color: var(--text-muted);" title="标准差">
-                σ: ${stdDev}
-            </span>
-            <span style="min-width: 75px; text-align: right; color: var(--success);" title="最小延迟">
-                最小: ${minLatency}
-            </span>
-            <span style="min-width: 75px; text-align: right; color: var(--warning);" title="最大延迟">
-                最大: ${maxLatency}
-            </span>
-            <span style="min-width: 75px; text-align: right; color: var(--text-secondary);" title="95%延迟低于此值">
-                P95: ${p95Latency}
-            </span>
-            <span style="min-width: 70px; text-align: right; color: ${cvColor}; font-weight: 500;" title="变异系数 - 稳定性指标">
-                CV: ${cv}
             </span>
         </span>
     `;
