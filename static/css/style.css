@@ -25,6 +25,7 @@
     max-width: 1400px;
     margin: 0 auto;
     padding: 20px;
+    padding-top: 80px;
 }
 
 h1 {
@@ -149,17 +150,22 @@ h1 {
     border-top: 1px solid var(--border-color);
 }
 
-/* Header (simplified) */
+/* Header (fixed at top) */
 .header {
+    position: fixed;
+    top: 0;
+    left: 250px;
+    right: 0;
     background: var(--card-bg);
-    border-radius: 8px;
+    border-radius: 0;
     padding: 16px 20px;
-    margin-bottom: 20px;
-    border: 1px solid var(--border-color);
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
+    z-index: 100;
 }
 
 .header-left {
@@ -982,18 +988,21 @@ body {
     }
 
     .header {
+        left: 0;
         padding: 12px;
+        flex-wrap: nowrap;
     }
 
     .header-left {
-        width: 100%;
-        justify-content: space-between;
+        flex: 1;
+        justify-content: flex-start;
+        gap: 8px;
     }
 
     .header-right {
-        width: 100%;
-        justify-content: space-between;
-        flex-wrap: wrap;
+        flex: 1;
+        justify-content: flex-end;
+        flex-wrap: nowrap;
     }
 
     .mobile-menu-toggle {

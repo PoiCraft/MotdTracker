@@ -75,9 +75,9 @@ def player_page(player_name):
 
 
 # 分组命名空间
-node_ns = api.namespace('node', description='节点相关接口', path='')
+node_ns = api.namespace('node', description='节点相关接口', path='/node')
 server_ns = api.namespace('server', description='服务器聚合接口', path='/server')
-player_ns = api.namespace('player', description='玩家相关接口', path='')
+player_ns = api.namespace('player', description='玩家相关接口', path='/player')
 
 
 def _parse_dt(value):
@@ -92,7 +92,7 @@ def _parse_dt(value):
         return None
 
 
-@node_ns.route('/nodes')
+@node_ns.route('')
 class Nodes(Resource):
     @node_ns.doc('获取所有节点列表', description='获取服务器的所有节点及其最新状态')
     def get(self):
@@ -100,7 +100,7 @@ class Nodes(Resource):
         return servers
 
 
-@node_ns.route('/node/<int:node_id>')
+@node_ns.route('/<int:node_id>')
 class Node(Resource):
     @node_ns.doc('获取单个节点详情', description='获取指定节点的详细信息')
     def get(self, node_id):
@@ -110,7 +110,7 @@ class Node(Resource):
         return status
 
 
-@node_ns.route('/node/<int:node_id>/head')
+@node_ns.route('/<int:node_id>/head')
 class NodeHead(Resource):
     @node_ns.doc('获取节点实时状态', description='获取指定节点的最新状态（head），包含节点元数据')
     def get(self, node_id):
@@ -125,7 +125,7 @@ class NodeHead(Resource):
         return {**server, 'latest_status': status}
 
 
-@node_ns.route('/node/<int:node_id>/online_players')
+@node_ns.route('/<int:node_id>/online_players')
 class NodeOnlinePlayers(Resource):
     @node_ns.doc('获取节点在线玩家', description='获取指定节点当前在线的玩家列表')
     def get(self, node_id):
@@ -144,7 +144,7 @@ class NodeOnlinePlayers(Resource):
         return result
 
 
-@node_ns.route('/node/<int:node_id>/history')
+@node_ns.route('/<int:node_id>/history')
 class NodeHistory(Resource):
     @node_ns.doc('获取节点历史', description='获取指定节点的历史状态记录（过去24小时）')
     def get(self, node_id):
@@ -152,7 +152,7 @@ class NodeHistory(Resource):
         return history
 
 
-@node_ns.route('/node/<int:node_id>/stats')
+@node_ns.route('/<int:node_id>/stats')
 class NodeStats(Resource):
     @node_ns.doc('获取节点统计', description='获取指定节点的统计信息（在线率、平均延迟等）')
     def get(self, node_id):
@@ -180,7 +180,7 @@ class NodeStats(Resource):
         }
 
 
-@node_ns.route('/node/head')
+@node_ns.route('/head')
 class NodeHeadList(Resource):
     @node_ns.doc('获取节点实时状态列表', description='获取所有节点的最新状态数据（head）')
     def get(self):
@@ -376,7 +376,7 @@ class ServerPlayers(Resource):
         return filtered
 
 
-@player_ns.route('/players')
+@player_ns.route('')
 class AllPlayers(Resource):
     @player_ns.doc('获取全球玩家列表', description='获取所有在线玩家的汇总列表，包含所有节点的玩家数据')
     def get(self):
@@ -438,7 +438,7 @@ class AllPlayers(Resource):
         return players
 
 
-@player_ns.route('/player/<string:player_name>/detail')
+@player_ns.route('/<string:player_name>/detail')
 class PlayerDetail(Resource):
     @player_ns.doc('获取玩家详情', description='获取指定玩家的详细信息，包括当前在线状态、连接节点等')
     def get(self, player_name):
@@ -484,7 +484,7 @@ class PlayerDetail(Resource):
         return summary
 
 
-@player_ns.route('/player/<string:player_name>/calendar')
+@player_ns.route('/<string:player_name>/calendar')
 class PlayerCalendar(Resource):
     @player_ns.doc(
         '获取玩家日历',

@@ -85,7 +85,7 @@ function renderHeatmap(heatmap) {
 
 async function loadPlayers() {
     try {
-        const res = await fetch('/api/players');
+        const res = await fetch('/api/player');
         const players = await res.json();
         
         // For each player, fetch past 24h calendar data
