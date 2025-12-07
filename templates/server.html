@@ -222,6 +222,7 @@
             const currentLatency = status && status.online ? (status.latency || 'N/A') : '离线';
             const avgLatency = stats.avg_latency ? Math.round(stats.avg_latency) + 'ms' : 'N/A';
             const stdDev = stats.std_dev ? Math.round(stats.std_dev) + 'ms' : 'N/A';
+            const maxLatency = stats.max_latency ? Math.round(stats.max_latency) + 'ms' : 'N/A';
             const p95Latency = stats.p95_latency ? Math.round(stats.p95_latency) + 'ms' : 'N/A';
             const cv = stats.cv !== null && stats.cv !== undefined ? stats.cv.toFixed(1) + '%' : 'N/A';
             const online = status && status.online;
@@ -250,6 +251,9 @@
                         </span>
                         <span style="min-width: 75px; text-align: right; color: var(--text-muted);" title="标准差">
                             σ: ${stdDev}
+                        </span>
+                        <span style="min-width: 75px; text-align: right; color: var(--warning);" title="24小时最大延迟">
+                            最大: ${maxLatency}
                         </span>
                         <span style="min-width: 75px; text-align: right; color: var(--text-secondary);" title="95%延迟低于此值">
                             P95: ${p95Latency}

@@ -56,18 +56,19 @@ def register_node_routes(api, poller):
     class NodeHistory(Resource):
         @node_ns.doc('获取节点历史', description='获取指定节点的历史状态记录（过去24小时）')
         def get(self, node_id):
-            return poller.db.get_server_history(node_id, limit=1440)
+            return poller.db.get_server_history(node_id, limit=poller.get_24h_limit())
 
     @node_ns.route('/<int:node_id>/stats')
     class NodeStats(Resource):
         @node_ns.doc('获取节点统计', description='获取指定节点的统计信息（在线率、平均延迟等）')
         def get(self, node_id):
-            history = poller.db.get_server_history(node_id, limit=1440)
+            history = poller.db.get_server_history(node_id, limit=poller.get_24h_limit())
             if not history:
                 return {
                     'uptime_percentage': 0,
                     'avg_latency': None,
                     'std_dev': None,
+                    'max_latency': None,
                     'p95_latency': None,
                     'cv': None,
                     'total_checks': 0,
@@ -83,6 +84,7 @@ def register_node_routes(api, poller):
                 import statistics
                 avg_latency = statistics.mean(latencies)
                 std_dev = statistics.stdev(latencies) if len(latencies) > 1 else 0
+                max_latency = max(latencies)
                 # Calculate P95 latency
                 sorted_latencies = sorted(latencies)
                 p95_index = int(len(sorted_latencies) * 0.95)
@@ -92,6 +94,7 @@ def register_node_routes(api, poller):
             else:
                 avg_latency = None
                 std_dev = None
+                max_latency = None
                 p95_latency = None
                 cv = None
 
@@ -99,6 +102,7 @@ def register_node_routes(api, poller):
                 'uptime_percentage': round(uptime_percentage, 2),
                 'avg_latency': round(avg_latency, 2) if avg_latency else None,
                 'std_dev': round(std_dev, 2) if std_dev is not None else None,
+                'max_latency': round(max_latency, 2) if max_latency else None,
                 'p95_latency': round(p95_latency, 2) if p95_latency else None,
                 'cv': round(cv, 2) if cv is not None else None,
                 'total_checks': total_checks,

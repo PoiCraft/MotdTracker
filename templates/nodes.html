@@ -336,6 +336,7 @@ function renderNodeLatencyStats(nodeId, stats, statusData) {
     const currentLatency = statusData && statusData.online && statusData.latency ? statusData.latency + 'ms' : '离线';
     const avgLatency = stats.avg_latency ? Math.round(stats.avg_latency) + 'ms' : 'N/A';
     const stdDev = stats.std_dev !== null && stats.std_dev !== undefined ? Math.round(stats.std_dev) + 'ms' : 'N/A';
+    const maxLatency = stats.max_latency ? Math.round(stats.max_latency) + 'ms' : 'N/A';
     const p95Latency = stats.p95_latency ? Math.round(stats.p95_latency) + 'ms' : 'N/A';
     const cv = stats.cv !== null && stats.cv !== undefined ? stats.cv.toFixed(1) + '%' : 'N/A';
     const online = statusData && statusData.online;
@@ -360,6 +361,10 @@ function renderNodeLatencyStats(nodeId, stats, statusData) {
         <div class="info-line">
             <span>标准差 (σ)</span>
             <span style="color: var(--text-muted);" title="延迟波动幅度">${stdDev}</span>
+        </div>
+        <div class="info-line">
+            <span>最大延迟</span>
+            <span style="color: var(--warning);" title="24小时内最大延迟">${maxLatency}</span>
         </div>
         <div class="info-line">
             <span>P95 延迟</span>

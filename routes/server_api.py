@@ -14,13 +14,14 @@ def register_server_routes(api, poller):
             nodes = get_server_nodes_data(poller)
             # Add latency statistics for each node
             for node in nodes:
-                history = poller.db.get_server_history(node['id'], limit=1440)  # 24h
+                history = poller.db.get_server_history(node['id'], limit=poller.get_24h_limit())
                 if history:
                     latencies = [h['latency'] for h in history if h.get('online') and h.get('latency') is not None]
                     if latencies:
                         import statistics
                         avg_latency = statistics.mean(latencies)
                         std_dev = statistics.stdev(latencies) if len(latencies) > 1 else 0
+                        max_latency = max(latencies)
                         # Calculate P95 latency
                         sorted_latencies = sorted(latencies)
                         p95_index = int(len(sorted_latencies) * 0.95)
@@ -30,13 +31,14 @@ def register_server_routes(api, poller):
                         node['latency_stats'] = {
                             'avg_latency': round(avg_latency, 2),
                             'std_dev': round(std_dev, 2),
+                            'max_latency': round(max_latency, 2),
                             'p95_latency': round(p95_latency, 2),
                             'cv': round(cv, 2)
                         }
                     else:
-                        node['latency_stats'] = {'avg_latency': None, 'std_dev': None, 'p95_latency': None, 'cv': None}
+                        node['latency_stats'] = {'avg_latency': None, 'std_dev': None, 'max_latency': None, 'p95_latency': None, 'cv': None}
                 else:
-                    node['latency_stats'] = {'avg_latency': None, 'std_dev': None, 'p95_latency': None, 'cv': None}
+                    node['latency_stats'] = {'avg_latency': None, 'std_dev': None, 'max_latency': None, 'p95_latency': None, 'cv': None}
             return nodes
 
     @server_ns.route('/head')

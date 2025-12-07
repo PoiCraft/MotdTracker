@@ -48,6 +48,16 @@ class ServerPoller:
         # 注册服务器
         self._register_servers()
     
+    def get_24h_limit(self) -> int:
+        """
+        计算24小时的记录数量
+        
+        Returns:
+            24小时内的记录数（基于poll_interval）
+        """
+        poll_interval = self.config.get('poll_interval', 60)  # 默认60秒
+        return int(24 * 60 * 60 / poll_interval)  # 24小时的秒数 / 轮询间隔
+    
     def _register_servers(self):
         """在数据库中注册配置文件中的服务器"""
         for node in self.config.get('nodes', []):

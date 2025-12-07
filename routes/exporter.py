@@ -44,6 +44,18 @@ def register_exporter_routes(api, poller):
             metrics.append('# TYPE motd_server_min_latency_ms gauge')
             metrics.append('')
 
+            metrics.append('# HELP motd_server_latency_stddev_ms 延迟标准差(毫秒)')
+            metrics.append('# TYPE motd_server_latency_stddev_ms gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_server_latency_p95_ms P95延迟(毫秒)')
+            metrics.append('# TYPE motd_server_latency_p95_ms gauge')
+            metrics.append('')
+
+            metrics.append('# HELP motd_server_latency_cv 延迟变异系数(%)')
+            metrics.append('# TYPE motd_server_latency_cv gauge')
+            metrics.append('')
+
             metrics.append('# HELP motd_player_online 玩家是否在线 (1=在线, 0=离线)')
             metrics.append('# TYPE motd_player_online gauge')
             metrics.append('')
@@ -95,22 +107,39 @@ def register_exporter_routes(api, poller):
                         metrics.append(f'motd_server_latency_ms{{{labels}}} {latency}')
 
                 # Get uptime stats for past 24 hours
-                history = poller.db.get_server_history(server_id, limit=1440)
+                history = poller.db.get_server_history(server_id, limit=poller.get_24h_limit())
                 if history:
                     total_checks = len(history)
                     online_checks = sum(1 for h in history if h['online'])
                     uptime_pct = (online_checks / total_checks * 100) if total_checks > 0 else 0
 
                     latencies = [h['latency'] for h in history if h['online'] and h['latency'] is not None]
-                    avg_latency = sum(latencies) / len(latencies) if latencies else 0
-                    max_latency = max(latencies) if latencies else 0
-                    min_latency = min(latencies) if latencies else 0
+                    
+                    if latencies:
+                        import statistics
+                        avg_latency = statistics.mean(latencies)
+                        max_latency = max(latencies)
+                        min_latency = min(latencies)
+                        std_dev = statistics.stdev(latencies) if len(latencies) > 1 else 0
+                        
+                        # Calculate P95 latency
+                        sorted_latencies = sorted(latencies)
+                        p95_index = int(len(sorted_latencies) * 0.95)
+                        p95_latency = sorted_latencies[p95_index] if p95_index < len(sorted_latencies) else sorted_latencies[-1]
+                        
+                        # Calculate coefficient of variation (CV)
+                        cv = (std_dev / avg_latency * 100) if avg_latency > 0 else 0
+                    else:
+                        avg_latency = max_latency = min_latency = std_dev = p95_latency = cv = 0
 
                     metrics.append(f'motd_server_uptime_percentage{{{labels}}} {uptime_pct:.2f}')
-                    metrics.append(f'motd_server_avg_latency_ms{{{labels}}} {avg_latency:.2f}')
                     if latencies:
+                        metrics.append(f'motd_server_avg_latency_ms{{{labels}}} {avg_latency:.2f}')
                         metrics.append(f'motd_server_max_latency_ms{{{labels}}} {max_latency:.2f}')
                         metrics.append(f'motd_server_min_latency_ms{{{labels}}} {min_latency:.2f}')
+                        metrics.append(f'motd_server_latency_stddev_ms{{{labels}}} {std_dev:.2f}')
+                        metrics.append(f'motd_server_latency_p95_ms{{{labels}}} {p95_latency:.2f}')
+                        metrics.append(f'motd_server_latency_cv{{{labels}}} {cv:.2f}')
 
                     # 玩家样本数
                     sample_players_count = 0
