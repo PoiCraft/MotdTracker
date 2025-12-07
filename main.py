@@ -410,19 +410,35 @@ class AllPlayers(Resource):
                         'session_start': start_dt.isoformat() if s.get('online') and start_dt else None,
                         'last_seen': last_dt.isoformat() if last_dt else None,
                         'last_seen_dt': last_dt,
-                        'duration_seconds': duration_seconds,
+                        'duration_seconds': duration_seconds if s.get('online') else None,
                         'servers': [server_entry]
                     }
                 else:
                     agg = aggregated[name]
                     agg['servers'].append(server_entry)
                     agg['online'] = agg['online'] or bool(s.get('online'))
+
+                    # 最新最近一次看到的时间
                     if last_dt and (agg['last_seen_dt'] is None or last_dt > agg['last_seen_dt']):
                         agg['last_seen_dt'] = last_dt
                         agg['last_seen'] = last_dt.isoformat()
-                    if s.get('online') and start_dt:
-                        agg['session_start'] = start_dt.isoformat()
-                        agg['duration_seconds'] = duration_seconds
+
+                    # 对在线会话：取最早的 session_start 和最大的 duration_seconds，避免不同节点间不一致
+                    if s.get('online'):
+                        if start_dt:
+                            if agg['session_start'] is None:
+                                agg['session_start'] = start_dt.isoformat()
+                            else:
+                                try:
+                                    agg_start = datetime.fromisoformat(agg['session_start'])
+                                    if start_dt < agg_start:
+                                        agg['session_start'] = start_dt.isoformat()
+                                except Exception:
+                                    agg['session_start'] = start_dt.isoformat()
+
+                        if duration_seconds is not None:
+                            if agg['duration_seconds'] is None or duration_seconds > agg['duration_seconds']:
+                                agg['duration_seconds'] = duration_seconds
 
         players = list(aggregated.values())
         players.sort(key=lambda x: (
