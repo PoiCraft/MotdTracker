@@ -66,8 +66,9 @@ class ServerPoller:
             host = node['host']
             port = node.get('port', 25565)
             color = node.get('color')  # 获取颜色配置
+            node_id = node.get('id')  # 获取显式指定的ID
             
-            server_id = self.db.add_server(name, host, port, color)
+            server_id = self.db.add_server(name, host, port, color, node_id)
             key = f"{host}:{port}"
             self.server_ids[key] = server_id
             

@@ -1,6 +1,6 @@
 import sqlite3
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 
@@ -20,17 +20,55 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         
-        # 创建服务器信息表
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS servers (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                host TEXT NOT NULL,
-                port INTEGER NOT NULL,
-                color TEXT,
-                UNIQUE(host, port)
-            )
-        ''')
+        # 检查servers表是否存在
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='servers'")
+        table_exists = cursor.fetchone() is not None
+        
+        if not table_exists:
+            # 新建表，使用不带AUTOINCREMENT的主键
+            cursor.execute('''
+                CREATE TABLE servers (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    host TEXT NOT NULL,
+                    port INTEGER NOT NULL,
+                    color TEXT,
+                    UNIQUE(host, port)
+                )
+            ''')
+        else:
+            # 表已存在，检查是否需要迁移
+            cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='servers'")
+            create_sql = cursor.fetchone()[0]
+            
+            # 如果表是AUTOINCREMENT的，需要迁移
+            if 'AUTOINCREMENT' in create_sql.upper():
+                print("检测到旧版servers表结构，正在迁移...")
+                # 重命名旧表
+                cursor.execute('ALTER TABLE servers RENAME TO servers_old')
+                
+                # 创建新表
+                cursor.execute('''
+                    CREATE TABLE servers (
+                        id INTEGER PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        host TEXT NOT NULL,
+                        port INTEGER NOT NULL,
+                        color TEXT,
+                        UNIQUE(host, port)
+                    )
+                ''')
+                
+                # 复制数据
+                cursor.execute('''
+                    INSERT INTO servers (id, name, host, port, color)
+                    SELECT id, name, host, port, color FROM servers_old
+                ''')
+                
+                # 删除旧表
+                cursor.execute('DROP TABLE servers_old')
+                conn.commit()
+                print("表结构迁移完成")
         
         # 为已存在的servers表添加color列（如果不存在）
         try:
@@ -118,28 +156,42 @@ class Database:
         conn.commit()
         conn.close()
     
-    def add_server(self, name: str, host: str, port: int, color: str = None) -> int:
+    def add_server(self, name: str, host: str, port: int, color: str = None, server_id: int = None) -> int:
         """添加服务器，返回服务器ID"""
         conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
-            cursor.execute('''
-                INSERT INTO servers (name, host, port, color) 
-                VALUES (?, ?, ?, ?)
-            ''', (name, host, port, color))
+            if server_id is not None:
+                # 显式指定ID插入
+                cursor.execute('''
+                    INSERT INTO servers (id, name, host, port, color) 
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (server_id, name, host, port, color))
+            else:
+                # 自动分配ID
+                cursor.execute('SELECT COALESCE(MAX(id), 0) + 1 FROM servers')
+                server_id = cursor.fetchone()[0]
+                cursor.execute('''
+                    INSERT INTO servers (id, name, host, port, color) 
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (server_id, name, host, port, color))
             conn.commit()
-            server_id = cursor.lastrowid
         except sqlite3.IntegrityError:
-            # 服务器已存在，获取其ID并更新颜色
+            # 服务器已存在，获取其ID并更新名称和颜色
             cursor.execute('''
                 SELECT id FROM servers 
                 WHERE host = ? AND port = ?
             ''', (host, port))
-            server_id = cursor.fetchone()[0]
-            # 更新名称和颜色
-            cursor.execute('UPDATE servers SET name = ?, color = ? WHERE id = ?', (name, color, server_id))
-            conn.commit()
+            existing_id = cursor.fetchone()
+            if existing_id:
+                server_id = existing_id[0]
+                # 更新名称和颜色
+                cursor.execute('UPDATE servers SET name = ?, color = ? WHERE id = ?', (name, color, server_id))
+                conn.commit()
+            else:
+                # 如果是ID冲突而非host:port冲突，抛出异常
+                raise
         finally:
             conn.close()
         
@@ -306,14 +358,16 @@ class Database:
 
     def get_player_history(self, player_name: str, days: int = 30) -> List[Dict]:
         """获取玩家历史会话"""
+        from app_utils import utc8_now
         conn = self.get_connection()
         cursor = conn.cursor()
+        cutoff = utc8_now() - timedelta(days=days)
         cursor.execute('''
             SELECT session_start, session_end, server_id
             FROM player_session_history
-            WHERE player_name = ? AND session_end >= datetime('now', ?)
+            WHERE player_name = ? AND session_end >= ?
             ORDER BY session_start DESC
-        ''', (player_name, f'-{int(days)} days'))
+        ''', (player_name, cutoff))
         rows = cursor.fetchall()
         conn.close()
         return [
