@@ -150,7 +150,9 @@ function renderPlayersList(players) {
                     ${p.online ? `<span class="stat-item">已在线: ${formatDuration(p.duration_seconds)}</span>` : `<span class="stat-item">最后在线: ${formatTime(p.last_seen)}</span>`}
                 </div>
             </div>
-            ${renderHeatmap(p.heatmap)}
+            <div class="player-heatmap-container">
+                ${renderHeatmap(p.heatmap)}
+            </div>
         </a>
     `).join('');
 }

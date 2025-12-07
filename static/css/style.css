@@ -389,16 +389,7 @@ body {
     border-top: 2px solid var(--border-color);
 }
 
-.calendar-grid {
-    grid-template-columns: repeat(auto-fit, minmax(18px, 1fr));
-    min-height: 140px;
-}
 
-.calendar-hint {
-    margin-top: 12px;
-    font-size: 0.9em;
-    color: var(--text-muted);
-}
 
 .stats-grid-compact {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -439,14 +430,14 @@ body {
 
 .heatmap-cells {
     display: grid;
-    grid-template-columns: repeat(24, minmax(10px, 1fr));
+    grid-template-columns: repeat(24, 1fr);
     gap: 2px;
     min-width: fit-content;
 }
 
 .heatmap-cell {
-    height: 20px;
-    border-radius: 3px;
+    aspect-ratio: 1;
+    border-radius: 2px;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
@@ -456,6 +447,12 @@ body {
     transform: scale(1.3);
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     z-index: 10;
+}
+
+.heatmap-cell.selected {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
 }
 
 .history-block {
@@ -736,7 +733,7 @@ body {
     padding: 16px;
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
     transition: all 0.2s ease;
     text-decoration: none;
     color: inherit;
@@ -751,6 +748,12 @@ body {
 .player-info {
     flex: 1;
     min-width: 0;
+}
+
+.player-heatmap-container {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
 }
 
 .player-name-status {
@@ -796,14 +799,29 @@ body {
     display: grid;
     grid-template-columns: repeat(24, 1fr);
     gap: 2px;
+    width: 100%;
+}
+
+.player-heatmap-container .player-heatmap {
     width: 300px;
-    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: repeat(24, 1fr);
+}
+
+/* Ensure heatmap in detail page stays full width */
+#heatmap-24h {
+    width: 100%;
 }
 
 .heatmap-block {
     height: 24px;
     border-radius: 2px;
     transition: transform 0.2s ease;
+}
+
+.player-heatmap-container .heatmap-block {
+    aspect-ratio: auto;
+    height: 20px;
 }
 
 .heatmap-block.intensity-none {
@@ -840,6 +858,83 @@ body {
     color: var(--text-muted);
     font-size: 0.75em;
 }
+
+/* 分钟级热力图样式 */
+.minute-heatmap-container {
+    overflow-x: auto;
+}
+
+.minute-heatmap-wrapper {
+    display: inline-block;
+    min-width: 100%;
+}
+
+.minute-heatmap-row {
+    display: flex;
+    align-items: center;
+    margin: 2px 0;
+}
+
+.minute-heatmap-label {
+    width: 40px;
+    text-align: right;
+    padding-right: 8px;
+    font-size: 0.85em;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.minute-heatmap-blocks {
+    display: grid;
+    gap: 2px;
+    flex: 1;
+}
+
+.minute-block {
+    aspect-ratio: 1;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.minute-block.intensity-none {
+    background: rgba(100, 116, 139, 0.1);
+    border: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+.minute-block.intensity-low {
+    background: rgba(59, 130, 246, 0.3);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.minute-block.intensity-medium {
+    background: rgba(59, 130, 246, 0.6);
+    border: 1px solid rgba(59, 130, 246, 0.7);
+}
+
+.minute-block.intensity-high {
+    background: rgba(59, 130, 246, 0.9);
+    border: 1px solid rgba(59, 130, 246, 1);
+}
+
+.minute-block:hover {
+    transform: scaleY(1.3);
+    z-index: 1;
+}
+
+.minute-block.selected {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 1px;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.minute-heatmap-hint {
+    margin-top: 8px;
+    font-size: 0.85em;
+    color: var(--text-muted);
+}
+
+
 
 /* 响应式设计 - 移动设备优化 */
 @media (max-width: 768px) {
@@ -978,8 +1073,18 @@ body {
         align-items: stretch;
     }
 
+    .player-heatmap-container {
+        width: 100%;
+    }
+
     .player-heatmap {
         width: 100%;
+        max-width: none;
+    }
+
+    .player-heatmap-container .player-heatmap {
+        width: 100%;
+        min-width: auto;
         max-width: none;
     }
 

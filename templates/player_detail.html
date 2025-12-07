@@ -47,13 +47,6 @@
 </div>
 
 <div class="server-card">
-    <div class="chart-title">日期 x 小时热力图 (近30天)</div>
-    <div id="heatmap" class="heatmap"></div>
-    <div class="calendar-hint">颜色越深表示在线时长越长，点击查看详情</div>
-
-    <div class="chart-title">当日会话</div>
-    <div id="day-detail" class="group-servers"></div>
-
     <div class="chart-title">每小时平均在线时长</div>
     <div class="chart-container chart-container-tall">
         <canvas id="hourly-chart"></canvas>
@@ -74,7 +67,6 @@
 
 {% block inline_scripts %}
 const playerName = decodeURIComponent(window.location.pathname.split('/').filter(p => p).pop() || '');
-let calendarDaily = [];
 let heatmapData = [];
 let hourlyChart;
 
@@ -117,110 +109,7 @@ function renderSummary(data) {
     document.getElementById('last-seen').textContent = formatTime(data.last_seen);
 }
 
-function renderHeatmap(heatmap, daily) {
-    heatmapData = heatmap;
-    calendarDaily = daily;
-    const container = document.getElementById('heatmap');
-    
-    if (!heatmap || heatmap.length === 0) {
-        const emptyHTML = '<div class="loading">暂无数据</div>';
-        if (container.innerHTML !== emptyHTML) {
-            container.innerHTML = emptyHTML;
-        }
-        return;
-    }
 
-    const grouped = {};
-    let maxSeconds = 0;
-    heatmap.forEach(cell => {
-        grouped[cell.date] = grouped[cell.date] || {};
-        grouped[cell.date][cell.hour] = cell.seconds;
-        if (cell.seconds > maxSeconds) maxSeconds = cell.seconds;
-    });
-
-    const dates = Object.keys(grouped).sort();
-    const existingRows = container.querySelectorAll('.heatmap-row');
-    const existingDates = Array.from(existingRows).map(row => 
-        row.querySelector('.heatmap-date')?.textContent
-    );
-
-    // Check if rebuild is needed
-    const needsRebuild = dates.length !== existingDates.length || 
-                         dates.some((date, i) => date !== existingDates[i]);
-
-    if (needsRebuild) {
-        // Complete rebuild
-        container.innerHTML = '';
-        dates.forEach(date => {
-            const row = document.createElement('div');
-            row.className = 'heatmap-row';
-            const label = document.createElement('div');
-            label.className = 'heatmap-date';
-            label.textContent = date;
-            row.appendChild(label);
-
-            const cellsWrap = document.createElement('div');
-            cellsWrap.className = 'heatmap-cells';
-            for (let h = 0; h < 24; h++) {
-                const val = grouped[date][h] || 0;
-                const intensity = maxSeconds ? Math.min(1, val / maxSeconds) : 0;
-                const cell = document.createElement('div');
-                cell.className = 'heatmap-cell';
-                cell.style.background = `hsl(140, 60%, ${Math.max(15, 85 - intensity * 55)}%)`;
-                cell.title = `${date} ${String(h).padStart(2,'0')}:00\n${formatDuration(val)}`;
-                cell.dataset.date = date;
-                cell.dataset.hour = h;
-                cell.addEventListener('click', () => renderDayDetail(date));
-                cellsWrap.appendChild(cell);
-            }
-            row.appendChild(cellsWrap);
-            container.appendChild(row);
-        });
-    } else {
-        // Update existing cells
-        existingRows.forEach((row, rowIndex) => {
-            const date = dates[rowIndex];
-            const cells = row.querySelectorAll('.heatmap-cell');
-            cells.forEach((cell, h) => {
-                const val = grouped[date][h] || 0;
-                const intensity = maxSeconds ? Math.min(1, val / maxSeconds) : 0;
-                const newBg = `hsl(140, 60%, ${Math.max(15, 85 - intensity * 55)}%)`;
-                const newTitle = `${date} ${String(h).padStart(2,'0')}:00\n${formatDuration(val)}`;
-                
-                if (cell.style.background !== newBg) {
-                    cell.style.background = newBg;
-                }
-                if (cell.title !== newTitle) {
-                    cell.title = newTitle;
-                }
-            });
-        });
-    }
-}
-
-function renderDayDetail(dateStr) {
-    const target = calendarDaily.find(c => c.date === dateStr);
-    const container = document.getElementById('day-detail');
-    if (!target || !target.sessions || target.sessions.length === 0) {
-        const emptyHTML = '<div class="loading">无在线记录</div>';
-        if (container.innerHTML !== emptyHTML) {
-            container.innerHTML = emptyHTML;
-        }
-        return;
-    }
-    const newHTML = target.sessions.map(s => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-color);">
-            <div style="font-weight:600;color:var(--accent-primary);">${escapeHtml(s.server_name || '默认')}</div>
-            <div style="text-align:right;font-size:0.9em;color:var(--text-secondary);">
-                <div>${formatTime(s.start)} - ${formatTime(s.end)}</div>
-                <div style="color:var(--text-muted);">${formatDuration((new Date(s.end) - new Date(s.start)) / 1000)}</div>
-            </div>
-        </div>
-    `).join('');
-    if (container.innerHTML !== newHTML) {
-        container.innerHTML = newHTML;
-    }
-}
 
 function renderHeatmap24h(heatmap) {
     const container = document.getElementById('heatmap-24h');
@@ -348,7 +237,6 @@ async function loadData() {
 
         const calendarRes = await fetch(`/api/player/${encodeURIComponent(playerName)}/calendar?days=30`);
         const calendar = await calendarRes.json();
-        renderHeatmap(calendar.heatmap, calendar.daily);
         renderHeatmap24h(calendar.heatmap);
         renderHourlyChart(calendar.hourly_average || []);
         document.getElementById('avg-daily').textContent = formatDuration(calendar.average_daily_seconds);
@@ -367,10 +255,6 @@ async function loadData() {
         });
         
         document.getElementById('duration-24h').textContent = formatDuration(duration24h);
-        
-        if (calendar.daily && calendar.daily.length) {
-            renderDayDetail(calendar.daily[calendar.daily.length - 1].date);
-        }
     } catch (e) {
         console.error(e);
         document.getElementById('summary-text').textContent = '加载失败';
