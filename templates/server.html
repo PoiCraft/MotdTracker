@@ -77,6 +77,9 @@
             <div class="uptime-fill" id="uptime-fill-server">0% 在线</div>
         </div>
 
+        <div class="chart-title">24小时在线状态</div>
+        <div id="heatmap-24h-server" class="heatmap-24h-container"></div>
+
         <div class="chart-title">节点延迟对比</div>
         <div class="chart-container">
             <canvas id="chart-latency-server"></canvas>
@@ -193,6 +196,7 @@
             renderPlayersChart(slug, history);
             renderStatusChart(slug, history);
             renderPlayersList(slug, players);
+            renderHeatmap24hServer(history);
         } catch (err) {
             console.error('加载服务器数据失败', err);
         }
@@ -320,12 +324,28 @@
         const data = slice.map(h => h.online ? 1 : 0);
         const key = `status-${slug}`;
         if (charts[key]) charts[key].destroy();
-        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 100);
-        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.8)');
-        gradient.addColorStop(1, 'rgba(16, 185, 129, 0.2)');
         charts[key] = new Chart(ctx, {
             type: 'line',
-            data: { labels, datasets: [{ label: '在线状态', data, borderColor: '#10b981', backgroundColor: gradient, borderWidth: 2, fill: true, stepped: true, pointRadius: 0, pointHoverRadius: 5 }] },
+            data: { 
+                labels, 
+                datasets: [{
+                    label: '在线状态', 
+                    data, 
+                    borderWidth: 2, 
+                    fill: true, 
+                    stepped: true, 
+                    pointRadius: 3,
+                    pointHoverRadius: 6,
+                    segment: {
+                        borderColor: ctx => ctx.p0.parsed.y === 0 ? '#ef4444' : '#10b981',
+                        backgroundColor: ctx => ctx.p0.parsed.y === 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'
+                    },
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                    pointBackgroundColor: ctx => ctx.parsed.y === 0 ? '#ef4444' : '#10b981',
+                    pointBorderColor: ctx => ctx.parsed.y === 0 ? '#ef4444' : '#10b981'
+                }] 
+            },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -337,6 +357,63 @@
                 interaction: { mode: 'nearest', axis: 'x', intersect: false }
             }
         });
+    }
+
+    function renderHeatmap24hServer(history) {
+        const container = document.getElementById('heatmap-24h-server');
+        if (!container) return;
+        
+        const now = new Date();
+        const past24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        
+        // Group history by hour
+        const hourlyData = {};
+        for (let i = 0; i < 24; i++) {
+            const hourStart = new Date(now.getTime() - (23 - i) * 60 * 60 * 1000);
+            hourStart.setMinutes(0, 0, 0);
+            const hourKey = hourStart.toISOString();
+            hourlyData[hourKey] = [];
+        }
+        
+        history.forEach(h => {
+            const ts = new Date(h.timestamp);
+            if (ts >= past24h && ts <= now) {
+                const hourStart = new Date(ts);
+                hourStart.setMinutes(0, 0, 0);
+                const hourKey = hourStart.toISOString();
+                if (hourlyData[hourKey] !== undefined) {
+                    hourlyData[hourKey].push(h);
+                }
+            }
+        });
+        
+        // Render blocks
+        const blocks = Object.entries(hourlyData)
+            .sort(([a], [b]) => new Date(a) - new Date(b))
+            .map(([hourKey, data]) => {
+                const hourDate = new Date(hourKey);
+                let status = 'none';
+                
+                if (data.length > 0) {
+                    const offlineCount = data.filter(d => !d.online).length;
+                    if (offlineCount === data.length) {
+                        status = 'offline';
+                    } else if (offlineCount > 0) {
+                        status = 'partial';
+                    } else {
+                        status = 'online';
+                    }
+                }
+                
+                const avgLatency = data.length > 0
+                    ? (data.reduce((sum, d) => sum + (d.latencies ? Object.values(d.latencies).filter(v => v !== null).reduce((s, v) => s + v, 0) / Object.values(d.latencies).filter(v => v !== null).length : 0), 0) / data.length).toFixed(0)
+                    : 'N/A';
+                
+                return `<div class="heatmap-24h-block status-${status}" 
+                    title="时间: ${hourDate.toLocaleTimeString('zh-CN')} | 数据点: ${data.length} | 平均延迟: ${avgLatency}ms"></div>`;
+            }).join('');
+        
+        container.innerHTML = blocks || '<div style="color: var(--text-muted);">暂无数据</div>';
     }
 
     function initWebSocket() {
