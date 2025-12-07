@@ -928,6 +928,15 @@ body {
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
+/* Online count heatmap styles */
+.online-count-chart-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
 .minute-heatmap-hint {
     margin-top: 8px;
     font-size: 0.85em;

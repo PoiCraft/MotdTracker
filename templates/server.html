@@ -45,59 +45,56 @@
 {% block content %}
 
 <div id="groups-container">
-    {% for group in groups %}
-    {% set slug = group.server_name | replace(' ', '-') | replace('/', '-') %}
-    <div class="server-card" data-group="{{ group.server_name }}" data-slug="{{ slug }}">
+    <div class="server-card" data-slug="server">
         <div class="server-header">
             <div>
-                <div class="server-name">{{ group.server_name }}</div>
-                <div class="server-address">{{ group.servers|length }} 个节点入口</div>
+                <div class="server-name">{{ server_name }}</div>
+                <div class="server-address" id="node-count">加载中...</div>
             </div>
-            <div class="status-badge status-offline" id="badge-{{ slug }}">--</div>
+            <div class="status-badge status-offline" id="badge-server">--</div>
         </div>
 
         <div class="stats-grid">
             <div class="stat-box">
                 <div class="stat-label">24h在线率</div>
-                <div class="stat-value" id="uptime-{{ slug }}">--</div>
+                <div class="stat-value" id="uptime-server">--</div>
             </div>
             <div class="stat-box">
                 <div class="stat-label">平均延迟</div>
-                <div class="stat-value" id="latency-{{ slug }}">--</div>
+                <div class="stat-value" id="latency-server">--</div>
             </div>
             <div class="stat-box">
                 <div class="stat-label">在线玩家</div>
-                <div class="stat-value" id="players-{{ slug }}">--</div>
+                <div class="stat-value" id="players-server">--</div>
             </div>
             <div class="stat-box">
                 <div class="stat-label">活跃节点</div>
-                <div class="stat-value" id="active-{{ slug }}">--</div>
+                <div class="stat-value" id="active-server">--</div>
             </div>
         </div>
 
         <div class="uptime-bar">
-            <div class="uptime-fill" id="uptime-fill-{{ slug }}">0% 在线</div>
+            <div class="uptime-fill" id="uptime-fill-server">0% 在线</div>
         </div>
 
         <div class="chart-title">节点延迟对比</div>
         <div class="chart-container">
-            <canvas id="chart-latency-{{ slug }}"></canvas>
+            <canvas id="chart-latency-server"></canvas>
         </div>
 
         <div class="chart-title">在线玩家趋势</div>
         <div class="chart-container">
-            <canvas id="chart-players-{{ slug }}"></canvas>
+            <canvas id="chart-players-server"></canvas>
         </div>
 
         <div class="chart-title">在线状态</div>
         <div class="chart-container chart-small">
-            <canvas id="chart-status-{{ slug }}"></canvas>
+            <canvas id="chart-status-server"></canvas>
         </div>
 
         <div class="chart-title">在线玩家</div>
-        <div class="group-servers player-list" id="players-list-{{ slug }}">加载中...</div>
+        <div class="group-servers player-list" id="players-list-server">加载中...</div>
     </div>
-    {% endfor %}
 </div>
 </div>
 
@@ -105,10 +102,7 @@
     const charts = {};
     let socket = null;
     let chartHours = 12;
-    const groups = Array.from(document.querySelectorAll('[data-group]')).map(el => ({
-        name: el.dataset.group,
-        slug: el.dataset.slug
-    }));
+    const slug = 'server';
 
     // Chart.js color configuration for dark theme
     const chartColors = {
@@ -140,13 +134,14 @@
             .replace(/'/g, '&#039;');
     }
 
-    function updateGroupCard(slug, { uptime, latency, players, maxPlayers, active, total, online }) {
+    function updateServerCard({ uptime, latency, players, maxPlayers, active, total, online }) {
         const uptimeEl = document.getElementById(`uptime-${slug}`);
         const latencyEl = document.getElementById(`latency-${slug}`);
         const playersEl = document.getElementById(`players-${slug}`);
         const activeEl = document.getElementById(`active-${slug}`);
         const fillEl = document.getElementById(`uptime-fill-${slug}`);
         const badge = document.getElementById(`badge-${slug}`);
+        const nodeCountEl = document.getElementById('node-count');
         if (uptimeEl) uptimeEl.textContent = `${uptime ?? 0}%`;
         if (latencyEl) latencyEl.textContent = latency ? `${latency}ms` : 'N/A';
         if (playersEl) playersEl.textContent = online ? `${players}/${maxPlayers}` : 'N/A';
@@ -160,17 +155,20 @@
             badge.textContent = online ? '在线' : '离线';
             badge.className = online ? 'status-badge status-online' : 'status-badge status-offline';
         }
+        if (nodeCountEl) {
+            nodeCountEl.textContent = `${total} 个节点入口`;
+        }
     }
 
-    async function loadGroup(group) {
-        const g = encodeURIComponent(group.name);
-        const slug = group.slug;
+    async function loadServer() {
         try {
-            const [historyRes, statsRes, playersRes] = await Promise.all([
-                fetch(`/api/servers/${g}/history`),
-                fetch(`/api/servers/${g}/stats`),
-                fetch(`/api/servers/${g}/players`)
+            const [nodesRes, historyRes, statsRes, playersRes] = await Promise.all([
+                fetch('/api/server/nodes'),
+                fetch('/api/server/history'),
+                fetch('/api/server/stats'),
+                fetch('/api/server/players')
             ]);
+            const nodes = await nodesRes.json();
             const history = await historyRes.json();
             const stats = await statsRes.json();
             const players = await playersRes.json();
@@ -181,13 +179,13 @@
             const playersMax = latest && latest.players_max ? latest.players_max : 0;
             const activeEntrances = (history && history.length && latest && latest.latencies) ?
                 Object.values(latest.latencies).filter(v => v !== null).length : 0;
-            updateGroupCard(slug, {
+            updateServerCard({
                 uptime: stats.uptime_percentage ?? 0,
                 latency: stats.avg_latency,
                 players: playersOnline,
                 maxPlayers: playersMax,
                 active: activeEntrances,
-                total: latest && latest.latencies ? Object.keys(latest.latencies).length : players.length,
+                total: nodes.length,
                 online: anyOnline
             });
 
@@ -196,7 +194,7 @@
             renderStatusChart(slug, history);
             renderPlayersList(slug, players);
         } catch (err) {
-            console.error('加载组数据失败', group.name, err);
+            console.error('加载服务器数据失败', err);
         }
     }
 
@@ -361,7 +359,7 @@
     function loadAll() {
         chartHours = parseInt(document.getElementById('global-range').value, 10) || 12;
         document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
-        groups.forEach(g => loadGroup(g));
+        loadServer();
     }
 
     document.getElementById('global-range').addEventListener('change', loadAll);

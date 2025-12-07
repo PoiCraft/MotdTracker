@@ -274,10 +274,10 @@ function renderStatusChart(id, history){
 async function loadServer(server){
     const id = server.id;
     const [statusRes, historyRes, statsRes, playersRes] = await Promise.all([
-        fetch(`/api/server/${id}`),
-        fetch(`/api/server/${id}/history`),
-        fetch(`/api/server/${id}/stats`),
-        fetch(`/api/server/${id}/online_players`)
+        fetch(`/api/node/${id}`),
+        fetch(`/api/node/${id}/history`),
+        fetch(`/api/node/${id}/stats`),
+        fetch(`/api/node/${id}/online_players`)
     ]);
     const statusData = statusRes.ok ? await statusRes.json() : null;
     const history = historyRes.ok ? await historyRes.json() : [];

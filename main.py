@@ -18,29 +18,17 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 poller = ServerPoller('config.json', socketio=socketio)
 
 
-def build_groups_data():
-    """构建服务器组及其最新状态列表"""
+def get_server_nodes_data():
+    """构建服务器的节点及其最新状态列表"""
     servers = poller.db.get_all_servers()
-
-    groups = {}
+    nodes = []
     for server in servers:
-        server_config = next((s for s in poller.config.get('servers', [])
-                             if s['host'] == server['host'] and s['port'] == server['port']), None)
-        server_name = server_config.get('group', server['name']) if server_config else server['name']
-
-        if server_name not in groups:
-            groups[server_name] = {
-                'server_name': server_name,
-                'servers': []
-            }
-
         latest_status = poller.db.get_server_latest_status(server['id'])
-        groups[server_name]['servers'].append({
+        nodes.append({
             **server,
             'latest_status': latest_status
         })
-
-    return list(groups.values())
+    return nodes
 
 
 @app.route('/')
@@ -52,8 +40,7 @@ def index():
 @app.route('/server')
 def server_page():
     """服务器视图页面"""
-    groups = build_groups_data()
-    return render_template('server.html', groups=groups, active_page='server')
+    return render_template('server.html', server_name=poller.config.get('server_name', 'Minecraft Server'), active_page='server')
 
 
 @app.route('/nodes')
@@ -83,18 +70,18 @@ def api_nodes():
     return jsonify(servers)
 
 
-@app.route('/api/server/<int:server_id>')
-def api_server(server_id):
-    """API - 获取单个服务器的详细信息"""
-    status = poller.db.get_server_latest_status(server_id)
+@app.route('/api/node/<int:node_id>')
+def api_node(node_id):
+    """API - 获取单个节点的详细信息"""
+    status = poller.db.get_server_latest_status(node_id)
     if status is None:
-        return jsonify({'error': '服务器不存在'}), 404
+        return jsonify({'error': '节点不存在'}), 404
     return jsonify(status)
 
 
-@app.route('/api/server/<int:server_id>/online_players')
-def api_server_online_players(server_id):
-    """API - 获取当前在线玩家及在线时长"""
+@app.route('/api/node/<int:node_id>/online_players')
+def api_node_online_players(node_id):
+    """API - 获取节点当前在线玩家及在线时长"""
 
     def _parse_dt(value):
         if value is None:
@@ -106,7 +93,7 @@ def api_server_online_players(server_id):
         except Exception:
             return None
 
-    players = poller.db.get_online_players(server_id)
+    players = poller.db.get_online_players(node_id)
     result = []
 
     for p in players:
@@ -123,18 +110,18 @@ def api_server_online_players(server_id):
     return jsonify(result)
 
 
-@app.route('/api/server/<int:server_id>/history')
-def api_server_history(server_id):
-    """API - 获取服务器历史记录"""
+@app.route('/api/node/<int:node_id>/history')
+def api_node_history(node_id):
+    """API - 获取节点历史记录"""
     # 获取最近24小时的数据(假设每分钟一次,24*60=1440)
-    history = poller.db.get_server_history(server_id, limit=1440)
+    history = poller.db.get_server_history(node_id, limit=1440)
     return jsonify(history)
 
 
-@app.route('/api/server/<int:server_id>/stats')
-def api_server_stats(server_id):
-    """API - 获取服务器统计信息"""
-    history = poller.db.get_server_history(server_id, limit=1440)  # 24小时数据
+@app.route('/api/node/<int:node_id>/stats')
+def api_node_stats(node_id):
+    """API - 获取节点统计信息"""
+    history = poller.db.get_server_history(node_id, limit=1440)  # 24小时数据
     
     if not history:
         return jsonify({
@@ -162,71 +149,60 @@ def api_server_stats(server_id):
     return jsonify(stats)
 
 
-@app.route('/api/servers')
-def api_servers():
-    """API - 获取所有服务器及其聚合数据"""
-    groups = build_groups_data()
-    return jsonify(groups)
+@app.route('/api/server/nodes')
+def api_server_nodes():
+    """API - 获取服务器的所有节点"""
+    nodes = get_server_nodes_data()
+    return jsonify(nodes)
 
 
-@app.route('/api/servers/<server_name>/history')
-def api_servers_history(server_name):
+@app.route('/api/server/history')
+def api_server_history():
     """API - 获取服务器的聚合历史数据"""
     servers = poller.db.get_all_servers()
     
-    # 找到该服务器的所有节点
-    server_nodes = []
-    for server in servers:
-        server_config = next((s for s in poller.config.get('servers', []) 
-                             if s['host'] == server['host'] and s['port'] == server['port']), None)
-        if server_config and server_config.get('group') == server_name:
-            server_nodes.append({
-                'id': server['id'],
-                'name': server['name']
-            })
-    
-    if not server_nodes:
+    if not servers:
         return jsonify([])
     
-    # 获取每个服务器的历史数据
-    servers_history = {}
-    for server in server_nodes:
+    # 获取每个节点的历史数据
+    nodes_history = {}
+    for server in servers:
         history = poller.db.get_server_history(server['id'], limit=1440)
-        servers_history[server['name']] = history
+        nodes_history[server['name']] = history
     
-    # 按时间戳聚合所有服务器的数据
+    # 按时间戳聚合所有节点的数据
     all_histories = {}
-    for server_name, history in servers_history.items():
+    for node_name, history in nodes_history.items():
         for record in history:
             timestamp = record['timestamp']
             if timestamp not in all_histories:
                 all_histories[timestamp] = {
                     'timestamp': timestamp,
-                    'servers': {}
+                    'nodes': {}
                 }
-            all_histories[timestamp]['servers'][server_name] = record
+            all_histories[timestamp]['nodes'][node_name] = record
     
     # 转换为列表,每个时间点选择最佳数据用于玩家信息
     aggregated_history = []
     for timestamp in sorted(all_histories.keys(), reverse=True):
         data = all_histories[timestamp]
-        servers_data = data['servers']
+        nodes_data = data['nodes']
         
         # 优先选择在线的记录来获取玩家信息
-        online_records = [r for r in servers_data.values() if r['online']]
-        selected_record = online_records[0] if online_records else list(servers_data.values())[0]
+        online_records = [r for r in nodes_data.values() if r['online']]
+        selected_record = online_records[0] if online_records else list(nodes_data.values())[0]
         
-        # 构建每个服务器的延迟数据
+        # 构建每个节点的延迟数据
         latencies = {}
-        for server_name, record in servers_data.items():
-            latencies[server_name] = record.get('latency') if record['online'] else None
+        for node_name, record in nodes_data.items():
+            latencies[node_name] = record.get('latency') if record['online'] else None
         
         aggregated_history.append({
             'timestamp': timestamp,
             'online': len(online_records) > 0,
             'players_online': selected_record.get('players_online'),
             'players_max': selected_record.get('players_max'),
-            'latencies': latencies,  # 每个服务器的延迟
+            'latencies': latencies,
             'version': selected_record.get('version'),
             'motd': selected_record.get('motd')
         })
@@ -234,20 +210,12 @@ def api_servers_history(server_name):
     return jsonify(aggregated_history)
 
 
-@app.route('/api/servers/<server_name>/stats')
-def api_servers_stats(server_name):
-    """API - 获取服务器组的统计信息"""
+@app.route('/api/server/stats')
+def api_server_stats():
+    """API - 获取服务器的统计信息"""
     servers = poller.db.get_all_servers()
     
-    # 找到该组的所有服务器
-    server_node_ids = []
-    for server in servers:
-        server_config = next((s for s in poller.config.get('servers', []) 
-                             if s['host'] == server['host'] and s['port'] == server['port']), None)
-        if server_config and server_config.get('group') == server_name:
-            server_node_ids.append(server['id'])
-    
-    if not server_node_ids:
+    if not servers:
         return jsonify({
             'uptime_percentage': 0,
             'avg_latency': None,
@@ -260,8 +228,8 @@ def api_servers_stats(server_name):
     timestamp_status = defaultdict(list)
     all_latencies = []
     
-    for server_id in server_node_ids:
-        history = poller.db.get_server_history(server_id, limit=1440)
+    for server in servers:
+        history = poller.db.get_server_history(server['id'], limit=1440)
         for h in history:
             timestamp_status[h['timestamp']].append(h['online'])
             if h['online'] and h['latency'] is not None:
@@ -282,18 +250,10 @@ def api_servers_stats(server_name):
     })
 
 
-@app.route('/api/servers/<server_name>/players')
-def api_servers_players(server_name):
-    """API - 获取组内在线玩家信息"""
+@app.route('/api/server/players')
+def api_server_players():
+    """API - 获取服务器内在线玩家信息"""
     servers = poller.db.get_all_servers()
-
-    # 找到该组的所有服务器配置
-    server_nodes = []
-    for server in servers:
-        server_config = next((s for s in poller.config.get('servers', [])
-                             if s['host'] == server['host'] and s['port'] == server['port']), None)
-        if server_config and server_config.get('group') == server_name:
-            server_nodes.append(server)
 
     result = []
 
@@ -307,7 +267,7 @@ def api_servers_players(server_name):
         except Exception:
             return None
 
-    for server in server_nodes:
+    for server in servers:
         # 只获取在线玩家
         sessions = poller.db.get_online_players(server['id'])
         for s in sessions:
@@ -418,7 +378,7 @@ def api_all_players():
 
 @app.route('/api/player/<player_name>/detail')
 def api_player_detail(player_name):
-    """API - 获取单一玩家的在线详情（群组级别聚合）"""
+    """API - 获取单一玩家的在线详情"""
     servers = poller.db.get_all_servers()
 
     def _parse_dt(value):
@@ -431,15 +391,13 @@ def api_player_detail(player_name):
         except Exception:
             return None
 
-    # 按群组聚合会话
-    groups = {}
+    # 聚合所有节点的会话数据
+    player_online = False
+    earliest_session_start = None
+    latest_last_seen = None
+    max_duration = None
     
     for server in servers:
-        # 获取服务器配置以确定群组
-        server_config = next((s for s in poller.config.get('servers', []) 
-                             if s['host'] == server['host'] and s['port'] == server['port']), None)
-        server_name = server_config.get('group', '默认') if server_config else '默认'
-        
         # 获取所有会话用于历史数据和离线状态
         all_sessions = poller.db.get_all_player_sessions(server['id'])
         # 只获取在线会话用于当前在线状态
@@ -451,77 +409,33 @@ def api_player_detail(player_name):
         if not player_sessions:
             continue
         
-        if server_name not in groups:
-            groups[server_name] = {
-                'online': False,
-                'session_start': None,
-                'last_seen': None,
-                'duration_seconds': None,
-                'earliest_start': None,
-                'latest_seen': None,
-                'max_duration': None
-            }
+        # 更新在线状态
+        if online_sessions:
+            player_online = True
+            for s in online_sessions:
+                start_dt = _parse_dt(s.get('session_start'))
+                if start_dt:
+                    if earliest_session_start is None or start_dt < earliest_session_start:
+                        earliest_session_start = start_dt
+                    # 取最大的 duration_seconds
+                    if s.get('duration_seconds') is not None:
+                        if max_duration is None or s.get('duration_seconds') > max_duration:
+                            max_duration = s.get('duration_seconds')
         
-        group = groups[server_name]
-        
-        # 更新在线状态 - 只基于实际在线的会话
-        for s in online_sessions:
-            start_dt = _parse_dt(s.get('session_start'))
-            if start_dt:
-                group['online'] = True
-                # 取最早的会话开始时间
-                if group['earliest_start'] is None or start_dt < group['earliest_start']:
-                    group['earliest_start'] = start_dt
-                    group['session_start'] = start_dt.isoformat()
-                # 取最大的 duration_seconds
-                if s.get('duration_seconds') is not None:
-                    if group['max_duration'] is None or s.get('duration_seconds') > group['max_duration']:
-                        group['max_duration'] = s.get('duration_seconds')
-        
-        # 更新最后在线时间 - 从所有会话中获取
+        # 更新最后在线时间
         for s in player_sessions:
             last_dt = _parse_dt(s.get('last_seen'))
-            if last_dt and (group['latest_seen'] is None or last_dt > group['latest_seen']):
-                group['latest_seen'] = last_dt
-                group['last_seen'] = last_dt.isoformat()
+            if last_dt and (latest_last_seen is None or last_dt > latest_last_seen):
+                latest_last_seen = last_dt
     
-    # 使用预计算的 duration_seconds
-    for server_name, group in groups.items():
-        if group['online'] and group['max_duration'] is not None:
-            group['duration_seconds'] = group['max_duration']
-        # 清理内部字段
-        group.pop('earliest_start', None)
-        group.pop('latest_seen', None)
-        group.pop('max_duration', None)
-    
-    # 全局摘要
+    # 构建返回数据
     summary = {
         'player_name': player_name,
-        'online': any(g['online'] for g in groups.values()),
-        'session_start': None,
-        'last_seen': None,
-        'duration_seconds': None,
-        'groups': groups
+        'online': player_online,
+        'session_start': earliest_session_start.isoformat() if earliest_session_start else None,
+        'last_seen': latest_last_seen.isoformat() if latest_last_seen else None,
+        'duration_seconds': max_duration
     }
-    
-    # 计算全局会话开始时间和时长
-    if summary['online']:
-        online_groups = [g for g in groups.values() if g['online']]
-        if online_groups:
-            # 获取所有有效的 session_start
-            valid_starts = [datetime.fromisoformat(g['session_start']) for g in online_groups if g['session_start']]
-            if valid_starts:
-                earliest_start = min(valid_starts)
-                summary['session_start'] = earliest_start.isoformat()
-            # 使用最大的 duration_seconds 作为全局时长
-            max_duration = max((g['duration_seconds'] for g in online_groups if g['duration_seconds'] is not None), default=None)
-            summary['duration_seconds'] = max_duration
-    
-    # 全局最后在线时间
-    all_last_seen = [datetime.fromisoformat(g['last_seen']) for g in groups.values() if g['last_seen']]
-    if all_last_seen:
-        latest = max(all_last_seen)
-        summary['last_seen'] = latest.isoformat()
 
     return jsonify(summary)
 

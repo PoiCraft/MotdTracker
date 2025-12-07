@@ -50,16 +50,16 @@ class ServerPoller:
     
     def _register_servers(self):
         """在数据库中注册配置文件中的服务器"""
-        for server in self.config.get('servers', []):
-            name = server['name']
-            host = server['host']
-            port = server.get('port', 25565)
+        for node in self.config.get('nodes', []):
+            name = node['name']
+            host = node['host']
+            port = node.get('port', 25565)
             
             server_id = self.db.add_server(name, host, port)
             key = f"{host}:{port}"
             self.server_ids[key] = server_id
             
-            self.logger.info(f"已注册服务器: {name} ({host}:{port}) - ID: {server_id}")
+            self.logger.info(f"已注册节点: {name} ({host}:{port}) - ID: {server_id}")
     
     def poll_server(self, server_info: Dict, timestamp=None):
         """
@@ -121,21 +121,21 @@ class ServerPoller:
     def poll_all_servers(self):
         """轮询所有服务器"""
         self.logger.info("=" * 60)
-        self.logger.info("开始轮询所有服务器")
+        self.logger.info("开始轮询所有节点")
         
         round_timestamp = datetime.now()
 
-        servers = self.config.get('servers', [])
-        max_workers = min(8, len(servers)) if servers else 0
+        nodes = self.config.get('nodes', [])
+        max_workers = min(8, len(nodes)) if nodes else 0
 
         if max_workers == 0:
-            self.logger.info("无服务器可轮询")
+            self.logger.info("无节点可轮询")
             return
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_server = {
-                executor.submit(self.poll_server, server, timestamp=round_timestamp): server
-                for server in servers
+                executor.submit(self.poll_server, node, timestamp=round_timestamp): node
+                for node in nodes
             }
 
             for future in as_completed(future_to_server):
