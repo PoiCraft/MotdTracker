@@ -62,6 +62,13 @@
         </div>
     </div>
 </div>
+
+<div class="server-card">
+    <div class="chart-title">会话记录（最近20条）</div>
+    <div id="session-list" class="info-list">
+        <div class="loading">加载中...</div>
+    </div>
+</div>
 {% endblock %}
 
 {% block inline_scripts %}
@@ -81,6 +88,47 @@ function formatDuration(seconds) {
 function formatTime(value) {
     if (!value) return '未知';
     return new Date(value).toLocaleString('zh-CN');
+}
+
+function renderSessions(daily = []) {
+    const container = document.getElementById('session-list');
+    if (!container) return;
+
+    const sessions = [];
+    daily.forEach(day => {
+        (day.sessions || []).forEach(s => {
+            sessions.push({
+                start: s.start,
+                end: s.end,
+                server: s.server_name || '未知',
+                date: day.date
+            });
+        });
+    });
+
+    if (sessions.length === 0) {
+        container.innerHTML = '<div class="player-heatmap-empty">暂无会话记录</div>';
+        return;
+    }
+
+    sessions.sort((a, b) => new Date(b.start) - new Date(a.start));
+    const latest = sessions.slice(0, 20);
+
+    const rows = latest.map(s => {
+        const start = formatTime(s.start);
+        const end = s.end ? formatTime(s.end) : '进行中';
+        const durSec = s.end ? (new Date(s.end) - new Date(s.start)) / 1000 : 0;
+        const durText = s.end ? formatDuration(Math.max(durSec, 0)) : '进行中';
+        return `<div class="info-line">
+            <div>
+                <div>${start} - ${end}</div>
+                <div class="text-muted">服务器/组: ${s.server}</div>
+            </div>
+            <div>${durText}</div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = rows;
 }
 
 function escapeHtml(unsafe) {
@@ -240,6 +288,7 @@ async function loadData() {
         renderHourlyChart(calendar.hourly_average || []);
         document.getElementById('avg-daily').textContent = formatDuration(calendar.average_daily_seconds);
         document.getElementById('avg-session').textContent = formatDuration(calendar.average_session_seconds);
+        renderSessions(calendar.daily || []);
         
         // Calculate past 24h duration
         const now = new Date();
