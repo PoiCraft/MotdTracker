@@ -1,61 +1,31 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>玩家列表</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <div class="sidebar-title">MotdTracker</div>
-        </div>
-        <nav class="sidebar-nav">
-            <a href="/server" class="nav-link">服务器</a>
-            <a href="/nodes" class="nav-link">节点</a>
-            <a href="/players" class="nav-link active">玩家</a>
-        </nav>
-        <div class="sidebar-footer">
-            <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
-        </div>
-    </div>
-    
-    <div class="container">
-        <div class="header">
-            <div class="header-left">
-                <button class="mobile-menu-toggle" onclick="toggleSidebar()">☰</button>
-                <div class="header-title">玩家列表</div>
-            </div>
-            <div class="header-right">
-                <span class="toolbar-label" id="last-update">数据更新于: --</span>
-            </div>
-        </div>
+{% extends "base.html" %}
 
-        <div id="players-container" class="players-list">
-            <div class="loading">加载中...</div>
-        </div>
-    </div>
+{% block title %}玩家{% endblock %}
 
-    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
-    <script>
+{% block header_left %}
+<div class="header-title">玩家</div>
+{% endblock %}
+
+{% block header_right %}
+<span class="toolbar-label" id="last-update">--</span>
+{% endblock %}
+
+{% block content %}
+<div id="players-container" class="players-list">
+    <div class="loading">加载中...</div>
+</div>
+{% endblock %}
+
+{% block inline_scripts %}
 let socket = null;
 
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    sidebar.classList.toggle('show');
-    overlay.classList.toggle('show');
-}
-
 function formatDuration(seconds) {
-    if (!seconds && seconds !== 0) return '0分';
+    if (!seconds && seconds !== 0) return '0m';
     const mins = Math.floor(seconds / 60);
     const hours = Math.floor(mins / 60);
     const minutes = mins % 60;
-    if (hours > 0) return `${hours}小时${minutes}分`;
-    return `${minutes}分`;
+    if (hours > 0) return `${hours}h${minutes}m`;
+    return `${minutes}m`;
 }
 
 function formatTime(value) {
@@ -78,14 +48,21 @@ function renderHeatmap(heatmap) {
         return '<div class="player-heatmap-empty">无数据</div>';
     }
     
-    // Get today's heatmap (24 hours)
-    const today = new Date().toISOString().split('T')[0];
-    const todayData = heatmap.filter(h => h.date === today);
+    // Get past 24 hours heatmap
+    const now = new Date();
+    const past24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     
-    // Create 24 hour blocks
+    // Create 24 hour blocks for the past 24 hours
     const hours = Array(24).fill(0);
-    todayData.forEach(h => {
-        hours[h.hour] = h.seconds;
+    
+    heatmap.forEach(h => {
+        const cellTime = new Date(h.date + 'T' + String(h.hour).padStart(2, '0') + ':00:00');
+        if (cellTime >= past24h && cellTime <= now) {
+            const hourOffset = Math.floor((now - cellTime) / (1000 * 60 * 60));
+            if (hourOffset >= 0 && hourOffset < 24) {
+                hours[23 - hourOffset] += h.seconds;
+            }
+        }
     });
     
     // Find max for scaling
@@ -93,14 +70,15 @@ function renderHeatmap(heatmap) {
     
     // Generate heatmap blocks using CSS classes for theming
     return `<div class="player-heatmap">
-        ${hours.map((seconds, hour) => {
+        ${hours.map((seconds, idx) => {
             const intensity = maxSeconds > 0 ? seconds / maxSeconds : 0;
             let className = 'heatmap-block';
             if (intensity > 0.7) className += ' intensity-high';
             else if (intensity > 0.4) className += ' intensity-medium';
             else if (intensity > 0) className += ' intensity-low';
             else className += ' intensity-none';
-            return `<div class="${className}" title="${hour}:00 - ${seconds > 0 ? formatDuration(seconds) : '0分'}"></div>`;
+            const hourAgo = 23 - idx;
+            return `<div class="${className}" title="${hourAgo}h前 - ${seconds > 0 ? formatDuration(seconds) : '0m'}"></div>`;
         }).join('')}
     </div>`;
 }
@@ -110,34 +88,42 @@ async function loadPlayers() {
         const res = await fetch('/api/players');
         const players = await res.json();
         
-        // For each player, fetch today's calendar data
+        // For each player, fetch past 24h calendar data
         const playersWithHeatmap = await Promise.all(
             players.map(async (p) => {
                 try {
-                    const calRes = await fetch(`/api/player/${encodeURIComponent(p.player_name)}/calendar?days=1`);
+                    const calRes = await fetch(`/api/player/${encodeURIComponent(p.player_name)}/calendar?days=2`);
                     const calendar = await calRes.json();
                     
-                    // Get today's duration
-                    const today = new Date().toISOString().split('T')[0];
-                    const todayData = calendar.daily.find(d => d.date === today);
+                    // Calculate past 24h duration
+                    const now = new Date();
+                    const past24h = now.getTime() - 24 * 60 * 60 * 1000;
+                    let duration24h = 0;
+                    
+                    calendar.heatmap.forEach(h => {
+                        const cellTime = new Date(h.date + 'T' + String(h.hour).padStart(2, '0') + ':00:00').getTime();
+                        if (cellTime >= past24h && cellTime <= now.getTime()) {
+                            duration24h += h.seconds;
+                        }
+                    });
                     
                     return {
                         ...p,
                         heatmap: calendar.heatmap,
-                        todayDuration: todayData ? todayData.total_seconds : 0
+                        duration24h: duration24h
                     };
                 } catch (e) {
                     return {
                         ...p,
                         heatmap: [],
-                        todayDuration: 0
+                        duration24h: 0
                     };
                 }
             })
         );
         
         renderPlayersList(playersWithHeatmap);
-        document.getElementById('last-update').textContent = `数据更新于: ${new Date().toLocaleTimeString('zh-CN')}`;
+        document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
     } catch (e) {
         console.error('加载玩家列表失败:', e);
         document.getElementById('players-container').innerHTML = '<div class="loading">加载失败</div>';
@@ -148,7 +134,7 @@ function renderPlayersList(players) {
     const container = document.getElementById('players-container');
     
     if (!players || players.length === 0) {
-        container.innerHTML = '<div class="loading">暂无玩家记录</div>';
+        container.innerHTML = '<div class="loading">暂无玩家</div>';
         return;
     }
     
@@ -160,7 +146,7 @@ function renderPlayersList(players) {
                     <span class="status-dot ${p.online ? 'online' : 'offline'}">${p.online ? '在线' : '离线'}</span>
                 </div>
                 <div class="player-stats-row">
-                    <span class="stat-item">今日: ${formatDuration(p.todayDuration)}</span>
+                    <span class="stat-item">24h: ${formatDuration(p.duration24h)}</span>
                     ${p.online ? `<span class="stat-item">已在线: ${formatDuration(p.duration_seconds)}</span>` : `<span class="stat-item">最后在线: ${formatTime(p.last_seen)}</span>`}
                 </div>
             </div>
@@ -192,8 +178,14 @@ function initWebSocket() {
 loadPlayers();
 initWebSocket();
 
+// Handle page restoration from cache (e.g., back button)
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        // Page was restored from BFCache, reload data
+        loadPlayers();
+    }
+});
+
 // Refresh every 60 seconds
 setInterval(loadPlayers, 60000);
-    </script>
-</body>
-</html>
+{% endblock %}
