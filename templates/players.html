@@ -139,19 +139,11 @@ function renderPlayersList(players) {
     }
     
     container.innerHTML = players.map(p => {
-        let onlineText = '';
-        if (p.online) {
-            if (p.session_start) {
-                const startTs = new Date(p.session_start).getTime();
-                const nowTs = Date.now();
-                const durSec = Math.max(0, Math.floor((nowTs - startTs) / 1000));
-                onlineText = `已在线: ${formatDuration(durSec)}`;
-            } else if (p.duration_seconds || p.duration_seconds === 0) {
-                onlineText = `已在线: ${formatDuration(p.duration_seconds)}`;
-            } else {
-                onlineText = '已在线: 未知';
-            }
-        }
+        const onlineText = p.online
+            ? (p.duration_seconds || p.duration_seconds === 0)
+                ? `已在线: ${formatDuration(p.duration_seconds)}`
+                : '已在线: 未知'
+            : '';
         return `
         <a href="/player/${encodeURIComponent(p.player_name)}" class="player-card-compact">
             <div class="player-info">
