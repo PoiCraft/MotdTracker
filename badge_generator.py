@@ -84,7 +84,7 @@ class BadgeGenerator:
     def _generate_flat(cls, label, message, color):
         """生成flat样式的badge"""
         label_width = cls._get_text_width(label) + 10
-        message_width = cls._get_text_width(message) + 10
+        message_width = cls._get_text_width(message) + 16
         total_width = label_width + message_width
         bg_color = cls._get_color(color)
         
@@ -105,8 +105,8 @@ class BadgeGenerator:
     <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
         <text aria-hidden="true" x="{label_width/2*10:.0f}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="{(label_width-10)*10:.0f}">{label}</text>
         <text x="{label_width/2*10:.0f}" y="140" transform="scale(.1)" fill="#fff" textLength="{(label_width-10)*10:.0f}">{label}</text>
-        <text aria-hidden="true" x="{(label_width + message_width/2)*10:.0f}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="{(message_width-10)*10:.0f}">{message}</text>
-        <text x="{(label_width + message_width/2)*10:.0f}" y="140" transform="scale(.1)" fill="#fff" textLength="{(message_width-10)*10:.0f}">{message}</text>
+        <text aria-hidden="true" x="{(label_width + message_width/2)*10:.0f}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="{(message_width-16)*10:.0f}">{message}</text>
+        <text x="{(label_width + message_width/2)*10:.0f}" y="140" transform="scale(.1)" fill="#fff" textLength="{(message_width-16)*10:.0f}">{message}</text>
     </g>
 </svg>'''
         return svg
@@ -115,7 +115,7 @@ class BadgeGenerator:
     def _generate_flat_square(cls, label, message, color):
         """生成flat-square样式的badge"""
         label_width = cls._get_text_width(label) + 10
-        message_width = cls._get_text_width(message) + 10
+        message_width = cls._get_text_width(message) + 16
         total_width = label_width + message_width
         bg_color = cls._get_color(color)
         
@@ -127,7 +127,7 @@ class BadgeGenerator:
     </g>
     <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
         <text x="{label_width/2*10:.0f}" y="140" transform="scale(.1)" fill="#fff" textLength="{(label_width-10)*10:.0f}">{label}</text>
-        <text x="{(label_width + message_width/2)*10:.0f}" y="140" transform="scale(.1)" fill="#fff" textLength="{(message_width-10)*10:.0f}">{message}</text>
+        <text x="{(label_width + message_width/2)*10:.0f}" y="140" transform="scale(.1)" fill="#fff" textLength="{(message_width-16)*10:.0f}">{message}</text>
     </g>
 </svg>'''
         return svg
@@ -136,7 +136,7 @@ class BadgeGenerator:
     def _generate_plastic(cls, label, message, color):
         """生成plastic样式的badge"""
         label_width = cls._get_text_width(label) + 10
-        message_width = cls._get_text_width(message) + 10
+        message_width = cls._get_text_width(message) + 16
         total_width = label_width + message_width
         bg_color = cls._get_color(color)
         
@@ -159,8 +159,8 @@ class BadgeGenerator:
     <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
         <text aria-hidden="true" x="{label_width/2*10:.0f}" y="140" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="{(label_width-10)*10:.0f}">{label}</text>
         <text x="{label_width/2*10:.0f}" y="130" transform="scale(.1)" fill="#fff" textLength="{(label_width-10)*10:.0f}">{label}</text>
-        <text aria-hidden="true" x="{(label_width + message_width/2)*10:.0f}" y="140" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="{(message_width-10)*10:.0f}">{message}</text>
-        <text x="{(label_width + message_width/2)*10:.0f}" y="130" transform="scale(.1)" fill="#fff" textLength="{(message_width-10)*10:.0f}">{message}</text>
+        <text aria-hidden="true" x="{(label_width + message_width/2)*10:.0f}" y="140" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="{(message_width-16)*10:.0f}">{message}</text>
+        <text x="{(label_width + message_width/2)*10:.0f}" y="130" transform="scale(.1)" fill="#fff" textLength="{(message_width-16)*10:.0f}">{message}</text>
     </g>
 </svg>'''
         return svg
@@ -171,7 +171,7 @@ class BadgeGenerator:
         # 这个样式使用更大的字体和更宽的间距
         font_size = 10  # 更大的字体
         label_width = cls._get_text_width(label.upper(), font_size, bold=True) + 20
-        message_width = cls._get_text_width(message.upper(), font_size, bold=True) + 20
+        message_width = cls._get_text_width(message.upper(), font_size, bold=True) + 26
         total_width = label_width + message_width
         bg_color = cls._get_color(color)
         height = 28
@@ -184,7 +184,7 @@ class BadgeGenerator:
     </g>
     <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="100">
         <text transform="scale(.1)" x="{label_width/2*10:.0f}" y="175" textLength="{(label_width-20)*10:.0f}" fill="#fff" font-weight="bold">{label.upper()}</text>
-        <text transform="scale(.1)" x="{(label_width + message_width/2)*10:.0f}" y="175" textLength="{(message_width-20)*10:.0f}" fill="#fff" font-weight="bold">{message.upper()}</text>
+        <text transform="scale(.1)" x="{(label_width + message_width/2)*10:.0f}" y="175" textLength="{(message_width-26)*10:.0f}" fill="#fff" font-weight="bold">{message.upper()}</text>
     </g>
 </svg>'''
         return svg
@@ -193,7 +193,7 @@ class BadgeGenerator:
     def _generate_social(cls, label, message, color):
         """生成social样式的badge"""
         label_width = cls._get_text_width(label) + 10
-        message_width = cls._get_text_width(message) + 10
+        message_width = cls._get_text_width(message) + 16
         total_width = label_width + message_width + 6  # 添加额外间距
         bg_color = cls._get_color(color)
         
@@ -215,8 +215,8 @@ class BadgeGenerator:
     <g aria-hidden="true" fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110">
         <text x="{label_width/2*10:.0f}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="{(label_width-10)*10:.0f}">{label}</text>
         <text x="{label_width/2*10:.0f}" y="140" transform="scale(.1)" fill="#fff" textLength="{(label_width-10)*10:.0f}">{label}</text>
-        <text x="{(label_width + message_width/2 + 6)*10:.0f}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="{(message_width-10)*10:.0f}">{message}</text>
-        <text id="rlink" x="{(label_width + message_width/2 + 6)*10:.0f}" y="140" transform="scale(.1)" fill="#fff" textLength="{(message_width-10)*10:.0f}">{message}</text>
+        <text x="{(label_width + message_width/2 + 6)*10:.0f}" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="{(message_width-16)*10:.0f}">{message}</text>
+        <text id="rlink" x="{(label_width + message_width/2 + 6)*10:.0f}" y="140" transform="scale(.1)" fill="#fff" textLength="{(message_width-16)*10:.0f}">{message}</text>
     </g>
     <rect id="llink" stroke="#d5d5d5" fill="url(#a)" x=".5" y=".5" width="{label_width-1:.0f}" height="19" rx="2"/>
 </svg>'''

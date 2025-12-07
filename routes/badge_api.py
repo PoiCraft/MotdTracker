@@ -249,20 +249,18 @@ def register_badge_routes(api, poller):
                 # 检查玩家是否在任何服务器在线
                 servers = poller.db.get_all_servers()
                 is_online = False
-                current_server = None
                 
                 for server in servers:
                     sessions = poller.db.get_online_players(server['id'])
                     for session in sessions:
                         if session.get('player_name') == player_name:
                             is_online = True
-                            current_server = server['name']
                             break
                     if is_online:
                         break
                 
                 if is_online:
-                    message = f'online @ {current_server}' if current_server else 'online'
+                    message = 'online'
                     color = 'brightgreen'
                 else:
                     message = 'offline'

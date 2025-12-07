@@ -1157,6 +1157,45 @@ body {
         overflow: hidden;
         text-overflow: ellipsis;
     }
+
+    /* Badges页面移动端优化 */
+    /* 工具栏优化 */
+    .server-card > div[style*="display: flex"][style*="gap: 20px"] {
+        flex-direction: column !important;
+        gap: 12px !important;
+        padding: 12px !important;
+    }
+
+    .server-card > div[style*="display: flex"][style*="gap: 20px"] > div {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 6px !important;
+        width: 100%;
+    }
+
+    .server-card > div[style*="display: flex"][style*="gap: 20px"] > div > span {
+        font-size: 0.8em !important;
+        font-weight: 600 !important;
+    }
+
+    .server-card > div[style*="display: flex"][style*="gap: 20px"] > div > select {
+        width: 100% !important;
+        font-size: 0.85em !important;
+    }
+
+    /* Badge输入框优化 */
+    .code-block {
+        font-size: 0.75em !important;
+        padding: 8px !important;
+    }
+
+    .code-block code {
+        font-size: 1em !important;
+    }
+
+    .badge-label {
+        font-size: 0.9em !important;
+    }
 }
 
 /* 24h Heatmap for Server/Nodes */

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Badge 生成器{% endblock %}
+{% block title %}Badges{% endblock %}
 
 {% block header_left %}
-<div class="header-title">Badge 生成器</div>
+<div class="header-title">Badges</div>
 {% endblock %}
 
 {% block header_right %}
@@ -68,13 +68,13 @@
                     <img src="/api/badge/server/status" alt="Server Status">
                 </div>
                 <div class="badge-code">
-                    <input type="text" readonly value="{{ base_url }}/api/badge/server/status" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code data-path="/api/badge/server/status"></code></pre>
                 </div>
                 <div class="badge-html">
-                    <input type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/server/status&quot; alt=&quot;Server Status&quot;>" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code data-path="/api/badge/server/status" data-format="html"></code></pre>
                 </div>
                 <div class="badge-markdown">
-                    <input type="text" readonly value="![Server Status]({{ base_url }}/api/badge/server/status)" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code data-path="/api/badge/server/status" data-format="markdown"></code></pre>
                 </div>
             </div>
 
@@ -85,13 +85,13 @@
                     <img id="preview-server-uptime" src="/api/badge/server/uptime" alt="Server Uptime">
                 </div>
                 <div class="badge-code">
-                    <input id="api-server-uptime" type="text" readonly value="{{ base_url }}/api/badge/server/uptime" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-server-uptime" data-path="/api/badge/server/uptime"></code></pre>
                 </div>
                 <div class="badge-html">
-                    <input id="html-server-uptime" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/server/uptime&quot; alt=&quot;Server Uptime&quot;>" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-server-uptime" data-path="/api/badge/server/uptime" data-format="html"></code></pre>
                 </div>
                 <div class="badge-markdown">
-                    <input id="md-server-uptime" type="text" readonly value="![Server Uptime]({{ base_url }}/api/badge/server/uptime)" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-server-uptime" data-path="/api/badge/server/uptime" data-format="markdown"></code></pre>
                 </div>
             </div>
 
@@ -102,13 +102,13 @@
                     <img src="/api/badge/server/players" alt="Online Players">
                 </div>
                 <div class="badge-code">
-                    <input type="text" readonly value="{{ base_url }}/api/badge/server/players" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code data-path="/api/badge/server/players"></code></pre>
                 </div>
                 <div class="badge-html">
-                    <input type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/server/players&quot; alt=&quot;Online Players&quot;>" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code data-path="/api/badge/server/players" data-format="html"></code></pre>
                 </div>
                 <div class="badge-markdown">
-                    <input type="text" readonly value="![Online Players]({{ base_url }}/api/badge/server/players)" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code data-path="/api/badge/server/players" data-format="markdown"></code></pre>
                 </div>
             </div>
         </div>
@@ -116,17 +116,20 @@
 
     <div class="server-card" style="margin-top: 20px;">
         <div class="server-header">
-            <div class="server-name">
-                节点 Badges
-                <select class="time-range-selector" onchange="switchNode(this)">
-                    {% for node in nodes %}
-                    <option value="{{ node.id }}" {% if loop.first %}selected{% endif %}>选择节点: {{ node.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+            <div class="server-name">节点 Badges</div>
         </div>
         
         <div style="padding: 20px;">
+            <!-- 节点选择器 -->
+            <div style="margin-bottom: 20px; padding: 12px; background: var(--bg-tertiary); border-radius: 6px; border: 1px solid var(--border-color);">
+                <label style="display: block; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; font-size: 0.85em;">选择节点</label>
+                <select class="time-range-selector" onchange="switchNode(this)" style="width: 100%; margin: 0;">
+                    {% for node in nodes %}
+                    <option value="{{ node.id }}" {% if loop.first %}selected{% endif %}>{{ node.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
             <!-- 节点状态 -->
             <div class="badge-item">
                 <div class="badge-label">节点状态</div>
@@ -134,13 +137,13 @@
                     <img id="preview-node-status" src="/api/badge/node/{{ nodes[0].id }}/status" alt="Node Status">
                 </div>
                 <div class="badge-code">
-                    <input id="api-node-status" type="text" readonly value="{{ base_url }}/api/badge/node/{{ nodes[0].id }}/status" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-status" data-path="/api/badge/node/{{ nodes[0].id }}/status"></code></pre>
                 </div>
                 <div class="badge-html">
-                    <input id="html-node-status" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/node/{{ nodes[0].id }}/status&quot; alt=&quot;Node Status&quot;>" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-status" data-path="/api/badge/node/{{ nodes[0].id }}/status" data-format="html"></code></pre>
                 </div>
                 <div class="badge-markdown">
-                    <input id="md-node-status" type="text" readonly value="![Node Status]({{ base_url }}/api/badge/node/{{ nodes[0].id }}/status)" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-status" data-path="/api/badge/node/{{ nodes[0].id }}/status" data-format="markdown"></code></pre>
                 </div>
             </div>
 
@@ -151,13 +154,13 @@
                     <img id="preview-node-uptime" src="/api/badge/node/{{ nodes[0].id }}/uptime" alt="Node Uptime">
                 </div>
                 <div class="badge-code">
-                    <input id="api-node-uptime" type="text" readonly value="{{ base_url }}/api/badge/node/{{ nodes[0].id }}/uptime" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-uptime" data-path="/api/badge/node/{{ nodes[0].id }}/uptime"></code></pre>
                 </div>
                 <div class="badge-html">
-                    <input id="html-node-uptime" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/node/{{ nodes[0].id }}/uptime&quot; alt=&quot;Node Uptime&quot;>" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-uptime" data-path="/api/badge/node/{{ nodes[0].id }}/uptime" data-format="html"></code></pre>
                 </div>
                 <div class="badge-markdown">
-                    <input id="md-node-uptime" type="text" readonly value="![Node Uptime]({{ base_url }}/api/badge/node/{{ nodes[0].id }}/uptime)" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-uptime" data-path="/api/badge/node/{{ nodes[0].id }}/uptime" data-format="markdown"></code></pre>
                 </div>
             </div>
 
@@ -168,13 +171,13 @@
                     <img id="preview-node-latency" src="/api/badge/node/{{ nodes[0].id }}/latency" alt="Node Latency">
                 </div>
                 <div class="badge-code">
-                    <input id="api-node-latency" type="text" readonly value="{{ base_url }}/api/badge/node/{{ nodes[0].id }}/latency" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency" data-path="/api/badge/node/{{ nodes[0].id }}/latency"></code></pre>
                 </div>
                 <div class="badge-html">
-                    <input id="html-node-latency" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/node/{{ nodes[0].id }}/latency&quot; alt=&quot;Node Latency&quot;>" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency" data-path="/api/badge/node/{{ nodes[0].id }}/latency" data-format="html"></code></pre>
                 </div>
                 <div class="badge-markdown">
-                    <input id="md-node-latency" type="text" readonly value="![Node Latency]({{ base_url }}/api/badge/node/{{ nodes[0].id }}/latency)" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency" data-path="/api/badge/node/{{ nodes[0].id }}/latency" data-format="markdown"></code></pre>
                 </div>
             </div>
         </div>
@@ -182,22 +185,24 @@
 
     <div class="server-card" style="margin-top: 20px;">
         <div class="server-header">
-            <div class="server-name">
-                玩家 Badges
-                <select class="time-range-selector" onchange="updatePlayerName(this.value)">
-                    {% if players %}
-                        {% for player in players %}
-                        <option value="{{ player }}" {% if player == 'Steve' or (loop.first and 'Steve' not in players) %}selected{% endif %}>选择玩家: {{ player }}</option>
-                        {% endfor %}
-                    {% else %}
-                        <option value="Steve" selected>选择玩家: Steve</option>
-                    {% endif %}
-                </select>
-            </div>
+            <div class="server-name">玩家 Badges</div>
         </div>
         
         <div style="padding: 20px;">
-
+            <!-- 玩家选择器 -->
+            <div style="margin-bottom: 20px; padding: 12px; background: var(--bg-tertiary); border-radius: 6px; border: 1px solid var(--border-color);">
+                <label style="display: block; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; font-size: 0.85em;">选择玩家</label>
+                <select class="time-range-selector" onchange="updatePlayerName(this.value)" style="width: 100%; margin: 0;">
+                    {% if players %}
+                        {% for player in players %}
+                        <option value="{{ player }}" {% if player == 'Steve' or (loop.first and 'Steve' not in players) %}selected{% endif %}>{{ player }}</option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="Steve" selected>Steve</option>
+                    {% endif %}
+                </select>
+            </div>
+            
             <!-- 玩家状态 -->
             <div class="badge-item">
                 <div class="badge-label">玩家在线状态</div>
@@ -205,13 +210,13 @@
                     <img id="preview-player-status" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status" alt="Player Status">
                 </div>
                 <div class="badge-code">
-                    <input id="api-player-status" type="text" readonly value="{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-player-status" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status"></code></pre>
                 </div>
                 <div class="badge-html">
-                    <input id="html-player-status" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status&quot; alt=&quot;Player Status&quot;>" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-player-status" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status" data-format="html"></code></pre>
                 </div>
                 <div class="badge-markdown">
-                    <input id="md-player-status" type="text" readonly value="![Player Status]({{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status)" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-player-status" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status" data-format="markdown"></code></pre>
                 </div>
             </div>
 
@@ -222,13 +227,13 @@
                     <img id="preview-player-current-session" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session" alt="Current Session">
                 </div>
                 <div class="badge-code">
-                    <input id="api-player-current-session" type="text" readonly value="{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-player-current-session" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session"></code></pre>
                 </div>
                 <div class="badge-html">
-                    <input id="html-player-current-session" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session&quot; alt=&quot;Current Session&quot;>" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-player-current-session" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session" data-format="html"></code></pre>
                 </div>
                 <div class="badge-markdown">
-                    <input id="md-player-current-session" type="text" readonly value="![Current Session]({{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session)" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-player-current-session" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session" data-format="markdown"></code></pre>
                 </div>
             </div>
 
@@ -239,13 +244,13 @@
                     <img id="preview-player-period-playtime" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime" alt="Period Playtime">
                 </div>
                 <div class="badge-code">
-                    <input id="api-player-period-playtime" type="text" readonly value="{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-player-period-playtime" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime"></code></pre>
                 </div>
                 <div class="badge-html">
-                    <input id="html-player-period-playtime" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime&quot; alt=&quot;Period Playtime&quot;>" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-player-period-playtime" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime" data-format="html"></code></pre>
                 </div>
                 <div class="badge-markdown">
-                    <input id="md-player-period-playtime" type="text" readonly value="![Period Playtime]({{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime)" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-player-period-playtime" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime" data-format="markdown"></code></pre>
                 </div>
             </div>
 
@@ -256,13 +261,13 @@
                     <img id="preview-player-live" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live" alt="Player Live">
                 </div>
                 <div class="badge-code">
-                    <input id="api-player-live" type="text" readonly value="{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-player-live" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live"></code></pre>
                 </div>
                 <div class="badge-html">
-                    <input id="html-player-live" type="text" readonly value="<img src=&quot;{{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live&quot; alt=&quot;Player Live&quot;>" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-player-live" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live" data-format="html"></code></pre>
                 </div>
                 <div class="badge-markdown">
-                    <input id="md-player-live" type="text" readonly value="![Player Live]({{ base_url }}/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live)" class="code-input" onclick="this.select()">
+                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-player-live" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live" data-format="markdown"></code></pre>
                 </div>
             </div>
         </div>
@@ -313,21 +318,38 @@
     display: none;
 }
 
-.code-input {
-    width: 100%;
-    padding: 8px 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    color: var(--text);
-    font-family: 'Courier New', monospace;
-    font-size: 0.85em;
+.code-block {
+    margin: 0;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow-x: auto;
     cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
 }
 
-.code-input:focus {
-    outline: none;
-    border-color: var(--info);
+.code-block:hover {
+    border-color: var(--accent-primary);
+    background: var(--bg-secondary);
+}
+
+.code-block:active {
+    background: var(--bg-primary);
+}
+
+.code-block code {
+    display: block;
+    color: var(--text-primary);
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.85em;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    word-break: break-all;
+    background: none;
+    padding: 0;
 }
 
 code {
@@ -470,50 +492,95 @@ function updateAllBadgeUrls() {
     const currentStyle = styleSelect ? styleSelect.value : 'flat';
     const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
     
-    // 获取基础URL(不含时间戳)
-    const baseUrl = '{{ base_url }}';
+    // 从前端获取基础URL
+    const baseUrl = window.location.origin;
     
-    // 更新所有badge的URL
-    document.querySelectorAll('.badge-preview img').forEach(img => {
-        const imgId = img.id;
-        if (!imgId) return;
+    // 更新所有code元素
+    document.querySelectorAll('.code-block code').forEach(codeElem => {
+        const path = codeElem.getAttribute('data-path');
+        const format = codeElem.getAttribute('data-format');
         
-        const badgeId = imgId.replace('preview-', '');
-        const apiInput = document.getElementById('api-' + badgeId);
-        const htmlInput = document.getElementById('html-' + badgeId);
-        const mdInput = document.getElementById('md-' + badgeId);
+        if (!path) return;
         
-        if (apiInput) {
-            let src = img.src.split('?')[0].replace(window.location.origin, baseUrl);
-            let params = new URLSearchParams();
-            
-            // 添加样式参数
-            if (currentStyle !== 'flat') {
-                params.set('style', currentStyle);
-            }
-            
-            // 如果是时间相关badge,添加时间参数
-            if (['server-uptime', 'node-uptime', 'player-period-playtime'].includes(badgeId) && currentTimeRange) {
-                const hours = currentTimeRange.replace('?hours=', '');
-                params.set('hours', hours);
-            }
-            
-            const paramStr = params.toString();
-            const fullUrl = src + (paramStr ? '?' + paramStr : '');
-            
-            apiInput.value = fullUrl;
-            
-            if (htmlInput) {
-                const altText = img.alt || 'Badge';
-                htmlInput.value = `<img src="${fullUrl}" alt="${altText}">`;
-            }
-            
-            if (mdInput) {
-                const altText = img.alt || 'Badge';
-                mdInput.value = `![${altText}](${fullUrl})`;
-            }
+        let params = new URLSearchParams();
+        
+        // 添加样式参数
+        if (currentStyle !== 'flat') {
+            params.set('style', currentStyle);
+        }
+        
+        // 如果是时间相关badge,添加时间参数
+        const pathLower = path.toLowerCase();
+        if ((pathLower.includes('uptime') || pathLower.includes('period-playtime')) && currentTimeRange) {
+            const hours = currentTimeRange.replace('?hours=', '');
+            params.set('hours', hours);
+        }
+        
+        const paramStr = params.toString();
+        const fullUrl = baseUrl + path + (paramStr ? '?' + paramStr : '');
+        
+        // 根据格式生成不同的输出
+        if (format === 'html') {
+            const altText = path.split('/').pop() || 'Badge';
+            codeElem.textContent = `<img src="${fullUrl}" alt="${altText}">`;
+        } else if (format === 'markdown') {
+            const altText = path.split('/').pop() || 'Badge';
+            codeElem.textContent = `![${altText}](${fullUrl})`;
+        } else {
+            codeElem.textContent = fullUrl;
         }
     });
+}
+
+// 复制到剪贴板
+function copyToClipboard(element) {
+    const codeElement = element.querySelector('code');
+    if (!codeElement) return;
+    
+    const text = codeElement.textContent;
+    
+    // 使用现代API复制
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showCopyFeedback(element);
+        }).catch(err => {
+            console.error('复制失败:', err);
+            fallbackCopy(text, element);
+        });
+    } else {
+        fallbackCopy(text, element);
+    }
+}
+
+// 后备复制方法
+function fallbackCopy(text, element) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    
+    try {
+        document.execCommand('copy');
+        showCopyFeedback(element);
+    } catch (err) {
+        console.error('复制失败:', err);
+    }
+    
+    document.body.removeChild(textarea);
+}
+
+// 显示复制反馈
+function showCopyFeedback(element) {
+    const originalBg = element.style.backgroundColor;
+    element.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+    element.style.borderColor = 'var(--accent-primary)';
+    
+    setTimeout(() => {
+        element.style.backgroundColor = originalBg;
+        element.style.borderColor = '';
+    }, 300);
 }
 
 // 初始化WebSocket连接
@@ -592,6 +659,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initWebSocket();
     updateLastRefreshTime();
     updateRangeLabel();
+    updateAllBadgeUrls(); // 初始化所有代码框内容
 });
 
 
@@ -712,48 +780,58 @@ function updateBadgeUrl(selector, badgeId) {
 
 function switchNode(selector) {
     const nodeId = selector.value;
-    const baseUrl = '{{ base_url }}';
     
-    // 更新节点状态badge
-    updateNodeBadge('node-status', nodeId, '/status', '');
+    // 更新所有节点badge的data-path
+    const nodeBadges = [
+        { id: 'node-status', endpoint: '/status' },
+        { id: 'node-uptime', endpoint: '/uptime' },
+        { id: 'node-latency', endpoint: '/latency' }
+    ];
     
-    // 更新节点在线率badge
-    const uptimeSelector = document.querySelector('[onchange*="node-uptime"]');
-    const uptimeParams = uptimeSelector ? uptimeSelector.value : '';
-    updateNodeBadge('node-uptime', nodeId, '/uptime', uptimeParams);
+    nodeBadges.forEach(badge => {
+        const apiPath = `/api/badge/node/${nodeId}${badge.endpoint}`;
+        
+        // 更新预览图片
+        const previewImg = document.getElementById('preview-' + badge.id);
+        if (previewImg) {
+            const params = new URLSearchParams();
+            const styleSelect = document.getElementById('badge-style');
+            const currentStyle = styleSelect ? styleSelect.value : 'flat';
+            
+            if (currentStyle !== 'flat') {
+                params.set('style', currentStyle);
+            }
+            
+            // 如果是在线率badge,添加时间参数
+            if (badge.id === 'node-uptime') {
+                const timeRangeSelect = document.getElementById('default-time-range');
+                const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
+                if (currentTimeRange) {
+                    const hours = currentTimeRange.replace('?hours=', '');
+                    params.set('hours', hours);
+                }
+            }
+            
+            params.set('t', Date.now());
+            const paramStr = params.toString();
+            previewImg.src = apiPath + (paramStr ? '?' + paramStr : '');
+        }
+        
+        // 更新所有code元素的data-path
+        ['api-', 'html-', 'md-'].forEach(prefix => {
+            const codeElem = document.getElementById(prefix + badge.id);
+            if (codeElem) {
+                codeElem.setAttribute('data-path', apiPath);
+            }
+        });
+    });
     
-    // 更新节点延迟badge
-    updateNodeBadge('node-latency', nodeId, '/latency', '');
-}
-
-function updateNodeBadge(badgeId, nodeId, endpoint, params) {
-    const baseUrl = '{{ base_url }}';
-    const apiPath = `/api/badge/node/${nodeId}${endpoint}`;
-    
-    // 更新预览图片
-    const previewImg = document.getElementById('preview-' + badgeId);
-    if (previewImg) {
-        previewImg.src = apiPath + (params ? params + '&' : '?') + 't=' + Date.now();
-    }
-    
-    // 更新API路径输入框
-    const apiInput = document.getElementById('api-' + badgeId);
-    if (apiInput) {
-        apiInput.value = apiPath + params;
-    }
-    
-    // 更新Markdown输入框
-    const mdInput = document.getElementById('md-' + badgeId);
-    if (mdInput) {
-        const match = mdInput.value.match(/!\[([^\]]+)\]/);
-        const label = match ? match[1] : 'Node Badge';
-        mdInput.value = `![${label}](${baseUrl}${apiPath}${params})`;
-    }
+    // 重新生成所有URL
+    updateAllBadgeUrls();
 }
 
 function updatePlayerName(playerName) {
     if (!playerName || playerName.trim() === '') {
-        // 如果为空,使用选择器的首个选项
         const selector = document.querySelector('[onchange*="updatePlayerName"]');
         if (selector && selector.options.length > 0) {
             playerName = selector.options[0].value;
@@ -762,43 +840,53 @@ function updatePlayerName(playerName) {
         }
     }
     
-    const baseUrl = '{{ base_url }}';
-    const badges = [
+    const playerBadges = [
         { id: 'player-status', endpoint: '/status', hasParams: false },
         { id: 'player-current-session', endpoint: '/current-session', hasParams: false },
         { id: 'player-period-playtime', endpoint: '/period-playtime', hasParams: true },
         { id: 'player-live', endpoint: '/live', hasParams: false }
     ];
     
-    badges.forEach(badge => {
+    playerBadges.forEach(badge => {
         const apiPath = `/api/badge/player/${playerName}${badge.endpoint}`;
-        let params = '';
-        
-        if (badge.hasParams) {
-            const selector = document.querySelector(`[onchange*="${badge.id}"]`);
-            params = selector ? selector.value : '';
-        }
         
         // 更新预览图片
         const previewImg = document.getElementById('preview-' + badge.id);
         if (previewImg) {
-            previewImg.src = apiPath + (params ? params + '&' : '?') + 't=' + Date.now();
+            const params = new URLSearchParams();
+            const styleSelect = document.getElementById('badge-style');
+            const currentStyle = styleSelect ? styleSelect.value : 'flat';
+            
+            if (currentStyle !== 'flat') {
+                params.set('style', currentStyle);
+            }
+            
+            // 如果是时段游戏时长badge,添加时间参数
+            if (badge.hasParams && badge.id === 'player-period-playtime') {
+                const timeRangeSelect = document.getElementById('default-time-range');
+                const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
+                if (currentTimeRange) {
+                    const hours = currentTimeRange.replace('?hours=', '');
+                    params.set('hours', hours);
+                }
+            }
+            
+            params.set('t', Date.now());
+            const paramStr = params.toString();
+            previewImg.src = apiPath + (paramStr ? '?' + paramStr : '');
         }
         
-        // 更新API路径输入框
-        const apiInput = document.getElementById('api-' + badge.id);
-        if (apiInput) {
-            apiInput.value = apiPath + params;
-        }
-        
-        // 更新Markdown输入框
-        const mdInput = document.getElementById('md-' + badge.id);
-        if (mdInput) {
-            const match = mdInput.value.match(/!\[([^\]]+)\]/);
-            const label = match ? match[1] : 'Player Badge';
-            mdInput.value = `![${label}](${baseUrl}${apiPath}${params})`;
-        }
+        // 更新所有code元素的data-path
+        ['api-', 'html-', 'md-'].forEach(prefix => {
+            const codeElem = document.getElementById(prefix + badge.id);
+            if (codeElem) {
+                codeElem.setAttribute('data-path', apiPath);
+            }
+        });
     });
+    
+    // 重新生成所有URL
+    updateAllBadgeUrls();
 }
 </script>
 
