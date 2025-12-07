@@ -1,5 +1,6 @@
-from flask import Flask, jsonify, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for
 from flask_socketio import SocketIO
+from flask_restx import Api, Namespace, Resource, abort
 from poller import ServerPoller
 import atexit
 import signal
@@ -13,6 +14,16 @@ app.config['SECRET_KEY'] = 'minecraft-tracker-secret-key'
 
 # 初始化SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# 初始化 Swagger API（基础路径 /api）
+api = Api(
+    app,
+    title='MotdTracker API',
+    version='1.0',
+    description='Minecraft 服务器监控 API 文档',
+    doc='/api/docs',
+    prefix='/api'
+)
 
 # 初始化轮询器
 poller = ServerPoller('config.json', socketio=socketio)
@@ -63,537 +74,482 @@ def player_page(player_name):
     return render_template('player_detail.html', active_page='players')
 
 
-@app.route('/api/nodes')
-def api_nodes():
-    """API - 获取所有节点状态（JSON格式）"""
-    servers = poller.get_all_servers_status()
-    return jsonify(servers)
+# 分组命名空间
+node_ns = api.namespace('node', description='节点相关接口', path='')
+server_ns = api.namespace('server', description='服务器聚合接口', path='/server')
+player_ns = api.namespace('player', description='玩家相关接口', path='')
 
 
-@app.route('/api/node/<int:node_id>')
-def api_node(node_id):
-    """API - 获取单个节点的详细信息"""
-    status = poller.db.get_server_latest_status(node_id)
-    if status is None:
-        return jsonify({'error': '节点不存在'}), 404
-    return jsonify(status)
+def _parse_dt(value):
+    """将数据库中的时间字段转换为 datetime 对象，兼容字符串"""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(value)
+    except Exception:
+        return None
 
 
-@app.route('/api/node/<int:node_id>/online_players')
-def api_node_online_players(node_id):
-    """API - 获取节点当前在线玩家及在线时长"""
-
-    def _parse_dt(value):
-        if value is None:
-            return None
-        if isinstance(value, datetime):
-            return value
-        try:
-            return datetime.fromisoformat(value)
-        except Exception:
-            return None
-
-    players = poller.db.get_online_players(node_id)
-    result = []
-
-    for p in players:
-        start_dt = _parse_dt(p.get('session_start'))
-        last_dt = _parse_dt(p.get('last_seen'))
-        result.append({
-            'player_name': p.get('player_name'),
-            'online': True,  # 只有在线玩家
-            'session_start': start_dt.isoformat() if start_dt else None,
-            'last_seen': last_dt.isoformat() if last_dt else None,
-            'duration_seconds': p.get('duration_seconds')
-        })
-
-    return jsonify(result)
+@node_ns.route('/nodes')
+class Nodes(Resource):
+    @node_ns.doc('获取所有节点列表', description='获取服务器的所有节点及其最新状态')
+    def get(self):
+        servers = poller.get_all_servers_status()
+        return servers
 
 
-@app.route('/api/node/<int:node_id>/history')
-def api_node_history(node_id):
-    """API - 获取节点历史记录"""
-    # 获取最近24小时的数据(假设每分钟一次,24*60=1440)
-    history = poller.db.get_server_history(node_id, limit=1440)
-    return jsonify(history)
+@node_ns.route('/node/<int:node_id>')
+class Node(Resource):
+    @node_ns.doc('获取单个节点详情', description='获取指定节点的详细信息')
+    def get(self, node_id):
+        status = poller.db.get_server_latest_status(node_id)
+        if status is None:
+            abort(404, '节点不存在')
+        return status
 
 
-@app.route('/api/node/<int:node_id>/stats')
-def api_node_stats(node_id):
-    """API - 获取节点统计信息"""
-    history = poller.db.get_server_history(node_id, limit=1440)  # 24小时数据
-    
-    if not history:
-        return jsonify({
-            'uptime_percentage': 0,
-            'avg_latency': None,
-            'total_checks': 0,
-            'online_checks': 0
-        })
-    
-    # 计算统计数据
-    total_checks = len(history)
-    online_checks = sum(1 for h in history if h['online'])
-    uptime_percentage = (online_checks / total_checks * 100) if total_checks > 0 else 0
-    
-    latencies = [h['latency'] for h in history if h['online'] and h['latency'] is not None]
-    avg_latency = sum(latencies) / len(latencies) if latencies else None
-    
-    stats = {
-        'uptime_percentage': round(uptime_percentage, 2),
-        'avg_latency': round(avg_latency, 2) if avg_latency else None,
-        'total_checks': total_checks,
-        'online_checks': online_checks
-    }
-    
-    return jsonify(stats)
-
-
-@app.route('/api/server/nodes')
-def api_server_nodes():
-    """API - 获取服务器的所有节点"""
-    nodes = get_server_nodes_data()
-    return jsonify(nodes)
-
-
-@app.route('/api/server/history')
-def api_server_history():
-    """API - 获取服务器的聚合历史数据"""
-    servers = poller.db.get_all_servers()
-    
-    if not servers:
-        return jsonify([])
-    
-    # 获取每个节点的历史数据
-    nodes_history = {}
-    for server in servers:
-        history = poller.db.get_server_history(server['id'], limit=1440)
-        nodes_history[server['name']] = history
-    
-    # 按时间戳聚合所有节点的数据
-    all_histories = {}
-    for node_name, history in nodes_history.items():
-        for record in history:
-            timestamp = record['timestamp']
-            if timestamp not in all_histories:
-                all_histories[timestamp] = {
-                    'timestamp': timestamp,
-                    'nodes': {}
-                }
-            all_histories[timestamp]['nodes'][node_name] = record
-    
-    # 转换为列表,每个时间点选择最佳数据用于玩家信息
-    aggregated_history = []
-    for timestamp in sorted(all_histories.keys(), reverse=True):
-        data = all_histories[timestamp]
-        nodes_data = data['nodes']
-        
-        # 优先选择在线的记录来获取玩家信息
-        online_records = [r for r in nodes_data.values() if r['online']]
-        selected_record = online_records[0] if online_records else list(nodes_data.values())[0]
-        
-        # 构建每个节点的延迟数据
-        latencies = {}
-        for node_name, record in nodes_data.items():
-            latencies[node_name] = record.get('latency') if record['online'] else None
-        
-        aggregated_history.append({
-            'timestamp': timestamp,
-            'online': len(online_records) > 0,
-            'players_online': selected_record.get('players_online'),
-            'players_max': selected_record.get('players_max'),
-            'latencies': latencies,
-            'version': selected_record.get('version'),
-            'motd': selected_record.get('motd')
-        })
-    
-    return jsonify(aggregated_history)
-
-
-@app.route('/api/server/stats')
-def api_server_stats():
-    """API - 获取服务器的统计信息"""
-    servers = poller.db.get_all_servers()
-    
-    if not servers:
-        return jsonify({
-            'uptime_percentage': 0,
-            'avg_latency': None,
-            'total_checks': 0,
-            'online_checks': 0
-        })
-    
-    # 聚合统计 - 有一个节点在线即可视为服务器在线
-    from collections import defaultdict
-    timestamp_status = defaultdict(list)
-    all_latencies = []
-    
-    for server in servers:
-        history = poller.db.get_server_history(server['id'], limit=1440)
-        for h in history:
-            timestamp_status[h['timestamp']].append(h['online'])
-            if h['online'] and h['latency'] is not None:
-                all_latencies.append(h['latency'])
-    
-    # 计算在线率：任意时间点有至少一个节点在线即算在线
-    total_checks = len(timestamp_status)
-    online_checks = sum(1 for statuses in timestamp_status.values() if any(statuses))
-    
-    uptime_percentage = (online_checks / total_checks * 100) if total_checks > 0 else 0
-    avg_latency = sum(all_latencies) / len(all_latencies) if all_latencies else None
-    
-    return jsonify({
-        'uptime_percentage': round(uptime_percentage, 2),
-        'avg_latency': round(avg_latency, 2) if avg_latency else None,
-        'total_checks': total_checks,
-        'online_checks': online_checks
-    })
-
-
-@app.route('/api/server/players')
-def api_server_players():
-    """API - 获取服务器内在线玩家信息"""
-    servers = poller.db.get_all_servers()
-
-    result = []
-
-    def _parse_dt(value):
-        if value is None:
-            return None
-        if isinstance(value, datetime):
-            return value
-        try:
-            return datetime.fromisoformat(value)
-        except Exception:
-            return None
-
-    for server in servers:
-        # 只获取在线玩家
-        sessions = poller.db.get_online_players(server['id'])
-        for s in sessions:
-            start_dt = _parse_dt(s.get('session_start'))
-            last_dt = _parse_dt(s.get('last_seen'))
+@node_ns.route('/node/<int:node_id>/online_players')
+class NodeOnlinePlayers(Resource):
+    @node_ns.doc('获取节点在线玩家', description='获取指定节点当前在线的玩家列表')
+    def get(self, node_id):
+        players = poller.db.get_online_players(node_id)
+        result = []
+        for p in players:
+            start_dt = _parse_dt(p.get('session_start'))
+            last_dt = _parse_dt(p.get('last_seen'))
             result.append({
-                'server_id': server['id'],
-                'server_name': server['name'],
-                'player_name': s.get('player_name'),
-                'online': True,  # 只有在线玩家
+                'player_name': p.get('player_name'),
+                'online': True,
                 'session_start': start_dt.isoformat() if start_dt else None,
                 'last_seen': last_dt.isoformat() if last_dt else None,
-                'last_seen_dt': last_dt,
-                'duration_seconds': s.get('duration_seconds'),
+                'duration_seconds': p.get('duration_seconds')
             })
-
-    # 按最后在线时间倒序排序，去重保留每个玩家的最新记录
-    result.sort(key=lambda x: -(x['last_seen_dt'].timestamp() if x['last_seen_dt'] else float('-inf')))
-
-    filtered = []
-    seen = set()
-    for item in result:
-        name = item.get('player_name')
-        if name in seen:
-            continue
-        seen.add(name)
-        item.pop('last_seen_dt', None)
-        filtered.append(item)
-
-    return jsonify(filtered)
+        return result
 
 
-@app.route('/api/players')
-def api_all_players():
-    """API - 获取全服玩家会话汇总"""
-    servers = poller.db.get_all_servers()
+@node_ns.route('/node/<int:node_id>/history')
+class NodeHistory(Resource):
+    @node_ns.doc('获取节点历史', description='获取指定节点的历史状态记录（过去24小时）')
+    def get(self, node_id):
+        history = poller.db.get_server_history(node_id, limit=1440)
+        return history
 
-    def _parse_dt(value):
-        if value is None:
-            return None
-        if isinstance(value, datetime):
-            return value
-        try:
-            return datetime.fromisoformat(value)
-        except Exception:
-            return None
 
-    aggregated = {}
-
-    for server in servers:
-        sessions = poller.db.get_all_player_sessions(server['id'])
-        for s in sessions:
-            name = s.get('player_name')
-            if not name:
-                continue
-            start_dt = _parse_dt(s.get('session_start'))
-            last_dt = _parse_dt(s.get('last_seen'))
-            duration_seconds = s.get('duration_seconds') if s.get('online') else None
-
-            server_entry = {
-                'server_id': server['id'],
-                'server_name': server['name'],
-                'online': s.get('online'),
-                'session_start': start_dt.isoformat() if start_dt else None,
-                'last_seen': last_dt.isoformat() if last_dt else None,
-                'last_seen_dt': last_dt,
-                'duration_seconds': duration_seconds,
+@node_ns.route('/node/<int:node_id>/stats')
+class NodeStats(Resource):
+    @node_ns.doc('获取节点统计', description='获取指定节点的统计信息（在线率、平均延迟等）')
+    def get(self, node_id):
+        history = poller.db.get_server_history(node_id, limit=1440)
+        if not history:
+            return {
+                'uptime_percentage': 0,
+                'avg_latency': None,
+                'total_checks': 0,
+                'online_checks': 0
             }
 
-            if name not in aggregated:
-                aggregated[name] = {
-                    'player_name': name,
-                    'online': bool(s.get('online')),
-                    'session_start': start_dt.isoformat() if s.get('online') and start_dt else None,
+        total_checks = len(history)
+        online_checks = sum(1 for h in history if h['online'])
+        uptime_percentage = (online_checks / total_checks * 100) if total_checks > 0 else 0
+
+        latencies = [h['latency'] for h in history if h['online'] and h['latency'] is not None]
+        avg_latency = sum(latencies) / len(latencies) if latencies else None
+
+        return {
+            'uptime_percentage': round(uptime_percentage, 2),
+            'avg_latency': round(avg_latency, 2) if avg_latency else None,
+            'total_checks': total_checks,
+            'online_checks': online_checks
+        }
+
+
+@server_ns.route('/nodes')
+class ServerNodes(Resource):
+    @server_ns.doc('获取服务器节点列表', description='获取服务器的所有节点及其最新状态')
+    def get(self):
+        nodes = get_server_nodes_data()
+        return nodes
+
+
+@server_ns.route('/history')
+class ServerHistory(Resource):
+    @server_ns.doc('获取服务器历史', description='获取服务器的聚合历史数据（所有节点的聚合，过去24小时）')
+    def get(self):
+        servers = poller.db.get_all_servers()
+        if not servers:
+            return []
+
+        nodes_history = {}
+        for server in servers:
+            history = poller.db.get_server_history(server['id'], limit=1440)
+            nodes_history[server['name']] = history
+
+        all_histories = {}
+        for node_name, history in nodes_history.items():
+            for record in history:
+                timestamp = record['timestamp']
+                if timestamp not in all_histories:
+                    all_histories[timestamp] = {
+                        'timestamp': timestamp,
+                        'nodes': {}
+                    }
+                all_histories[timestamp]['nodes'][node_name] = record
+
+        aggregated_history = []
+        for timestamp in sorted(all_histories.keys(), reverse=True):
+            data = all_histories[timestamp]
+            nodes_data = data['nodes']
+
+            online_records = [r for r in nodes_data.values() if r['online']]
+            selected_record = online_records[0] if online_records else list(nodes_data.values())[0]
+
+            latencies = {node_name: record.get('latency') if record['online'] else None for node_name, record in nodes_data.items()}
+
+            aggregated_history.append({
+                'timestamp': timestamp,
+                'online': len(online_records) > 0,
+                'players_online': selected_record.get('players_online'),
+                'players_max': selected_record.get('players_max'),
+                'latencies': latencies,
+                'version': selected_record.get('version'),
+                'motd': selected_record.get('motd')
+            })
+
+        return aggregated_history
+
+
+@server_ns.route('/stats')
+class ServerStats(Resource):
+    @server_ns.doc('获取服务器统计', description='获取服务器的聚合统计数据（所有节点的总在线玩家数、服务器总状态等）')
+    def get(self):
+        servers = poller.db.get_all_servers()
+        if not servers:
+            return {
+                'uptime_percentage': 0,
+                'avg_latency': None,
+                'total_checks': 0,
+                'online_checks': 0
+            }
+
+        from collections import defaultdict
+        timestamp_status = defaultdict(list)
+        all_latencies = []
+
+        for server in servers:
+            history = poller.db.get_server_history(server['id'], limit=1440)
+            for h in history:
+                timestamp_status[h['timestamp']].append(h['online'])
+                if h['online'] and h['latency'] is not None:
+                    all_latencies.append(h['latency'])
+
+        total_checks = len(timestamp_status)
+        online_checks = sum(1 for statuses in timestamp_status.values() if any(statuses))
+
+        uptime_percentage = (online_checks / total_checks * 100) if total_checks > 0 else 0
+        avg_latency = sum(all_latencies) / len(all_latencies) if all_latencies else None
+
+        return {
+            'uptime_percentage': round(uptime_percentage, 2),
+            'avg_latency': round(avg_latency, 2) if avg_latency else None,
+            'total_checks': total_checks,
+            'online_checks': online_checks
+        }
+
+
+@server_ns.route('/players')
+class ServerPlayers(Resource):
+    @server_ns.doc('获取服务器在线玩家', description='获取所有节点的在线玩家列表（实时）')
+    def get(self):
+        servers = poller.db.get_all_servers()
+        result = []
+
+        for server in servers:
+            sessions = poller.db.get_online_players(server['id'])
+            for s in sessions:
+                start_dt = _parse_dt(s.get('session_start'))
+                last_dt = _parse_dt(s.get('last_seen'))
+                result.append({
+                    'server_id': server['id'],
+                    'server_name': server['name'],
+                    'player_name': s.get('player_name'),
+                    'online': True,
+                    'session_start': start_dt.isoformat() if start_dt else None,
+                    'last_seen': last_dt.isoformat() if last_dt else None,
+                    'last_seen_dt': last_dt,
+                    'duration_seconds': s.get('duration_seconds'),
+                })
+
+        result.sort(key=lambda x: -(x['last_seen_dt'].timestamp() if x['last_seen_dt'] else float('-inf')))
+
+        filtered = []
+        seen = set()
+        for item in result:
+            name = item.get('player_name')
+            if name in seen:
+                continue
+            seen.add(name)
+            item.pop('last_seen_dt', None)
+            filtered.append(item)
+
+        return filtered
+
+
+@player_ns.route('/players')
+class AllPlayers(Resource):
+    @player_ns.doc('获取全球玩家列表', description='获取所有在线玩家的汇总列表，包含所有节点的玩家数据')
+    def get(self):
+        servers = poller.db.get_all_servers()
+        aggregated = {}
+
+        for server in servers:
+            sessions = poller.db.get_all_player_sessions(server['id'])
+            for s in sessions:
+                name = s.get('player_name')
+                if not name:
+                    continue
+                start_dt = _parse_dt(s.get('session_start'))
+                last_dt = _parse_dt(s.get('last_seen'))
+                duration_seconds = s.get('duration_seconds') if s.get('online') else None
+
+                server_entry = {
+                    'server_id': server['id'],
+                    'server_name': server['name'],
+                    'online': s.get('online'),
+                    'session_start': start_dt.isoformat() if start_dt else None,
                     'last_seen': last_dt.isoformat() if last_dt else None,
                     'last_seen_dt': last_dt,
                     'duration_seconds': duration_seconds,
-                    'servers': [server_entry]
                 }
-            else:
-                agg = aggregated[name]
-                agg['servers'].append(server_entry)
-                agg['online'] = agg['online'] or bool(s.get('online'))
-                # 更新最近在线时间
-                if last_dt and (agg['last_seen_dt'] is None or last_dt > agg['last_seen_dt']):
-                    agg['last_seen_dt'] = last_dt
-                    agg['last_seen'] = last_dt.isoformat()
-                # 如果当前条目在线，刷新会话开始与时长
-                if s.get('online') and start_dt:
-                    agg['session_start'] = start_dt.isoformat()
-                    agg['duration_seconds'] = duration_seconds
 
-    # 排序：在线优先，其次最后在线时间倒序
-    players = list(aggregated.values())
-    players.sort(key=lambda x: (
-        not x['online'],
-        -(x['last_seen_dt'].timestamp() if x['last_seen_dt'] else float('-inf'))
-    ))
+                if name not in aggregated:
+                    aggregated[name] = {
+                        'player_name': name,
+                        'online': bool(s.get('online')),
+                        'session_start': start_dt.isoformat() if s.get('online') and start_dt else None,
+                        'last_seen': last_dt.isoformat() if last_dt else None,
+                        'last_seen_dt': last_dt,
+                        'duration_seconds': duration_seconds,
+                        'servers': [server_entry]
+                    }
+                else:
+                    agg = aggregated[name]
+                    agg['servers'].append(server_entry)
+                    agg['online'] = agg['online'] or bool(s.get('online'))
+                    if last_dt and (agg['last_seen_dt'] is None or last_dt > agg['last_seen_dt']):
+                        agg['last_seen_dt'] = last_dt
+                        agg['last_seen'] = last_dt.isoformat()
+                    if s.get('online') and start_dt:
+                        agg['session_start'] = start_dt.isoformat()
+                        agg['duration_seconds'] = duration_seconds
 
-    # 删除内部字段
-    for p in players:
-        p.pop('last_seen_dt', None)
-        for s in p['servers']:
-            s.pop('last_seen_dt', None)
+        players = list(aggregated.values())
+        players.sort(key=lambda x: (
+            not x['online'],
+            -(x['last_seen_dt'].timestamp() if x['last_seen_dt'] else float('-inf'))
+        ))
 
-    return jsonify(players)
+        for p in players:
+            p.pop('last_seen_dt', None)
+            for s in p['servers']:
+                s.pop('last_seen_dt', None)
 
-
-@app.route('/api/player/<player_name>/detail')
-def api_player_detail(player_name):
-    """API - 获取单一玩家的在线详情"""
-    servers = poller.db.get_all_servers()
-
-    def _parse_dt(value):
-        if value is None:
-            return None
-        if isinstance(value, datetime):
-            return value
-        try:
-            return datetime.fromisoformat(value)
-        except Exception:
-            return None
-
-    # 聚合所有节点的会话数据
-    player_online = False
-    earliest_session_start = None
-    latest_last_seen = None
-    max_duration = None
-    
-    for server in servers:
-        # 获取所有会话用于历史数据和离线状态
-        all_sessions = poller.db.get_all_player_sessions(server['id'])
-        # 只获取在线会话用于当前在线状态
-        online_sessions = [s for s in all_sessions if s.get('online') and s.get('player_name') == player_name]
-        
-        # 找到该玩家的所有会话（用于last_seen）
-        player_sessions = [s for s in all_sessions if s.get('player_name') == player_name]
-        
-        if not player_sessions:
-            continue
-        
-        # 更新在线状态
-        if online_sessions:
-            player_online = True
-            for s in online_sessions:
-                start_dt = _parse_dt(s.get('session_start'))
-                if start_dt:
-                    if earliest_session_start is None or start_dt < earliest_session_start:
-                        earliest_session_start = start_dt
-                    # 取最大的 duration_seconds
-                    if s.get('duration_seconds') is not None:
-                        if max_duration is None or s.get('duration_seconds') > max_duration:
-                            max_duration = s.get('duration_seconds')
-        
-        # 更新最后在线时间
-        for s in player_sessions:
-            last_dt = _parse_dt(s.get('last_seen'))
-            if last_dt and (latest_last_seen is None or last_dt > latest_last_seen):
-                latest_last_seen = last_dt
-    
-    # 构建返回数据
-    summary = {
-        'player_name': player_name,
-        'online': player_online,
-        'session_start': earliest_session_start.isoformat() if earliest_session_start else None,
-        'last_seen': latest_last_seen.isoformat() if latest_last_seen else None,
-        'duration_seconds': max_duration
-    }
-
-    return jsonify(summary)
+        return players
 
 
-@app.route('/api/player/<player_name>/calendar')
-def api_player_calendar(player_name):
-    """API - 获取玩家日历视图数据"""
-    days = int(poller.config.get('player_calendar_days', 30))
-    try:
-        days = int(request.args.get('days', days))
-    except Exception:
-        pass
+@player_ns.route('/player/<string:player_name>/detail')
+class PlayerDetail(Resource):
+    @player_ns.doc('获取玩家详情', description='获取指定玩家的详细信息，包括当前在线状态、连接节点等')
+    def get(self, player_name):
+        servers = poller.db.get_all_servers()
 
-    history = poller.db.get_player_history(player_name, days)
+        player_online = False
+        earliest_session_start = None
+        latest_last_seen = None
+        max_duration = None
 
-    now = datetime.now()
-    
-    # 构建服务器到群组的映射
-    server_to_group = {}
-    for server in poller.db.get_all_servers():
-        server_config = next((s for s in poller.config.get('servers', []) 
-                             if s['host'] == server['host'] and s['port'] == server['port']), None)
-        server_name = server_config.get('group', '默认') if server_config else '默认'
-        server_to_group[server['id']] = server_name
+        for server in servers:
+            all_sessions = poller.db.get_all_player_sessions(server['id'])
+            online_sessions = [s for s in all_sessions if s.get('online') and s.get('player_name') == player_name]
+            player_sessions = [s for s in all_sessions if s.get('player_name') == player_name]
 
-    # 当前在线会话也纳入
-    for server in poller.db.get_all_servers():
-        sessions = poller.db.get_all_player_sessions(server['id'])
-        for s in sessions:
-            if s.get('player_name') != player_name:
+            if not player_sessions:
                 continue
-            if s.get('online'):
-                start = s.get('session_start')
-                history.append({
-                    'session_start': start,
-                    'session_end': now.isoformat(),
-                    'server_id': server['id']
+
+            if online_sessions:
+                player_online = True
+                for s in online_sessions:
+                    start_dt = _parse_dt(s.get('session_start'))
+                    if start_dt:
+                        if earliest_session_start is None or start_dt < earliest_session_start:
+                            earliest_session_start = start_dt
+                        if s.get('duration_seconds') is not None:
+                            if max_duration is None or s.get('duration_seconds') > max_duration:
+                                max_duration = s.get('duration_seconds')
+
+            for s in player_sessions:
+                last_dt = _parse_dt(s.get('last_seen'))
+                if last_dt and (latest_last_seen is None or last_dt > latest_last_seen):
+                    latest_last_seen = last_dt
+
+        summary = {
+            'player_name': player_name,
+            'online': player_online,
+            'session_start': earliest_session_start.isoformat() if earliest_session_start else None,
+            'last_seen': latest_last_seen.isoformat() if latest_last_seen else None,
+            'duration_seconds': max_duration
+        }
+
+        return summary
+
+
+@player_ns.route('/player/<string:player_name>/calendar')
+class PlayerCalendar(Resource):
+    @player_ns.doc(
+        '获取玩家日历',
+        description='获取玩家在线日历数据，显示玩家在过去N天内的在线情况（默认30天）',
+        params={'days': '可选，整数，覆盖默认天数，示例：?days=7'}
+    )
+    def get(self, player_name):
+        days = int(poller.config.get('player_calendar_days', 30))
+        try:
+            days = int(request.args.get('days', days))
+        except Exception:
+            pass
+
+        history = poller.db.get_player_history(player_name, days)
+
+        now = datetime.now()
+
+        server_to_group = {}
+        for server in poller.db.get_all_servers():
+            server_config = next((s for s in poller.config.get('servers', [])
+                                 if s['host'] == server['host'] and s['port'] == server['port']), None)
+            server_name = server_config.get('group', '默认') if server_config else '默认'
+            server_to_group[server['id']] = server_name
+
+        for server in poller.db.get_all_servers():
+            sessions = poller.db.get_all_player_sessions(server['id'])
+            for s in sessions:
+                if s.get('player_name') != player_name:
+                    continue
+                if s.get('online'):
+                    start = s.get('session_start')
+                    history.append({
+                        'session_start': start,
+                        'session_end': now.isoformat(),
+                        'server_id': server['id']
+                    })
+
+        def merge_intervals(intervals):
+            if not intervals:
+                return []
+            intervals.sort(key=lambda x: x[0])
+            merged = [intervals[0]]
+            for current_start, current_end, server_id in intervals[1:]:
+                last_start, last_end, last_server = merged[-1]
+                if current_start <= last_end:
+                    merged[-1] = (last_start, max(last_end, current_end), last_server)
+                else:
+                    merged.append((current_start, current_end, server_id))
+            return merged
+
+        intervals = []
+        for item in history:
+            start = datetime.fromisoformat(item['session_start']) if isinstance(item['session_start'], str) else item['session_start']
+            end = datetime.fromisoformat(item['session_end']) if isinstance(item['session_end'], str) else item['session_end']
+            if not start or not end or end <= start:
+                continue
+            intervals.append((start, end, item['server_id']))
+
+        merged_sessions = merge_intervals(intervals)
+
+        daily = {}
+        hour_totals = {h: 0 for h in range(24)}
+        total_duration = 0
+        session_count = len(merged_sessions)
+
+        def split_by_hour(s: datetime, e: datetime):
+            current = s
+            while current < e:
+                next_hour = (current.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
+                segment_end = min(next_hour, e)
+                yield current, segment_end
+                current = segment_end
+
+        def split_by_day(s: datetime, e: datetime):
+            current = s
+            while current < e:
+                next_day = datetime.combine(current.date() + timedelta(days=1), datetime.min.time())
+                segment_end = min(next_day, e)
+                yield current, segment_end
+                current = segment_end
+
+        for start, end, server_id in merged_sessions:
+            dur = (end - start).total_seconds()
+            total_duration += dur
+
+            for ds, de in split_by_day(start, end):
+                day_key = ds.date()
+                if day_key not in daily:
+                    daily[day_key] = {'total_seconds': 0, 'sessions': [], 'heat': {}}
+                server_name = server_to_group.get(server_id, '默认')
+                daily[day_key]['sessions'].append({
+                    'start': ds.isoformat(),
+                    'end': de.isoformat(),
+                    'server_name': server_name
                 })
 
-    # 时间段合并去重：处理多服务器同时在线的情况
-    def merge_intervals(intervals):
-        """合并重叠的时间段，返回不重叠的净在线时间段"""
-        if not intervals:
-            return []
-        # 按开始时间排序
-        intervals.sort(key=lambda x: x[0])
-        merged = [intervals[0]]
-        for current_start, current_end, server_id in intervals[1:]:
-            last_start, last_end, last_server = merged[-1]
-            if current_start <= last_end:
-                # 重叠，合并（保留第一个服务器ID）
-                merged[-1] = (last_start, max(last_end, current_end), last_server)
-            else:
-                # 不重叠，添加新段
-                merged.append((current_start, current_end, server_id))
-        return merged
+            for hs, he in split_by_hour(start, end):
+                day_key = hs.date()
+                if day_key not in daily:
+                    daily[day_key] = {'total_seconds': 0, 'sessions': [], 'heat': {}}
+                segment_dur = (he - hs).total_seconds()
+                hour_totals[hs.hour] += segment_dur
+                daily[day_key]['heat'][hs.hour] = daily[day_key]['heat'].get(hs.hour, 0) + segment_dur
+                daily[day_key]['total_seconds'] += segment_dur
 
-    # 将所有会话转换为时间段
-    intervals = []
-    for item in history:
-        start = datetime.fromisoformat(item['session_start']) if isinstance(item['session_start'], str) else item['session_start']
-        end = datetime.fromisoformat(item['session_end']) if isinstance(item['session_end'], str) else item['session_end']
-        if not start or not end or end <= start:
-            continue
-        intervals.append((start, end, item['server_id']))
+        dates_sorted = sorted(daily.keys())
+        days_count = len(dates_sorted) if dates_sorted else 1
 
-    # 合并重叠时间段
-    merged_sessions = merge_intervals(intervals)
+        heatmap = []
+        for day in dates_sorted:
+            heat = daily[day].get('heat', {})
+            for hour in range(24):
+                heatmap.append({
+                    'date': day.isoformat(),
+                    'hour': hour,
+                    'seconds': heat.get(hour, 0)
+                })
 
-    # 聚合：日总时长、日-小时热力、当日会话切片
-    daily = {}
-    hour_totals = {h: 0 for h in range(24)}
-    total_duration = 0
-    session_count = len(merged_sessions)
-
-    def split_by_hour(s: datetime, e: datetime):
-        current = s
-        while current < e:
-            next_hour = (current.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
-            segment_end = min(next_hour, e)
-            yield current, segment_end
-            current = segment_end
-
-    def split_by_day(s: datetime, e: datetime):
-        current = s
-        while current < e:
-            next_day = datetime.combine(current.date() + timedelta(days=1), datetime.min.time())
-            segment_end = min(next_day, e)
-            yield current, segment_end
-            current = segment_end
-
-    for start, end, server_id in merged_sessions:
-        dur = (end - start).total_seconds()
-        total_duration += dur
-
-        # 按天分段会话列表（仅记录分段，不累积总时长）
-        for ds, de in split_by_day(start, end):
-            day_key = ds.date()
-            if day_key not in daily:
-                daily[day_key] = {'total_seconds': 0, 'sessions': [], 'heat': {}}
-            # 使用群组名称而不是服务器名称
-            server_name = server_to_group.get(server_id, '默认')
-            daily[day_key]['sessions'].append({
-                'start': ds.isoformat(),
-                'end': de.isoformat(),
-                'server_name': server_name
-            })
-
-        # 按小时累积热力，同时累积日总时长
-        for hs, he in split_by_hour(start, end):
-            day_key = hs.date()
-            if day_key not in daily:
-                daily[day_key] = {'total_seconds': 0, 'sessions': [], 'heat': {}}
-            segment_dur = (he - hs).total_seconds()
-            hour_totals[hs.hour] += segment_dur
-            daily[day_key]['heat'][hs.hour] = daily[day_key]['heat'].get(hs.hour, 0) + segment_dur
-            daily[day_key]['total_seconds'] += segment_dur
-
-    dates_sorted = sorted(daily.keys())
-    days_count = len(dates_sorted) if dates_sorted else 1
-
-    heatmap = []
-    for day in dates_sorted:
-        heat = daily[day].get('heat', {})
+        hourly_avg = []
         for hour in range(24):
-            heatmap.append({
-                'date': day.isoformat(),
+            hourly_avg.append({
                 'hour': hour,
-                'seconds': heat.get(hour, 0)
+                'avg_seconds': hour_totals[hour] / days_count
             })
 
-    hourly_avg = []
-    for hour in range(24):
-        hourly_avg.append({
-            'hour': hour,
-            'avg_seconds': hour_totals[hour] / days_count
-        })
+        avg_daily_seconds = total_duration / days_count if days_count else 0
+        avg_session_seconds = total_duration / session_count if session_count else 0
 
-    avg_daily_seconds = total_duration / days_count if days_count else 0
-    avg_session_seconds = total_duration / session_count if session_count else 0
+        response = {
+            'days': days,
+            'heatmap': heatmap,
+            'daily': [
+                {
+                    'date': day.isoformat(),
+                    'total_seconds': daily[day].get('total_seconds', 0),
+                    'sessions': daily[day].get('sessions', [])
+                }
+                for day in dates_sorted
+            ],
+            'average_daily_seconds': avg_daily_seconds,
+            'average_session_seconds': avg_session_seconds,
+            'hourly_average': hourly_avg
+        }
 
-    response = {
-        'days': days,
-        'heatmap': heatmap,
-        'daily': [
-            {
-                'date': day.isoformat(),
-                'total_seconds': daily[day].get('total_seconds', 0),
-                'sessions': daily[day].get('sessions', [])
-            }
-            for day in dates_sorted
-        ],
-        'average_daily_seconds': avg_daily_seconds,
-        'average_session_seconds': avg_session_seconds,
-        'hourly_average': hourly_avg
-    }
-
-    return jsonify(response)
+        return response
 
 
 def main():
