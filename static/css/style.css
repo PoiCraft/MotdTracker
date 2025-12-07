@@ -555,6 +555,19 @@ body {
     font-size: 0.875em;
 }
 
+.range-badge {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.875em;
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--info);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    display: inline-flex;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
 /* WebSocket 状态指示器 */
 .ws-status {
     display: inline-flex;

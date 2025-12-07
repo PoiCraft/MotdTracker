@@ -26,7 +26,7 @@
 
 {% block header_right %}
 <span class="toolbar-label" id="last-update">--</span>
-<span class="toolbar-label" id="range-label">--</span>
+<span class="range-badge" id="range-label">--</span>
 {% endblock %}
 
 {% block content %}
@@ -515,7 +515,7 @@ const RANGE_STORAGE_KEY = 'chartRangeHours';
 function updateRangeLabel(){
     const el = document.getElementById('range-label');
     if (!el) return;
-    el.textContent = `范围: 过去 ${chartHours} 小时`;
+    el.textContent = `${chartHours}H`;
 }
 
 function getPreferredHours(){
