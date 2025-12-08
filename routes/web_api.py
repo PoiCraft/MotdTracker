@@ -23,13 +23,15 @@ def register_web_routes(api, poller):
     # ==================== 辅助函数 ====================
     
     def get_online_players():
-        """获取所有在线玩家"""
+        """获取所有玩家会话（包括最近离线的）"""
         result = []
         seen = set()
         
         nodes = get_server_nodes_data(poller)
         for node in nodes:
-            players = poller.db.get_online_players(node['id'])
+            # 使用 get_all_player_sessions 而不是 get_online_players
+            # 这样可以获取完整的会话信息，包括最近离线的玩家
+            players = poller.db.get_all_player_sessions(node['id'])
             if players:
                 for player in players:
                     name = player.get('player_name')
@@ -222,10 +224,10 @@ def register_web_routes(api, poller):
             # 获取状态时间线
             status_timeline = get_node_status_timeline(poller, node_id, 24)
             
-            # 获取在线玩家
+            # 获取玩家会话
             players = []
             if latest_status and latest_status.get('online'):
-                players_data = poller.db.get_online_players(node_id)
+                players_data = poller.db.get_all_player_sessions(node_id)
                 if players_data:
                     players = players_data
             
@@ -287,9 +289,9 @@ def register_web_routes(api, poller):
             # 获取状态时间线
             status_timeline = get_node_status_timeline(poller, node_id, 24)
             
-            # 获取在线玩家
+            # 获取玩家会话
             players = []
-            players_data = poller.db.get_online_players(node_id)
+            players_data = poller.db.get_all_player_sessions(node_id)
             if players_data:
                 players = players_data
             
