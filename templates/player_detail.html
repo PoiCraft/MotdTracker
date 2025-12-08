@@ -359,15 +359,7 @@ async function loadDataIncremental() {
         // 更新摘要信息
         const summaryText = document.getElementById('summary-text');
         if (summaryText) {
-            if (detail.online) {
-                const duration = detail.duration_seconds !== null && detail.duration_seconds !== undefined
-                    ? formatDuration(detail.duration_seconds)
-                    : '未知';
-                summaryText.textContent = `玩家 ${detail.player_name} 当前在线，已持续 ${duration}`;
-            } else {
-                const lastSeen = detail.last_seen ? formatTime(detail.last_seen) : '未知';
-                summaryText.textContent = `玩家 ${detail.player_name} 当前离线，上次在线: ${lastSeen}`;
-            }
+            summaryText.textContent = detail.online ? '在线' : '离线';
         }
     } catch (e) {
         console.error('增量更新失败:', e);
