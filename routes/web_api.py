@@ -1,7 +1,7 @@
 from datetime import datetime
 from flask import request
 from flask_restx import Namespace, Resource
-from app_utils import clamp_hours_param, get_server_nodes_data
+from app_utils import clamp_hours_param, get_server_nodes_data, parse_dt
 from routes.route_utils import (
     filter_history_by_time,
     calculate_node_stats,
@@ -23,21 +23,85 @@ def register_web_routes(api, poller):
     # ==================== 辅助函数 ====================
     
     def get_online_players():
-        """获取所有玩家会话（包括最近离线的）"""
-        result = []
-        seen = set()
-        
+        """获取所有在线玩家，使用与 player_api 完全一致的聚合逻辑"""
         nodes = get_server_nodes_data(poller)
+        aggregated = {}
+        
         for node in nodes:
-            # 使用 get_all_player_sessions 而不是 get_online_players
-            # 这样可以获取完整的会话信息，包括最近离线的玩家
-            players = poller.db.get_all_player_sessions(node['id'])
-            if players:
-                for player in players:
-                    name = player.get('player_name')
-                    if name and name not in seen:
-                        seen.add(name)
-                        result.append(player)
+            # 使用 get_all_player_sessions 获取完整的会话信息
+            sessions = poller.db.get_all_player_sessions(node['id'])
+            
+            for s in sessions:
+                # 只处理在线玩家
+                if not s.get('online'):
+                    continue
+                    
+                name = s.get('player_name')
+                if not name:
+                    continue
+                    
+                # 解析时间戳
+                start_dt = parse_dt(s.get('session_start'))
+                last_dt = parse_dt(s.get('last_seen'))
+                first_dt = parse_dt(s.get('first_seen'))
+                duration_seconds = s.get('duration_seconds')
+                
+                if name not in aggregated:
+                    # 首次见到该玩家，创建新记录
+                    aggregated[name] = {
+                        'player_name': name,
+                        'online': True,
+                        'first_seen': first_dt.isoformat() if first_dt else None,
+                        'session_start': start_dt.isoformat() if start_dt else None,
+                        'last_seen': last_dt.isoformat() if last_dt else None,
+                        'last_seen_dt': last_dt,  # 临时字段用于排序
+                        'duration_seconds': duration_seconds,
+                    }
+                else:
+                    # 已存在该玩家，合并数据
+                    agg = aggregated[name]
+                    
+                    # 更新 last_seen 为最新的
+                    if last_dt and (agg['last_seen_dt'] is None or last_dt > agg['last_seen_dt']):
+                        agg['last_seen_dt'] = last_dt
+                        agg['last_seen'] = last_dt.isoformat()
+                    
+                    # 更新 first_seen 为最早的
+                    if first_dt:
+                        if agg['first_seen'] is None:
+                            agg['first_seen'] = first_dt.isoformat()
+                        else:
+                            try:
+                                agg_first = datetime.fromisoformat(agg['first_seen'])
+                                if first_dt < agg_first:
+                                    agg['first_seen'] = first_dt.isoformat()
+                            except Exception:
+                                agg['first_seen'] = first_dt.isoformat()
+                    
+                    # 更新 session_start 为最早的
+                    if start_dt:
+                        if agg['session_start'] is None:
+                            agg['session_start'] = start_dt.isoformat()
+                        else:
+                            try:
+                                agg_start = datetime.fromisoformat(agg['session_start'])
+                                if start_dt < agg_start:
+                                    agg['session_start'] = start_dt.isoformat()
+                            except Exception:
+                                agg['session_start'] = start_dt.isoformat()
+                    
+                    # 更新 duration 为最大的
+                    if duration_seconds is not None:
+                        if agg['duration_seconds'] is None or duration_seconds > agg['duration_seconds']:
+                            agg['duration_seconds'] = duration_seconds
+        
+        # 转换为列表并排序（按最后见到时间降序）
+        result = list(aggregated.values())
+        result.sort(key=lambda x: -(x['last_seen_dt'].timestamp() if x['last_seen_dt'] else float('-inf')))
+        
+        # 移除临时字段
+        for p in result:
+            p.pop('last_seen_dt', None)
         
         return result
 
