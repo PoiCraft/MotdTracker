@@ -1,0 +1,170 @@
+/* Pages - Page-specific styles (badges, player_detail, nodes) */
+
+/* Badge page specific styles */
+.badge-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.badge-toolbar-card {
+    margin-bottom: 20px;
+}
+
+.badge-toolbar {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.badge-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.badge-toolbar-label {
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.badge-card-spacing {
+    margin-top: 20px;
+}
+
+.badge-card-content {
+    padding: 20px;
+}
+
+.badge-selector-container {
+    margin-bottom: 20px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.badge-selector-label {
+    display: block;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    font-size: 0.85em;
+}
+
+.badge-selector-full {
+    width: 100%;
+    margin: 0;
+}
+
+.badge-usage-text {
+    padding: 20px;
+    color: var(--text-secondary);
+    line-height: 1.8;
+}
+
+/* Player detail page specific styles */
+.player-heatmap-title {
+    margin-top: 20px;
+}
+
+.player-heatmap-spacing {
+    margin: 12px 0;
+}
+
+/* Node page specific styles */
+.node-stats-container {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    font-size: 0.9em;
+    flex-wrap: wrap;
+}
+
+.node-stat-item {
+    min-width: 75px;
+    text-align: right;
+}
+
+.node-stat-item-wide {
+    min-width: 85px;
+    text-align: right;
+}
+
+.node-stat-item-narrow {
+    min-width: 70px;
+    text-align: right;
+}
+
+.node-stat-current {
+    min-width: 75px;
+    text-align: right;
+}
+
+.node-stat-uptime {
+    min-width: 75px;
+    text-align: right;
+    color: var(--info);
+}
+
+.node-stat-avg {
+    min-width: 85px;
+    text-align: right;
+    color: var(--text-secondary);
+}
+
+.node-stat-stddev {
+    min-width: 75px;
+    text-align: right;
+    color: var(--text-muted);
+}
+
+.node-stat-min {
+    min-width: 75px;
+    text-align: right;
+    color: var(--success);
+}
+
+.node-stat-max {
+    min-width: 75px;
+    text-align: right;
+    color: var(--warning);
+}
+
+.node-stat-p95 {
+    min-width: 75px;
+    text-align: right;
+    color: var(--text-secondary);
+}
+
+.node-stat-cv {
+    min-width: 70px;
+    text-align: right;
+    font-weight: 500;
+}
+
+.node-empty-data {
+    color: var(--text-muted);
+}
+
+.player-status-online {
+    color: var(--success);
+}
+
+.player-status-offline {
+    color: var(--text-muted);
+}
+
+.node-cv-stable {
+    color: var(--success);
+}
+
+.node-cv-moderate {
+    color: var(--warning);
+}
+
+.node-cv-unstable {
+    color: var(--danger);
+}

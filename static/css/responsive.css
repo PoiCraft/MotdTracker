@@ -1,0 +1,234 @@
+/* Responsive - Mobile and responsive design */
+
+/* 响应式设计 - 移动设备优化 */
+@media (max-width: 768px) {
+    body {
+        padding: 0;
+    }
+
+    .container {
+        padding: 12px;
+    }
+
+    h1 {
+        font-size: 1.5em;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+    }
+
+    body {
+        padding-left: 0;
+    }
+
+    .sidebar {
+        transform: translateX(-100%);
+    }
+
+    .sidebar.show {
+        transform: translateX(0);
+    }
+
+    .sidebar-overlay {
+        display: none;
+    }
+
+    .sidebar-overlay.show {
+        display: block;
+    }
+
+    .container {
+        padding-top: 80px;
+    }
+
+    .header {
+        left: 0;
+        padding: 12px;
+        flex-wrap: nowrap;
+        height: 60px;
+    }
+
+    .header-left {
+        flex: 1;
+        justify-content: flex-start;
+        gap: 8px;
+    }
+
+    .header-right {
+        flex: 1;
+        justify-content: flex-end;
+        flex-wrap: nowrap;
+    }
+
+    .mobile-menu-toggle {
+        display: block;
+    }
+
+    .nav-link {
+        padding: 12px 20px;
+    }
+
+    /* Hide time range selector on mobile by default */
+    .header-right .range-select,
+    .header-right .toolbar-label:has(+ .range-select) {
+        display: none;
+    }
+
+    .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 12px;
+    }
+
+    .toolbar-left,
+    .toolbar-right {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .toolbar-btn {
+        flex: 1 1 auto;
+        min-width: 100px;
+        padding: 8px 16px;
+        font-size: 0.875em;
+    }
+
+    .toolbar-label {
+        font-size: 0.875em;
+    }
+
+    .range-select {
+        width: 100%;
+        margin: 8px 0 0 0;
+    }
+
+    .server-card {
+        padding: 16px;
+    }
+
+    .server-name {
+        font-size: 1.25em;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .stat-value {
+        font-size: 1.5em;
+    }
+
+    .heatmap-row {
+        grid-template-columns: 70px 1fr;
+    }
+
+    .heatmap-cells {
+        gap: 1px;
+        min-width: 300px;
+    }
+
+    .heatmap-cell {
+        height: 80%; /* 80% of default 20px = 16px */
+    }
+
+    .ws-status {
+        font-size: 0.75em;
+        padding: 6px 10px;
+    }
+
+    .chart-title {
+        font-size: 1em;
+    }
+
+    .player-card-compact {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .player-heatmap-container {
+        width: 100%;
+    }
+
+    .player-heatmap {
+        width: 100%;
+        max-width: none;
+    }
+
+    .player-heatmap-container .player-heatmap {
+        width: 100%;
+        min-width: auto;
+        max-width: none;
+    }
+
+    .player-heatmap-empty {
+        width: 100%;
+    }
+
+    .player-stats-row {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    /* 节点延迟统计移动端优化 */
+    .info-line {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 12px 0;
+    }
+
+    .info-line > span:last-child {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px 12px !important;
+        font-size: 0.8em !important;
+    }
+
+    .info-line > span:last-child > span {
+        min-width: auto !important;
+        text-align: left !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Badges页面移动端优化 */
+    /* 工具栏优化 */
+    .server-card > div[style*="display: flex"][style*="gap: 20px"] {
+        flex-direction: column !important;
+        gap: 12px !important;
+        padding: 12px !important;
+    }
+
+    .server-card > div[style*="display: flex"][style*="gap: 20px"] > div {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 6px !important;
+        width: 100%;
+    }
+
+    .server-card > div[style*="display: flex"][style*="gap: 20px"] > div > span {
+        font-size: 0.8em !important;
+        font-weight: 600 !important;
+    }
+
+    .server-card > div[style*="display: flex"][style*="gap: 20px"] > div > select {
+        width: 100% !important;
+        font-size: 0.85em !important;
+    }
+
+    /* Badge输入框优化 */
+    .code-block {
+        font-size: 0.75em !important;
+        padding: 8px !important;
+    }
+
+    .code-block code {
+        font-size: 1em !important;
+    }
+
+    .badge-label {
+        font-size: 0.9em !important;
+    }
+}

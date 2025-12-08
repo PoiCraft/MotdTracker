@@ -1,0 +1,77 @@
+/* Players - Players list page styles */
+
+/* Players List Page */
+.players-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.player-card-compact {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    color: inherit;
+}
+
+.player-card-compact:hover {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 1px var(--accent-primary);
+    transform: translateX(4px);
+}
+
+.player-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.player-heatmap-container {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.player-name-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.player-name-status .player-name {
+    font-size: 1.1em;
+}
+
+.status-dot {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 600;
+}
+
+.status-dot.online {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--success);
+}
+
+.status-dot.offline {
+    background: rgba(148, 163, 184, 0.2);
+    color: var(--text-muted);
+}
+
+.player-stats-row {
+    display: flex;
+    gap: 16px;
+    font-size: 0.875em;
+    color: var(--text-secondary);
+}
+
+.stat-item {
+    white-space: nowrap;
+}

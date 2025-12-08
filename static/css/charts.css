@@ -1,0 +1,30 @@
+/* Charts - Chart.js and general chart styles */
+
+.chart-container {
+    position: relative;
+    height: 200px;
+    margin-bottom: 20px;
+}
+
+.chart-small {
+    height: 100px;
+}
+
+.chart-container-tall {
+    height: 220px;
+}
+
+.chart-title {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chart-title:first-of-type {
+    margin-top: 0;
+}
