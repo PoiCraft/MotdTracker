@@ -131,7 +131,56 @@ uv run migrate.py
 | 网络访问 | ❌ 不支持 | ✅ 支持 |
 | 备份恢复 | ⚠️ 需停机 | ✅ 在线备份 |
 
+## 技术细节
+
+### 时间处理
+
+应用使用统一的 UTC+8 时区处理时间：
+
+- **存储格式**: 使用 naive datetime（不带时区信息）
+- **SQLite**: `DATETIME` 类型，存储为 ISO 格式字符串
+- **PostgreSQL**: `TIMESTAMP WITHOUT TIME ZONE`，明确不进行时区转换
+- **一致性**: 所有时间戳使用 `utc8_now()` 生成，确保时区统一
+
+**重要**：PostgreSQL 必须使用 `TIMESTAMP WITHOUT TIME ZONE`，否则会根据服务器时区进行自动转换，导致时间混乱。
+
+### 数据类型差异
+
+| 类型 | SQLite | PostgreSQL |
+|------|--------|------------|
+| 布尔值 | INTEGER (0/1) | BOOLEAN (true/false) |
+| 时间戳 | DATETIME (文本) | TIMESTAMP WITHOUT TIME ZONE |
+| 自增主键 | AUTOINCREMENT | SERIAL |
+| 占位符 | `?` | `%s` |
+| 网络访问 | ❌ 不支持 | ✅ 支持 |
+| 备份恢复 | ⚠️ 需停机 | ✅ 在线备份 |
+
 ## 故障排除
+
+### 布尔类型默认值错误
+
+如果看到以下错误：
+
+```
+PostgreSQL 连接失败: column "online" is of type boolean but default expression is of type integer
+```
+
+这是因为早期版本使用了错误的布尔默认值。解决方法：
+
+**方法 1：使用修复脚本（推荐）**
+```bash
+uv run fix_pgsql.py
+```
+
+**方法 2：手动删除表**
+```sql
+DROP TABLE IF EXISTS player_session_history CASCADE;
+DROP TABLE IF EXISTS player_sessions CASCADE;
+DROP TABLE IF EXISTS status_logs CASCADE;
+DROP TABLE IF EXISTS servers CASCADE;
+```
+
+然后重启应用，表结构会自动重新创建。
 
 ### 连接失败
 
@@ -142,6 +191,7 @@ PostgreSQL 连接失败: connection refused, 回退到 SQLite
 ```
 
 检查：
+
 1. PostgreSQL 服务是否运行
 2. 端口配置是否正确
 3. 防火墙是否允许连接

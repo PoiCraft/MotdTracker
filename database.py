@@ -216,12 +216,13 @@ class Database(DatabaseBase):
                    map_name: Optional[str] = None,
                    timestamp: Optional[datetime] = None):
         """记录服务器状态"""
+        from app_utils import utc8_now
         conn = self.get_connection()
         try:
             cursor = conn.cursor()
             
             if timestamp is None:
-                timestamp = datetime.now()
+                timestamp = utc8_now()
 
             # 将列表序列化为JSON字符串
             sample_players_json = json.dumps(sample_players) if sample_players is not None else None

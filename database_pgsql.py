@@ -30,7 +30,11 @@ class PostgreSQLDatabase(DatabaseBase):
         )
     
     def init_database(self):
-        """初始化数据库表结构"""
+        """初始化数据库表结构
+        
+        注意：PostgreSQL 使用 true/false 作为布尔值默认值，
+        而 SQLite 使用 0/1。这是两者的主要差异之一。
+        """
         conn = self.get_connection()
         try:
             cursor = conn.cursor()
@@ -52,7 +56,7 @@ class PostgreSQLDatabase(DatabaseBase):
                 CREATE TABLE IF NOT EXISTS status_logs (
                     id SERIAL PRIMARY KEY,
                     server_id INTEGER NOT NULL,
-                    timestamp TIMESTAMP NOT NULL,
+                    timestamp TIMESTAMP WITHOUT TIME ZONE NOT NULL,
                     online BOOLEAN NOT NULL,
                     latency REAL,
                     players_online INTEGER,
@@ -72,10 +76,10 @@ class PostgreSQLDatabase(DatabaseBase):
                 CREATE TABLE IF NOT EXISTS player_sessions (
                     server_id INTEGER NOT NULL,
                     player_name TEXT NOT NULL,
-                    first_seen TIMESTAMP NOT NULL,
-                    session_start TIMESTAMP,
-                    last_seen TIMESTAMP NOT NULL,
-                    online BOOLEAN NOT NULL DEFAULT 0,
+                    first_seen TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+                    session_start TIMESTAMP WITHOUT TIME ZONE,
+                    last_seen TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+                    online BOOLEAN NOT NULL DEFAULT false,
                     duration_seconds INTEGER,
                     PRIMARY KEY (server_id, player_name),
                     FOREIGN KEY (server_id) REFERENCES servers (id)
@@ -88,8 +92,8 @@ class PostgreSQLDatabase(DatabaseBase):
                     id SERIAL PRIMARY KEY,
                     server_id INTEGER NOT NULL,
                     player_name TEXT NOT NULL,
-                    session_start TIMESTAMP NOT NULL,
-                    session_end TIMESTAMP NOT NULL,
+                    session_start TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+                    session_end TIMESTAMP WITHOUT TIME ZONE NOT NULL,
                     FOREIGN KEY (server_id) REFERENCES servers (id)
                 )
             ''')
@@ -153,12 +157,13 @@ class PostgreSQLDatabase(DatabaseBase):
                    map_name: Optional[str] = None,
                    timestamp: Optional[datetime] = None):
         """记录服务器状态"""
+        from app_utils import utc8_now
         conn = self.get_connection()
         try:
             cursor = conn.cursor()
             
             if timestamp is None:
-                timestamp = datetime.now()
+                timestamp = utc8_now()
 
             # 将列表序列化为JSON字符串
             sample_players_json = json.dumps(sample_players) if sample_players is not None else None
