@@ -427,7 +427,7 @@ function switchBadgeStyle(style) {
         let src = img.src.split('?')[0];
         let params = new URLSearchParams(img.src.split('?')[1] || '');
         
-        // 移除旧的样式参数
+        // 移除旧的样式参数和时间戳
         params.delete('style');
         params.delete('t');
         
@@ -436,7 +436,7 @@ function switchBadgeStyle(style) {
             params.set('style', style);
         }
         
-        // 添加时间戳
+        // 添加时间戳强制刷新
         params.set('t', Date.now());
         
         const paramStr = params.toString();
@@ -470,7 +470,7 @@ function switchDefaultTimeRange(timeRange) {
                 params.set('hours', hours);
             }
             
-            // 添加时间戳
+            // 添加时间戳强制刷新
             params.set('t', Date.now());
             
             const paramStr = params.toString();
@@ -659,6 +659,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initWebSocket();
     updateLastRefreshTime();
     updateRangeLabel();
+    switchOutputFormat('url'); // 确保初始显示状态正确
     updateAllBadgeUrls(); // 初始化所有代码框内容
 });
 
@@ -677,18 +678,35 @@ function refreshServerBadges() {
     const serverUptimeImg = document.querySelector('#preview-server-uptime');
     const serverPlayersImg = document.querySelector('img[alt="Online Players"]');
     
+    const styleSelect = document.getElementById('badge-style');
+    const timeRangeSelect = document.getElementById('default-time-range');
+    const currentStyle = styleSelect ? styleSelect.value : 'flat';
+    const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
+    
     if (serverStatusImg) {
         const baseSrc = serverStatusImg.src.split('?')[0];
-        serverStatusImg.src = baseSrc + '?t=' + Date.now();
+        const params = new URLSearchParams();
+        if (currentStyle !== 'flat') params.set('style', currentStyle);
+        params.set('t', Date.now());
+        serverStatusImg.src = baseSrc + '?' + params.toString();
     }
     if (serverUptimeImg) {
         const baseSrc = serverUptimeImg.src.split('?')[0];
-        const params = getTimeRangeParams('server-uptime');
-        serverUptimeImg.src = baseSrc + (params ? params + '&' : '?') + 't=' + Date.now();
+        const params = new URLSearchParams();
+        if (currentStyle !== 'flat') params.set('style', currentStyle);
+        if (currentTimeRange) {
+            const hours = currentTimeRange.replace('?hours=', '');
+            params.set('hours', hours);
+        }
+        params.set('t', Date.now());
+        serverUptimeImg.src = baseSrc + '?' + params.toString();
     }
     if (serverPlayersImg) {
         const baseSrc = serverPlayersImg.src.split('?')[0];
-        serverPlayersImg.src = baseSrc + '?t=' + Date.now();
+        const params = new URLSearchParams();
+        if (currentStyle !== 'flat') params.set('style', currentStyle);
+        params.set('t', Date.now());
+        serverPlayersImg.src = baseSrc + '?' + params.toString();
     }
 }
 
@@ -698,18 +716,35 @@ function refreshNodeBadges() {
     const nodeUptimeImg = document.querySelector('#preview-node-uptime');
     const nodeLatencyImg = document.querySelector('#preview-node-latency');
     
+    const styleSelect = document.getElementById('badge-style');
+    const timeRangeSelect = document.getElementById('default-time-range');
+    const currentStyle = styleSelect ? styleSelect.value : 'flat';
+    const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
+    
     if (nodeStatusImg) {
         const baseSrc = nodeStatusImg.src.split('?')[0];
-        nodeStatusImg.src = baseSrc + '?t=' + Date.now();
+        const params = new URLSearchParams();
+        if (currentStyle !== 'flat') params.set('style', currentStyle);
+        params.set('t', Date.now());
+        nodeStatusImg.src = baseSrc + '?' + params.toString();
     }
     if (nodeUptimeImg) {
         const baseSrc = nodeUptimeImg.src.split('?')[0];
-        const params = getTimeRangeParams('node-uptime');
-        nodeUptimeImg.src = baseSrc + (params ? params + '&' : '?') + 't=' + Date.now();
+        const params = new URLSearchParams();
+        if (currentStyle !== 'flat') params.set('style', currentStyle);
+        if (currentTimeRange) {
+            const hours = currentTimeRange.replace('?hours=', '');
+            params.set('hours', hours);
+        }
+        params.set('t', Date.now());
+        nodeUptimeImg.src = baseSrc + '?' + params.toString();
     }
     if (nodeLatencyImg) {
         const baseSrc = nodeLatencyImg.src.split('?')[0];
-        nodeLatencyImg.src = baseSrc + '?t=' + Date.now();
+        const params = new URLSearchParams();
+        if (currentStyle !== 'flat') params.set('style', currentStyle);
+        params.set('t', Date.now());
+        nodeLatencyImg.src = baseSrc + '?' + params.toString();
     }
 }
 
@@ -720,32 +755,43 @@ function refreshPlayerBadges() {
     const playerPlaytimeImg = document.querySelector('#preview-player-period-playtime');
     const playerLiveImg = document.querySelector('#preview-player-live');
     
+    const styleSelect = document.getElementById('badge-style');
+    const timeRangeSelect = document.getElementById('default-time-range');
+    const currentStyle = styleSelect ? styleSelect.value : 'flat';
+    const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
+    
     if (playerStatusImg) {
         const baseSrc = playerStatusImg.src.split('?')[0];
-        playerStatusImg.src = baseSrc + '?t=' + Date.now();
+        const params = new URLSearchParams();
+        if (currentStyle !== 'flat') params.set('style', currentStyle);
+        params.set('t', Date.now());
+        playerStatusImg.src = baseSrc + '?' + params.toString();
     }
     if (playerSessionImg) {
         const baseSrc = playerSessionImg.src.split('?')[0];
-        playerSessionImg.src = baseSrc + '?t=' + Date.now();
+        const params = new URLSearchParams();
+        if (currentStyle !== 'flat') params.set('style', currentStyle);
+        params.set('t', Date.now());
+        playerSessionImg.src = baseSrc + '?' + params.toString();
     }
     if (playerPlaytimeImg) {
         const baseSrc = playerPlaytimeImg.src.split('?')[0];
-        const params = getTimeRangeParams('player-period-playtime');
-        playerPlaytimeImg.src = baseSrc + (params ? params + '&' : '?') + 't=' + Date.now();
+        const params = new URLSearchParams();
+        if (currentStyle !== 'flat') params.set('style', currentStyle);
+        if (currentTimeRange) {
+            const hours = currentTimeRange.replace('?hours=', '');
+            params.set('hours', hours);
+        }
+        params.set('t', Date.now());
+        playerPlaytimeImg.src = baseSrc + '?' + params.toString();
     }
     if (playerLiveImg) {
         const baseSrc = playerLiveImg.src.split('?')[0];
-        playerLiveImg.src = baseSrc + '?t=' + Date.now();
+        const params = new URLSearchParams();
+        if (currentStyle !== 'flat') params.set('style', currentStyle);
+        params.set('t', Date.now());
+        playerLiveImg.src = baseSrc + '?' + params.toString();
     }
-}
-
-// 获取时间范围参数
-function getTimeRangeParams(badgeId) {
-    const selector = document.querySelector(`[onchange*="${badgeId}"]`);
-    if (selector && selector.value) {
-        return selector.value;
-    }
-    return '';
 }
 
 function updateBadgeUrl(selector, badgeId) {
