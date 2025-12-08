@@ -288,13 +288,6 @@ def register_web_routes(api, poller):
             # 获取状态时间线
             status_timeline = get_node_status_timeline(poller, node_id, 24)
             
-            # 获取玩家会话
-            players = []
-            if latest_status and latest_status.get('online'):
-                players_data = poller.db.get_all_player_sessions(node_id)
-                if players_data:
-                    players = players_data
-            
             return {
                 'server': {
                     **server,
@@ -303,7 +296,6 @@ def register_web_routes(api, poller):
                 'history': compact_history,
                 'stats': stats,
                 'status_timeline': status_timeline,
-                'players': players,
                 'config': {
                     'poll_interval': poller.config.get('poll_interval', 60)
                 }
@@ -353,12 +345,6 @@ def register_web_routes(api, poller):
             # 获取状态时间线
             status_timeline = get_node_status_timeline(poller, node_id, 24)
             
-            # 获取玩家会话
-            players = []
-            players_data = poller.db.get_all_player_sessions(node_id)
-            if players_data:
-                players = players_data
-            
             return {
                 'server': {
                     'id': server['id'],
@@ -368,7 +354,6 @@ def register_web_routes(api, poller):
                 'stats': stats,
                 'latest_history_point': latest_history_point,
                 'status_timeline': status_timeline,
-                'players': players,
                 'config': {
                     'poll_interval': poller.config.get('poll_interval', 60)
                 }
