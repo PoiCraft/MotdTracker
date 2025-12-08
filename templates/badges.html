@@ -89,7 +89,7 @@
                     <td>
                         <div class="code-cell">
                             <code class="badge-url" data-path="/api/badge/server/status"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -100,7 +100,7 @@
                     <td>
                         <div class="code-cell">
                             <code id="url-server-uptime" class="badge-url" data-path="/api/badge/server/uptime"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -111,7 +111,7 @@
                     <td>
                         <div class="code-cell">
                             <code class="badge-url" data-path="/api/badge/server/players"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -127,7 +127,7 @@
                     <td>
                         <div class="code-cell">
                             <code id="url-node-status" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/status"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -138,7 +138,7 @@
                     <td>
                         <div class="code-cell">
                             <code id="url-node-uptime" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/uptime"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -149,7 +149,7 @@
                     <td>
                         <div class="code-cell">
                             <code id="url-node-latency" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/latency"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -160,7 +160,7 @@
                     <td>
                         <div class="code-cell">
                             <code id="url-node-latency-avg" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -171,7 +171,7 @@
                     <td>
                         <div class="code-cell">
                             <code id="url-node-latency-min" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -182,7 +182,7 @@
                     <td>
                         <div class="code-cell">
                             <code id="url-node-latency-max" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -193,7 +193,7 @@
                     <td>
                         <div class="code-cell">
                             <code id="url-node-latency-std" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -204,7 +204,7 @@
                     <td>
                         <div class="code-cell">
                             <code id="url-node-latency-cv" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -220,7 +220,7 @@
                     <td>
                         <div class="code-cell">
                             <code id="url-player-status" class="badge-url" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -231,7 +231,7 @@
                     <td>
                         <div class="code-cell">
                             <code id="url-player-current-session" class="badge-url" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -242,7 +242,7 @@
                     <td>
                         <div class="code-cell">
                             <code id="url-player-period-playtime" class="badge-url" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -253,7 +253,7 @@
                     <td>
                         <div class="code-cell">
                             <code id="url-player-live" class="badge-url" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live"></code>
-                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制">📋</button>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
                         </div>
                     </td>
                 </tr>
@@ -271,6 +271,9 @@
             <p>• <strong>自动更新</strong>：Badges实时反映服务器状态</p>
         </div>
     </details>
+    
+    <!-- ARIA live region for screen reader announcements -->
+    <div id="copy-announcement" aria-live="polite" aria-atomic="true" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;"></div>
 </div>
 
 <style>
@@ -383,8 +386,8 @@
     color: var(--text-primary);
 }
 
-.category-row {
-    background: var(--bg-tertiary) !important;
+.badge-table tbody tr.category-row {
+    background: var(--bg-tertiary);
 }
 
 .category-row td {
@@ -489,6 +492,33 @@
     .badge-table td {
         padding: 8px 12px;
     }
+    
+    /* Mobile-specific styles for code cells and badge URLs */
+    .code-cell {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    
+    .badge-url {
+        width: 100%;
+        font-size: 0.75em;
+        word-break: break-all;
+    }
+    
+    .copy-btn {
+        align-self: flex-end;
+    }
+}
+
+/* Responsive fix: allow wrapping or ellipsis on small screens */
+@media (max-width: 600px) {
+    .badge-table td:first-child {
+        white-space: normal;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 120px;
+    }
 }
 </style>
 
@@ -559,9 +589,13 @@ function updateAllBadgeUrls() {
         let params = new URLSearchParams(existingQuery);
         
         const pathLower = path.toLowerCase();
-        if ((pathLower.includes('uptime') || pathLower.includes('period-playtime') || pathLower.includes('latency-stats')) && currentTimeRange) {
-            const hours = currentTimeRange.replace('?hours=', '');
-            params.set('hours', hours);
+        if (pathLower.includes('uptime') || pathLower.includes('period-playtime') || pathLower.includes('latency-stats')) {
+            if (currentTimeRange) {
+                const hours = currentTimeRange.replace('?hours=', '');
+                params.set('hours', hours);
+            } else {
+                params.delete('hours');
+            }
         }
         
         const paramStr = params.toString();
@@ -589,24 +623,71 @@ function copyBadgeUrl(button) {
             showCopyFeedback(button);
         }).catch(err => {
             console.error('复制失败:', err);
+            // Fallback to execCommand
+            fallbackCopy(text, button);
         });
+    } else {
+        // Fallback for browsers without clipboard API
+        fallbackCopy(text, button);
     }
+}
+
+// Fallback copy method
+function fallbackCopy(text, button) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        showCopyFeedback(button);
+    } catch (err) {
+        console.error('Fallback copy failed:', err);
+        alert('复制失败，请手动复制');
+    }
+    document.body.removeChild(textarea);
 }
 
 // 显示复制反馈
 function showCopyFeedback(button) {
     const originalText = button.textContent;
+    const originalBg = button.style.background;
+    const originalColor = button.style.color;
+    const originalBorder = button.style.borderColor;
+    
     button.textContent = '✓';
     button.style.background = 'var(--success)';
     button.style.color = 'white';
     button.style.borderColor = 'var(--success)';
     
-    setTimeout(() => {
+    // Announce to screen readers
+    const announcement = document.getElementById('copy-announcement');
+    if (announcement) {
+        announcement.textContent = 'URL已复制到剪贴板';
+    }
+    
+    try {
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.style.background = originalBg;
+            button.style.color = originalColor;
+            button.style.borderColor = originalBorder;
+            if (announcement) {
+                announcement.textContent = '';
+            }
+        }, 1000);
+    } catch (err) {
+        // Ensure we reset even if timeout fails
         button.textContent = originalText;
-        button.style.background = '';
-        button.style.color = '';
-        button.style.borderColor = '';
-    }, 1000);
+        button.style.background = originalBg;
+        button.style.color = originalColor;
+        button.style.borderColor = originalBorder;
+        if (announcement) {
+            announcement.textContent = '';
+        }
+    }
 }
 
 // 初始化WebSocket连接
@@ -655,8 +736,10 @@ function updateRangeLabel() {
 // 刷新所有badge
 function refreshAllBadges() {
     document.querySelectorAll('.badge-table img').forEach(img => {
-        const src = img.src.split('?')[0];
-        img.src = src + '?t=' + Date.now();
+        const [baseSrc, existingQuery] = img.src.split('?');
+        const params = new URLSearchParams(existingQuery || '');
+        params.set('t', Date.now());
+        img.src = baseSrc + '?' + params.toString();
     });
 }
 
@@ -682,7 +765,7 @@ function switchNode(selector) {
             const [basePath, existingQuery] = apiPath.includes('?') ? apiPath.split('?') : [apiPath, ''];
             const params = new URLSearchParams(existingQuery || '');
             
-            if (badge.id === 'node-uptime' || badge.id.startsWith('node-latency-')) {
+            if (badge.id === 'node-uptime' || badge.id.includes('latency-stats')) {
                 const timeRangeSelect = document.getElementById('default-time-range');
                 const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
                 if (currentTimeRange) {
