@@ -35,16 +35,7 @@ def register_page_routes(app, poller):
         nodes = poller.db.get_all_servers()
         base_url = request.url_root.rstrip('/')
         
-        # 获取所有玩家列表
-        all_players = set()
-        for node in nodes:
-            sessions = poller.db.get_all_player_sessions(node['id'])
-            for session in sessions:
-                player_name = session.get('player_name')
-                if player_name:
-                    all_players.add(player_name)
-        
-        # 转换为排序列表
-        player_list = sorted(list(all_players))
+        # 获取所有玩家列表（包括历史）
+        player_list = poller.db.get_all_player_names()
         
         return render_template('badges.html', nodes=nodes, players=player_list, base_url=base_url, active_page='badges')

@@ -10,11 +10,14 @@ def register_player_routes(api, poller):
 
     @player_ns.route('')
     class AllPlayers(Resource):
-        @player_ns.doc('获取玩家列表', description='获取所有在线玩家的汇总列表，包含所有节点的玩家数据')
+        @player_ns.doc('获取玩家列表', description='获取所有玩家的汇总列表（包括历史玩家），包含所有节点的玩家数据')
         def get(self):
+            # 获取所有玩家名字（包括历史）
+            all_player_names = poller.db.get_all_player_names()
             servers = poller.db.get_all_servers()
             aggregated = {}
 
+            # 首先收集当前会话中的玩家信息
             for server in servers:
                 sessions = poller.db.get_all_player_sessions(server['id'])
                 for s in sessions:
@@ -69,6 +72,19 @@ def register_player_routes(api, poller):
                             if duration_seconds is not None:
                                 if agg['duration_seconds'] is None or duration_seconds > agg['duration_seconds']:
                                     agg['duration_seconds'] = duration_seconds
+
+            # 为没有当前会话的玩家添加占位符（仅显示在列表中，但标记为离线）
+            for player_name in all_player_names:
+                if player_name not in aggregated:
+                    aggregated[player_name] = {
+                        'player_name': player_name,
+                        'online': False,
+                        'session_start': None,
+                        'last_seen': None,
+                        'last_seen_dt': None,
+                        'duration_seconds': None,
+                        'servers': []
+                    }
 
             players = list(aggregated.values())
             players.sort(key=lambda x: (

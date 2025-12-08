@@ -326,6 +326,25 @@ class PostgreSQLDatabase(DatabaseBase):
         finally:
             conn.close()
 
+    def get_all_player_names(self) -> List[str]:
+        """获取所有玩家名字（包括当前会话和历史会话）"""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            # 从当前会话表获取
+            cursor.execute('SELECT DISTINCT player_name FROM player_sessions')
+            current_players = {row[0] for row in cursor.fetchall()}
+            
+            # 从历史会话表获取
+            cursor.execute('SELECT DISTINCT player_name FROM player_session_history')
+            history_players = {row[0] for row in cursor.fetchall()}
+            
+            # 合并并排序
+            all_players = sorted(current_players | history_players)
+            return all_players
+        finally:
+            conn.close()
+
     def get_player_history(self, player_name: str, days: int = 30) -> List[Dict]:
         """获取玩家历史会话"""
         from app_utils import utc8_now
