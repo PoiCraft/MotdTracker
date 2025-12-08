@@ -13,23 +13,23 @@
 
 {% block content %}
 
-<div class="container" style="max-width: 900px; margin: 0 auto; padding: 20px;">
+<div class="badge-container">
     
     <!-- 工具栏 -->
-    <div class="server-card" style="margin-bottom: 20px;">
-        <div style="padding: 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-weight: 500; color: var(--text-color);">输出格式:</span>
-                <select id="output-format" class="time-range-selector" onchange="switchOutputFormat(this.value)">
+    <div class="server-card badge-toolbar-card">
+        <div class="badge-toolbar">
+            <div class="badge-toolbar-group">
+                <span class="badge-toolbar-label">输出格式:</span>
+                <select id="output-format" class="time-range-selector" onchange="switchOutputFormat(this.value)" aria-label="选择输出格式">
                     <option value="url">完整URL</option>
                     <option value="html">HTML</option>
                     <option value="markdown">Markdown</option>
                 </select>
             </div>
             
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-weight: 500; color: var(--text-color);">Badge样式:</span>
-                <select id="badge-style" class="time-range-selector" onchange="switchBadgeStyle(this.value)">
+            <div class="badge-toolbar-group">
+                <span class="badge-toolbar-label">Badge样式:</span>
+                <select id="badge-style" class="time-range-selector" onchange="switchBadgeStyle(this.value)" aria-label="选择Badge样式">
                     <option value="flat">默认(flat)</option>
                     <option value="flat-square">方形(flat-square)</option>
                     <option value="plastic">塑料(plastic)</option>
@@ -38,9 +38,9 @@
                 </select>
             </div>
             
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-weight: 500; color: var(--text-color);">默认时间范围:</span>
-                <select id="default-time-range" class="time-range-selector" onchange="switchDefaultTimeRange(this.value)">
+            <div class="badge-toolbar-group">
+                <span class="badge-toolbar-label">默认时间范围:</span>
+                <select id="default-time-range" class="time-range-selector" onchange="switchDefaultTimeRange(this.value)" aria-label="选择默认时间范围">
                     <option value="" selected>24h (默认)</option>
                     <option value="?hours=1">1h</option>
                     <option value="?hours=3">3h</option>
@@ -60,7 +60,7 @@
             <div class="server-name">服务器 Badges</div>
         </div>
         
-        <div style="padding: 20px;">
+        <div class="badge-card-content">
             <!-- 服务器状态 -->
             <div class="badge-item">
                 <div class="badge-label">服务器状态</div>
@@ -114,16 +114,16 @@
         </div>
     </div>
 
-    <div class="server-card" style="margin-top: 20px;">
+    <div class="server-card badge-card-spacing">
         <div class="server-header">
             <div class="server-name">节点 Badges</div>
         </div>
         
-        <div style="padding: 20px;">
+        <div class="badge-card-content">
             <!-- 节点选择器 -->
-            <div style="margin-bottom: 20px; padding: 12px; background: var(--bg-tertiary); border-radius: 6px; border: 1px solid var(--border-color);">
-                <label style="display: block; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; font-size: 0.85em;">选择节点</label>
-                <select class="time-range-selector" onchange="switchNode(this)" style="width: 100%; margin: 0;">
+            <div class="badge-selector-container">
+                <label class="badge-selector-label">选择节点</label>
+                <select class="time-range-selector badge-selector-full" onchange="switchNode(this)" aria-label="选择节点">
                     {% for node in nodes %}
                     <option value="{{ node.id }}" {% if loop.first %}selected{% endif %}>{{ node.name }}</option>
                     {% endfor %}
@@ -183,16 +183,16 @@
         </div>
     </div>
 
-    <div class="server-card" style="margin-top: 20px;">
+    <div class="server-card badge-card-spacing">
         <div class="server-header">
             <div class="server-name">玩家 Badges</div>
         </div>
         
-        <div style="padding: 20px;">
+        <div class="badge-card-content">
             <!-- 玩家选择器 -->
-            <div style="margin-bottom: 20px; padding: 12px; background: var(--bg-tertiary); border-radius: 6px; border: 1px solid var(--border-color);">
-                <label style="display: block; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; font-size: 0.85em;">选择玩家</label>
-                <select class="time-range-selector" onchange="updatePlayerName(this.value)" style="width: 100%; margin: 0;">
+            <div class="badge-selector-container">
+                <label class="badge-selector-label">选择玩家</label>
+                <select class="time-range-selector badge-selector-full" onchange="updatePlayerName(this.value)" aria-label="选择玩家">
                     {% if players %}
                         {% for player in players %}
                         <option value="{{ player }}" {% if player == 'Steve' or (loop.first and 'Steve' not in players) %}selected{% endif %}>{{ player }}</option>
@@ -273,11 +273,11 @@
         </div>
     </div>
 
-    <div class="server-card" style="margin-top: 20px;">
+    <div class="server-card badge-card-spacing">
         <div class="server-header">
             <div class="server-name">使用说明</div>
         </div>
-        <div style="padding: 20px; color: var(--text-secondary); line-height: 1.8;">
+        <div class="badge-usage-text">
             <p>1. <strong>直接嵌入</strong>：复制 API 路径并在 HTML 中使用 <code>&lt;img src="..."&gt;</code></p>
             <p>2. <strong>Markdown</strong>：复制 Markdown 格式并粘贴到 README.md 或文档中</p>
             <p>3. <strong>自动更新</strong>：Badge 会实时反映服务器状态，无需手动更新</p>

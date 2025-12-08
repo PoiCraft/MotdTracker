@@ -9,7 +9,7 @@
 {% block sidebar_items %}
 <div class="sidebar-item">
     <div class="sidebar-label">时间范围</div>
-    <select id="chart-range" class="sidebar-select">
+    <select id="chart-range" class="sidebar-select" aria-label="选择图表时间范围">
         <option value="3">过去 3 小时</option>
         <option value="6">过去 6 小时</option>
         <option value="12">过去 12 小时</option>
@@ -196,7 +196,7 @@ function renderPlayersList(id, players){
                 <div class="player-name"><a href="/player/${encodeURIComponent(p.player_name)}">${escapeHtml(p.player_name)}</a></div>
             </div>
             <div class="player-meta">
-                <div style="color:${p.online ? 'var(--success)' : 'var(--text-muted)'};">${p.online ? `在线 ${formatDuration(p.duration_seconds)}` : '离线'}</div>
+                <div class="${p.online ? 'player-status-online' : 'player-status-offline'}">${p.online ? `在线 ${formatDuration(p.duration_seconds)}` : '离线'}</div>
                 <div>${p.online ? `${formatTime(p.session_start)}` : `${formatTime(p.last_seen)}`}</div>
             </div>
         </div>
@@ -458,37 +458,39 @@ function renderNodeLatencyStats(nodeId, stats, uptimeData, statusData) {
     const online = statusData && statusData.online;
     
     // Color code CV: green if stable (<10%), yellow if moderate (10-30%), red if unstable (>30%)
-    let cvColor = 'var(--text-muted)';
+    let cvClass = 'node-stat-cv';
     if (safeStats.cv !== null && safeStats.cv !== undefined) {
-        if (safeStats.cv < 10) cvColor = 'var(--success)';
-        else if (safeStats.cv < 30) cvColor = 'var(--warning)';
-        else cvColor = 'var(--danger)';
+        if (safeStats.cv < 10) cvClass += ' node-cv-stable';
+        else if (safeStats.cv < 30) cvClass += ' node-cv-moderate';
+        else cvClass += ' node-cv-unstable';
     }
     
+    const currentLatencyClass = online ? 'player-status-online' : 'player-status-offline';
+    
     container.innerHTML = `
-        <span style="display: flex; gap: 15px; align-items: center; font-size: 0.9em; flex-wrap: wrap;">
-            <span style="min-width: 75px; text-align: right;">
-                <span style="color: ${online ? 'var(--success)' : 'var(--text-muted)'};" title="当前延迟">当前: ${currentLatency}</span>
+        <span class="node-stats-container">
+            <span class="node-stat-current">
+                <span class="${currentLatencyClass}" title="当前延迟">当前: ${currentLatency}</span>
             </span>
-            <span style="min-width: 75px; text-align: right; color: var(--info);" title="24小时在线率">
+            <span class="node-stat-uptime" title="24小时在线率">
                 在线率: ${uptime}
             </span>
-            <span style="min-width: 85px; text-align: right; color: var(--text-secondary);" title="平均延迟">
+            <span class="node-stat-avg" title="平均延迟">
                 平均: ${avgLatency}
             </span>
-            <span style="min-width: 75px; text-align: right; color: var(--text-muted);" title="标准差">
+            <span class="node-stat-stddev" title="标准差">
                 σ: ${stdDev}
             </span>
-            <span style="min-width: 75px; text-align: right; color: var(--success);" title="最小延迟">
+            <span class="node-stat-min" title="最小延迟">
                 最小: ${minLatency}
             </span>
-            <span style="min-width: 75px; text-align: right; color: var(--warning);" title="最大延迟">
+            <span class="node-stat-max" title="最大延迟">
                 最大: ${maxLatency}
             </span>
-            <span style="min-width: 75px; text-align: right; color: var(--text-secondary);" title="95%延迟低于此值">
+            <span class="node-stat-p95" title="95%延迟低于此值">
                 P95: ${p95Latency}
             </span>
-            <span style="min-width: 70px; text-align: right; color: ${cvColor}; font-weight: 500;" title="变异系数 - 稳定性指标">
+            <span class="${cvClass}" title="变异系数 - 稳定性指标">
                 CV: ${cv}
             </span>
         </span>
@@ -552,7 +554,7 @@ function renderHeatmap24hNode(nodeId, history) {
                 title="时间: ${hourDate.toLocaleTimeString('zh-CN')} | 数据点: ${totalCount} | 在线: ${onlineCount}"></div>`;
         }).join('');
     
-    container.innerHTML = blocks || '<div style="color: var(--text-muted);">暂无数据</div>';
+    container.innerHTML = blocks || '<div class="node-empty-data">暂无数据</div>';
 }
 
 
