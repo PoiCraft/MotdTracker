@@ -300,17 +300,28 @@ class PostgreSQLDatabase(DatabaseBase):
                 ORDER BY online DESC, last_seen DESC
             ''', (server_id,))
             rows = cursor.fetchall()
-            return [
-                {
+            result = []
+            for r in rows:
+                first_seen = r[1]
+                session_start = r[2]
+                last_seen = r[3]
+                # Convert datetime to ISO string for JSON serialization
+                from datetime import datetime
+                if isinstance(first_seen, datetime):
+                    first_seen = first_seen.isoformat()
+                if isinstance(session_start, datetime):
+                    session_start = session_start.isoformat()
+                if isinstance(last_seen, datetime):
+                    last_seen = last_seen.isoformat()
+                result.append({
                     'player_name': r[0],
-                    'first_seen': r[1],
-                    'session_start': r[2],
-                    'last_seen': r[3],
+                    'first_seen': first_seen,
+                    'session_start': session_start,
+                    'last_seen': last_seen,
                     'online': bool(r[4]),
                     'duration_seconds': r[5]
-                }
-                for r in rows
-            ]
+                })
+            return result
         finally:
             conn.close()
 
@@ -328,14 +339,22 @@ class PostgreSQLDatabase(DatabaseBase):
                 ORDER BY session_start DESC
             ''', (player_name, cutoff))
             rows = cursor.fetchall()
-            return [
-                {
-                    'session_start': r[0],
-                    'session_end': r[1],
+            result = []
+            for r in rows:
+                session_start = r[0]
+                session_end = r[1]
+                # Convert datetime to ISO string for JSON serialization
+                from datetime import datetime
+                if isinstance(session_start, datetime):
+                    session_start = session_start.isoformat()
+                if isinstance(session_end, datetime):
+                    session_end = session_end.isoformat()
+                result.append({
+                    'session_start': session_start,
+                    'session_end': session_end,
                     'server_id': r[2]
-                }
-                for r in rows
-            ]
+                })
+            return result
         finally:
             conn.close()
     
@@ -357,8 +376,13 @@ class PostgreSQLDatabase(DatabaseBase):
             row = cursor.fetchone()
             
             if row:
+                timestamp = row[0]
+                # Convert datetime to ISO string for JSON serialization
+                from datetime import datetime
+                if isinstance(timestamp, datetime):
+                    timestamp = timestamp.isoformat()
                 return {
-                    'timestamp': row[0],
+                    'timestamp': timestamp,
                     'online': bool(row[1]),
                     'latency': row[2],
                     'players_online': row[3],
@@ -393,8 +417,13 @@ class PostgreSQLDatabase(DatabaseBase):
             
             history = []
             for row in rows:
+                timestamp = row[0]
+                # Convert datetime to ISO string for JSON serialization
+                from datetime import datetime
+                if isinstance(timestamp, datetime):
+                    timestamp = timestamp.isoformat()
                 history.append({
-                    'timestamp': row[0],
+                    'timestamp': timestamp,
                     'online': bool(row[1]),
                     'latency': row[2],
                     'players_online': row[3],
