@@ -3,6 +3,7 @@ from flask_restx import Namespace, Resource
 from app_utils import parse_dt, utc8_now
 from datetime import timedelta
 from badge_generator import generate_badge
+from routes.route_utils import filter_history_by_time
 
 
 def register_badge_routes(api, poller):
@@ -56,15 +57,12 @@ def register_badge_routes(api, poller):
                 from collections import defaultdict
                 poll_interval = poller.config.get('poll_interval', 60)
                 limit = max(1, int(hours * 3600 / poll_interval))
-                cutoff = utc8_now() - timedelta(hours=hours)
                 
                 timestamp_status = defaultdict(list)
                 for server in servers:
                     history_raw = poller.db.get_server_history(server['id'], limit=limit)
-                    for h in history_raw:
-                        ts = parse_dt(h.get('timestamp'))
-                        if ts is not None and ts < cutoff:
-                            continue
+                    history = filter_history_by_time(history_raw, hours)
+                    for h in history:
                         timestamp_status[h['timestamp']].append(h['online'])
                 
                 total_checks = len(timestamp_status)
@@ -104,7 +102,7 @@ def register_badge_routes(api, poller):
                     result = generate_badge('players', '0', 'lightgrey', style)
                     return Response(result, mimetype='image/svg+xml')
                 
-                # 使用set去重,避免同一玩家在多个节点重复计�?
+                # 使用set去重,避免同一玩家在多个节点重复计算
                 unique_players = set()
                 for server in servers:
                     sessions = poller.db.get_online_players(server['id'])
@@ -162,10 +160,9 @@ def register_badge_routes(api, poller):
                 
                 poll_interval = poller.config.get('poll_interval', 60)
                 limit = max(1, int(hours * 3600 / poll_interval))
-                cutoff = utc8_now() - timedelta(hours=hours)
                 history_raw = poller.db.get_server_history(node_id, limit=limit)
                 
-                history = [h for h in history_raw if parse_dt(h.get('timestamp')) and parse_dt(h.get('timestamp')) >= cutoff]
+                history = filter_history_by_time(history_raw, hours)
                 
                 if not history:
                     result = generate_badge('uptime', 'N/A', 'lightgrey', style)

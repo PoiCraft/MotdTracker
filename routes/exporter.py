@@ -1,5 +1,6 @@
 from flask import Response
 from flask_restx import Namespace, Resource
+from routes.route_utils import filter_history_by_time
 
 
 def register_exporter_routes(api, poller):
@@ -108,6 +109,7 @@ def register_exporter_routes(api, poller):
 
                 # Get uptime stats for past 24 hours
                 history = poller.db.get_server_history(server_id, limit=poller.get_24h_limit())
+                history = filter_history_by_time(history, 24)
                 if history:
                     total_checks = len(history)
                     online_checks = sum(1 for h in history if h['online'])

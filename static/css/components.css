@@ -350,6 +350,47 @@
     }
 }
 
+/* 手动刷新按钮 */
+.manual-refresh-btn {
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    color: var(--primary);
+    padding: 8px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 8px;
+    width: 36px;
+    height: 36px;
+}
+
+.manual-refresh-btn:hover {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.5);
+    transform: translateY(-1px);
+}
+
+.manual-refresh-btn:active {
+    transform: translateY(0);
+}
+
+.manual-refresh-btn.refreshing {
+    animation: spin 1s linear;
+    pointer-events: none;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .loading {
     text-align: center;
     color: var(--text-muted);

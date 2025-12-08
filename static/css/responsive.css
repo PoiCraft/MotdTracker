@@ -136,6 +136,15 @@
         padding: 6px 10px;
     }
 
+    .manual-refresh-btn {
+        padding: 5px 6px;
+    }
+
+    .manual-refresh-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+
     .chart-title {
         font-size: 1em;
     }

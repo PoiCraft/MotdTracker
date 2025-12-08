@@ -1,8 +1,8 @@
 from collections import defaultdict
-from datetime import timedelta
 from flask import request
 from flask_restx import Namespace, Resource
-from app_utils import clamp_hours_param, get_server_nodes_data, parse_dt, utc8_now
+from app_utils import clamp_hours_param, get_server_nodes_data, parse_dt
+from routes.route_utils import filter_history_by_time, calculate_node_stats
 
 
 def register_server_routes(api, poller):
@@ -16,37 +16,11 @@ def register_server_routes(api, poller):
             # Add latency statistics for each node
             for node in nodes:
                 history = poller.db.get_server_history(node['id'], limit=poller.get_24h_limit())
+                history = filter_history_by_time(history, 24)
                 if history:
-                    total_checks = len(history)
-                    online_checks = sum(1 for h in history if h.get('online'))
-                    uptime_pct = (online_checks / total_checks * 100) if total_checks > 0 else 0
-                    
-                    latencies = [h['latency'] for h in history if h.get('online') and h.get('latency') is not None]
-                    if latencies:
-                        import statistics
-                        avg_latency = statistics.mean(latencies)
-                        std_dev = statistics.stdev(latencies) if len(latencies) > 1 else 0
-                        min_latency = min(latencies)
-                        max_latency = max(latencies)
-                        # Calculate P95 latency
-                        sorted_latencies = sorted(latencies)
-                        p95_index = int(len(sorted_latencies) * 0.95)
-                        p95_latency = sorted_latencies[p95_index] if p95_index < len(sorted_latencies) else sorted_latencies[-1]
-                        # Calculate coefficient of variation (CV)
-                        cv = (std_dev / avg_latency * 100) if avg_latency > 0 else 0
-                        node['latency_stats'] = {
-                            'uptime_percentage': round(uptime_pct, 2),
-                            'avg_latency': round(avg_latency, 2),
-                            'std_dev': round(std_dev, 2),
-                            'min_latency': round(min_latency, 2),
-                            'max_latency': round(max_latency, 2),
-                            'p95_latency': round(p95_latency, 2),
-                            'cv': round(cv, 2)
-                        }
-                    else:
-                        node['latency_stats'] = {'uptime_percentage': round(uptime_pct, 2), 'avg_latency': None, 'std_dev': None, 'min_latency': None, 'max_latency': None, 'p95_latency': None, 'cv': None}
+                    node['latency_stats'] = calculate_node_stats(history)
                 else:
-                    node['latency_stats'] = {'uptime_percentage': 0, 'avg_latency': None, 'std_dev': None, 'max_latency': None, 'p95_latency': None, 'cv': None}
+                    node['latency_stats'] = {'uptime_percentage': 0, 'avg_latency': None, 'std_dev': None, 'min_latency': None, 'max_latency': None, 'p95_latency': None, 'cv': None}
             return nodes
 
     @server_ns.route('/head')
@@ -98,17 +72,10 @@ def register_server_routes(api, poller):
             if not servers:
                 return []
 
-            cutoff = utc8_now() - timedelta(hours=hours)
-
             nodes_history = {}
             for server in servers:
                 history_raw = poller.db.get_server_history(server['id'], limit=limit)
-                # Filter by actual time window to avoid over-fetch when poll interval is irregular
-                history = []
-                for record in history_raw:
-                    ts = parse_dt(record.get('timestamp'))
-                    if ts is None or ts >= cutoff:
-                        history.append(record)
+                history = filter_history_by_time(history_raw, hours)
                 nodes_history[server['name']] = history
 
             all_histories = {}
@@ -166,17 +133,10 @@ def register_server_routes(api, poller):
                     'latencies': []
                 }
 
-            cutoff = utc8_now() - timedelta(hours=hours)
-
             nodes_history = {}
             for server in servers:
                 history_raw = poller.db.get_server_history(server['id'], limit=limit)
-                # Filter by actual time window to respect requested hours even if poll interval varies
-                history = []
-                for record in history_raw:
-                    ts = parse_dt(record.get('timestamp'))
-                    if ts is None or ts >= cutoff:
-                        history.append(record)
+                history = filter_history_by_time(history_raw, hours)
                 nodes_history[server['name']] = history
 
             all_histories = {}
@@ -248,14 +208,11 @@ def register_server_routes(api, poller):
 
             timestamp_status = defaultdict(list)
             all_latencies = []
-            cutoff = utc8_now() - timedelta(hours=hours)
 
             for server in servers:
                 history_raw = poller.db.get_server_history(server['id'], limit=limit)
-                for h in history_raw:
-                    ts = parse_dt(h.get('timestamp'))
-                    if ts is not None and ts < cutoff:
-                        continue
+                history = filter_history_by_time(history_raw, hours)
+                for h in history:
                     timestamp_status[h['timestamp']].append(h['online'])
                     if h['online'] and h['latency'] is not None:
                         all_latencies.append(h['latency'])
@@ -284,7 +241,6 @@ def register_server_routes(api, poller):
             hours = clamp_hours_param(request, default=24)
             poll_interval = poller.config.get('poll_interval', 60)
             limit = max(1, int(hours * 3600 / poll_interval))
-            cutoff = utc8_now() - timedelta(hours=hours)
 
             servers = poller.db.get_all_servers()
             if not servers:
@@ -293,10 +249,8 @@ def register_server_routes(api, poller):
             timestamp_status = defaultdict(list)
             for server in servers:
                 history_raw = poller.db.get_server_history(server['id'], limit=limit)
-                for h in history_raw:
-                    ts = parse_dt(h.get('timestamp'))
-                    if ts is not None and ts < cutoff:
-                        continue
+                history = filter_history_by_time(history_raw, hours)
+                for h in history:
                     timestamp_status[h['timestamp']].append(h['online'])
 
             total_checks = len(timestamp_status)
@@ -320,7 +274,6 @@ def register_server_routes(api, poller):
             hours = clamp_hours_param(request, default=24)
             poll_interval = poller.config.get('poll_interval', 60)
             limit = max(1, int(hours * 3600 / poll_interval))
-            cutoff = utc8_now() - timedelta(hours=hours)
 
             servers = poller.db.get_all_servers()
             if not servers:
@@ -329,10 +282,8 @@ def register_server_routes(api, poller):
             all_histories = {}
             for server in servers:
                 history_raw = poller.db.get_server_history(server['id'], limit=limit)
-                for record in history_raw:
-                    ts = parse_dt(record.get('timestamp'))
-                    if ts is None or ts < cutoff:
-                        continue
+                history = filter_history_by_time(history_raw, hours)
+                for record in history:
                     timestamp = record['timestamp']
                     if timestamp not in all_histories:
                         all_histories[timestamp] = {'timestamp': timestamp, 'nodes': {}}
@@ -386,6 +337,15 @@ def register_server_routes(api, poller):
                 filtered.append(item)
 
             return filtered
+
+    @server_ns.route('/config')
+    class ServerConfig(Resource):
+        @server_ns.doc('获取服务器配置', description='获取轮询间隔等配置信息')
+        def get(self):
+            return {
+                'poll_interval': poller.config.get('poll_interval', 60),
+                'server_name': poller.config.get('server_name', 'Minecraft Server')
+            }
 
     api.add_namespace(server_ns)
     return server_ns

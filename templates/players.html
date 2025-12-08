@@ -191,9 +191,57 @@ function initWebSocket() {
     });
     
     socket.on('poll_complete', () => {
-        loadPlayers();
+        loadPlayersIncremental();
     });
 }
+
+// 增量更新：仅更新玩家基本状态
+async function loadPlayersIncremental() {
+    try {
+        const res = await fetch('/api/player');
+        const players = await res.json();
+        
+        // 更新玩家列表中的状态
+        players.forEach(p => {
+            const playerCard = document.querySelector(`a[href="/player/${encodeURIComponent(p.player_name)}"]`);
+            if (playerCard && playerCard.classList.contains('player-card-compact')) {
+                // 更新在线/离线状态点
+                const statusDot = playerCard.querySelector('.status-dot');
+                if (statusDot) {
+                    statusDot.className = p.online ? 'status-dot online' : 'status-dot offline';
+                    statusDot.textContent = p.online ? '在线' : '离线';
+                }
+                
+                // 更新状态信息
+                const statItems = playerCard.querySelectorAll('.stat-item');
+                if (statItems.length > 1) {
+                    if (p.online) {
+                        const onlineText = (p.duration_seconds || p.duration_seconds === 0)
+                            ? `已在线: ${formatDuration(p.duration_seconds)}`
+                            : '已在线: 未知';
+                        statItems[1].textContent = onlineText;
+                    } else {
+                        statItems[1].textContent = `最后在线: ${formatTime(p.last_seen)}`;
+                    }
+                }
+            }
+        });
+        
+        document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
+    } catch (e) {
+        console.error('增量更新失败:', e);
+    }
+}
+
+// 手动全量刷新
+window.manualRefresh = function() {
+    const btn = document.getElementById('manual-refresh-btn');
+    if (btn) {
+        btn.classList.add('refreshing');
+        setTimeout(() => btn.classList.remove('refreshing'), 1000);
+    }
+    loadPlayers();
+};
 
 // 初始化函数
 function init() {

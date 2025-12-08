@@ -10,7 +10,7 @@ def register_player_routes(api, poller):
 
     @player_ns.route('')
     class AllPlayers(Resource):
-        @player_ns.doc('获取全球玩家列表', description='获取所有在线玩家的汇总列表，包含所有节点的玩家数据')
+        @player_ns.doc('获取玩家列表', description='获取所有在线玩家的汇总列表，包含所有节点的玩家数据')
         def get(self):
             servers = poller.db.get_all_servers()
             aggregated = {}

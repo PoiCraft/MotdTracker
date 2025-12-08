@@ -103,6 +103,7 @@ const charts = {};
 let socket = null;
 let chartHours = 12;
 let loadingCount = 0;
+const cachedNodeHistories = {}; // 缓存每个节点的历史数据用于增量更新
 const servers = Array.from(document.querySelectorAll('[data-server-id]')).map(el => ({
     id: Number(el.dataset.serverId),
     name: el.dataset.name,
@@ -147,11 +148,11 @@ function updateServerCard(id, {uptime, latency, players, maxPlayers, version, on
     const versionEl = document.getElementById(`version-${id}`);
     const fillEl = document.getElementById(`uptime-fill-${id}`);
     const badge = document.getElementById(`badge-${id}`);
-    if (uptimeEl) uptimeEl.textContent = `${uptime ?? 0}%`;
-    if (latencyEl) latencyEl.textContent = latency ? `${latency}ms` : 'N/A';
-    if (playersEl) playersEl.textContent = online ? `${players}/${maxPlayers}` : 'N/A';
-    if (versionEl) versionEl.textContent = version || 'N/A';
-    if (fillEl) {
+    if (uptimeEl && uptime !== undefined) uptimeEl.textContent = `${uptime ?? 0}%`;
+    if (latencyEl && latency !== undefined) latencyEl.textContent = latency ? `${latency}ms` : 'N/A';
+    if (playersEl && players !== undefined) playersEl.textContent = online ? `${players}/${maxPlayers}` : 'N/A';
+    if (versionEl && version !== undefined) versionEl.textContent = version || 'N/A';
+    if (fillEl && uptime !== undefined) {
         const val = uptime ?? 0;
         fillEl.style.width = `${val}%`;
         fillEl.textContent = `${val}% 在线`;
@@ -219,8 +220,14 @@ function renderLatencyChart(id, history){
         }
     }
     
-    const slice = [...records].reverse();
-    const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
+    const slice = records;
+    const labels = slice.map(h => {
+        const date = new Date(h.timestamp);
+        if (chartHours > 24) {
+            return date.toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+        return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    });
     const latencies = slice.map(h => h.online ? h.latency : null);
     
     // Calculate P95 for dynamic Y-axis max to avoid extreme outliers compressing the chart
@@ -235,21 +242,29 @@ function renderLatencyChart(id, history){
     }
     
     const key = `latency-${id}`;
-    if (charts[key]) charts[key].destroy();
-    charts[key] = new Chart(ctx, {
-        type: 'line',
-        data:{ labels, datasets:[{label:'延迟 (ms)', data: latencies, borderColor:'#667eea', backgroundColor:'rgba(102, 126, 234, 0.1)', borderWidth:2, fill:true, tension:0.4, spanGaps:true, pointRadius:0, pointHoverRadius:5}]},
-        options:{
-            responsive:true,
-            maintainAspectRatio:false,
-            plugins:{legend:{display:false}, tooltip:{mode:'index', intersect:false}},
-            scales:{
-                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
-                y:{display:true, beginAtZero:true, max: yMax, ticks:{callback:(v)=>v+'ms', color: chartColors.text}, grid:{color: chartColors.grid}}
-            },
-            interaction:{mode:'nearest', axis:'x', intersect:false}
-        }
-    });
+    if (charts[key]) {
+        // Update existing chart
+        charts[key].data.labels = labels;
+        charts[key].data.datasets[0].data = latencies;
+        charts[key].options.scales.y.max = yMax;
+        charts[key].update();
+    } else {
+        // Create new chart
+        charts[key] = new Chart(ctx, {
+            type: 'line',
+            data:{ labels, datasets:[{label:'延迟 (ms)', data: latencies, borderColor:'#667eea', backgroundColor:'rgba(102, 126, 234, 0.1)', borderWidth:2, fill:true, tension:0.4, spanGaps:true, pointRadius:0, pointHoverRadius:5}]},
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                plugins:{legend:{display:false}, tooltip:{mode:'index', intersect:false, callbacks:{title:(ctx)=>{ if(ctx[0]){const idx=ctx[0].dataIndex; if(history.timestamps && history.timestamps[idx]){return history.timestamps[idx];}} return ctx[0]?.label;}}}},
+                scales:{
+                    x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
+                    y:{display:true, beginAtZero:true, max: yMax, ticks:{callback:(v)=>v+'ms', color: chartColors.text}, grid:{color: chartColors.grid}}
+                },
+                interaction:{mode:'nearest', axis:'x', intersect:false}
+            }
+        });
+    }
 }
 
 function renderPlayersChart(id, history){
@@ -269,29 +284,43 @@ function renderPlayersChart(id, history){
         }
     }
     
-    const slice = [...records].reverse();
-    const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
+    const slice = records;
+    const labels = slice.map(h => {
+        const date = new Date(h.timestamp);
+        if (chartHours > 24) {
+            return date.toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+        return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    });
     const playersOnline = slice.map(h => h.online ? h.players_online : null);
     const playersMax = slice.map(h => h.players_max);
     const key = `players-${id}`;
-    if (charts[key]) charts[key].destroy();
-    charts[key] = new Chart(ctx, {
-        type: 'line',
-        data:{ labels, datasets:[
-            {label:'在线玩家', data: playersOnline, borderColor:'#10b981', backgroundColor:'rgba(16, 185, 129, 0.1)', borderWidth:3, fill:true, tension:0.4, pointRadius:0, pointHoverRadius:5, spanGaps:true},
-            {label:'最大玩家数', data: playersMax, borderColor:'#6b7280', backgroundColor:'rgba(107, 114, 128, 0.05)', borderWidth:1, borderDash:[5, 5], fill:false, tension:0.4, pointRadius:0, pointHoverRadius:3, spanGaps:true}
-        ]},
-        options:{
-            responsive:true,
-            maintainAspectRatio:false,
-            plugins:{legend:{display:true, position:'top', onClick: () => {}, labels:{usePointStyle:true, padding:15, color: chartColors.text}}, tooltip:{mode:'index', intersect:false}},
-            scales:{
-                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
-                y:{display:true, beginAtZero:true, ticks:{callback:(v)=>Math.floor(v), stepSize:1, color: chartColors.text}, grid:{color: chartColors.grid}}
-            },
-            interaction:{mode:'nearest', axis:'x', intersect:false}
-        }
-    });
+    if (charts[key]) {
+        // Update existing chart
+        charts[key].data.labels = labels;
+        charts[key].data.datasets[0].data = playersOnline;
+        charts[key].data.datasets[1].data = playersMax;
+        charts[key].update();
+    } else {
+        // Create new chart
+        charts[key] = new Chart(ctx, {
+            type: 'line',
+            data:{ labels, datasets:[
+                {label:'在线玩家', data: playersOnline, borderColor:'#10b981', backgroundColor:'rgba(16, 185, 129, 0.1)', borderWidth:3, fill:true, tension:0.4, pointRadius:0, pointHoverRadius:5, spanGaps:true},
+                {label:'最大玩家数', data: playersMax, borderColor:'#6b7280', backgroundColor:'rgba(107, 114, 128, 0.05)', borderWidth:1, borderDash:[5, 5], fill:false, tension:0.4, pointRadius:0, pointHoverRadius:3, spanGaps:true}
+            ]},
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                plugins:{legend:{display:true, position:'top', onClick: () => {}, labels:{usePointStyle:true, padding:15, color: chartColors.text}}, tooltip:{mode:'index', intersect:false, callbacks:{title:(ctx)=>{ if(ctx[0]){const idx=ctx[0].dataIndex; if(history.timestamps && history.timestamps[idx]){return history.timestamps[idx];}} return ctx[0]?.label;}}}},
+                scales:{
+                    x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
+                    y:{display:true, beginAtZero:true, ticks:{callback:(v)=>Math.floor(v), stepSize:1, color: chartColors.text}, grid:{color: chartColors.grid}}
+                },
+                interaction:{mode:'nearest', axis:'x', intersect:false}
+            }
+        });
+    }
 }
 
 function renderStatusChart(id, history){
@@ -309,44 +338,110 @@ function renderStatusChart(id, history){
         }
     }
     
-    const slice = [...records].reverse();
-    const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
+    const slice = records;
+    const labels = slice.map(h => {
+        const date = new Date(h.timestamp);
+        if (chartHours > 24) {
+            return date.toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+        return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    });
     const data = slice.map(h => h.online ? 1 : 0);
     const key = `status-${id}`;
-    if (charts[key]) charts[key].destroy();
-    charts[key] = new Chart(ctx, {
-        type: 'line',
-        data:{ 
-            labels, 
-            datasets:[{
-                label:'在线状态', 
-                data, 
-                borderWidth:2, 
-                fill:true, 
-                stepped:true, 
-                pointRadius:3, 
-                pointHoverRadius:6,
-                segment: {
-                    borderColor: ctx => ctx.p0.parsed.y === 0 ? '#ef4444' : '#10b981',
-                    backgroundColor: ctx => ctx.p0.parsed.y === 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'
-                },
-                borderColor:'#10b981',
-                backgroundColor:'rgba(16, 185, 129, 0.2)',
-                pointBackgroundColor: ctx => ctx.parsed.y === 0 ? '#ef4444' : '#10b981',
-                pointBorderColor: ctx => ctx.parsed.y === 0 ? '#ef4444' : '#10b981'
-            }]
-        },
-        options:{
-            responsive:true,
-            maintainAspectRatio:false,
-            plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=> ctx.parsed.y===1?'在线':'离线'}}},
-            scales:{
-                x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
-                y:{min:0, max:1, display:true, ticks:{stepSize:1, callback:(v)=>v===1?'在线':'离线', color: chartColors.text}, grid:{color: chartColors.grid}}
+    if (charts[key]) {
+        // Update existing chart
+        charts[key].data.labels = labels;
+        charts[key].data.datasets[0].data = data;
+        charts[key].update();
+    } else {
+        // Create new chart
+        charts[key] = new Chart(ctx, {
+            type: 'line',
+            data:{ 
+                labels, 
+                datasets:[{
+                    label:'在线状态', 
+                    data, 
+                    borderWidth:2, 
+                    fill:true, 
+                    stepped:true, 
+                    pointRadius:3, 
+                    pointHoverRadius:6,
+                    segment: {
+                        borderColor: ctx => ctx.p0.parsed.y === 0 ? '#ef4444' : '#10b981',
+                        backgroundColor: ctx => ctx.p0.parsed.y === 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'
+                    },
+                    borderColor:'#10b981',
+                    backgroundColor:'rgba(16, 185, 129, 0.2)',
+                    pointBackgroundColor: ctx => ctx.parsed.y === 0 ? '#ef4444' : '#10b981',
+                    pointBorderColor: ctx => ctx.parsed.y === 0 ? '#ef4444' : '#10b981'
+                }]
             },
-            interaction:{mode:'nearest', axis:'x', intersect:false}
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                plugins:{legend:{display:false}, tooltip:{callbacks:{title:(ctx)=>{ if(ctx[0]){const idx=ctx[0].dataIndex; if(history.timestamps && history.timestamps[idx]){return history.timestamps[idx];}} return ctx[0]?.label;}, label:(ctx)=> ctx.parsed.y===1?'在线':'离线'}}},
+                scales:{
+                    x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
+                    y:{min:0, max:1, display:true, ticks:{stepSize:1, callback:(v)=>v===1?'在线':'离线', color: chartColors.text}, grid:{color: chartColors.grid}}
+                },
+                interaction:{mode:'nearest', axis:'x', intersect:false}
+            }
+        });
+    }
+}
+
+function updateChartsWithNewData(id, latest_history_point) {
+    // 获取该节点的缓存历史数据
+    const cachedHistory = cachedNodeHistories[id];
+    if (!cachedHistory || !latest_history_point) return;
+    
+    const timestamp = latest_history_point.timestamp;
+    
+    // 检查是否已存在该时间戳（避免重复）
+    if (cachedHistory.timestamps && cachedHistory.timestamps.includes(timestamp)) {
+        return;
+    }
+    
+    // 追加新数据到缓存的历史数据
+    if (!cachedHistory.timestamps) cachedHistory.timestamps = [];
+    if (!cachedHistory.online) cachedHistory.online = [];
+    if (!cachedHistory.latency) cachedHistory.latency = [];
+    if (!cachedHistory.players_online) cachedHistory.players_online = [];
+    if (!cachedHistory.players_max) cachedHistory.players_max = [];
+    
+    cachedHistory.timestamps.push(timestamp);
+    cachedHistory.online.push(latest_history_point.online || false);
+    cachedHistory.latency.push(latest_history_point.latency || null);
+    cachedHistory.players_online.push(latest_history_point.players_online || 0);
+    cachedHistory.players_max.push(latest_history_point.players_max || 0);
+    
+    // 根据时间范围过滤数据点（保持在 chartHours 范围内）
+    const now = new Date();
+    const cutoffTime = new Date(now.getTime() - chartHours * 60 * 60 * 1000);
+    
+    // 过滤掉超出时间范围的数据点
+    const filteredIndices = [];
+    cachedHistory.timestamps.forEach((ts, idx) => {
+        const tsDate = new Date(ts);
+        if (tsDate >= cutoffTime) {
+            filteredIndices.push(idx);
         }
     });
+    
+    // 只保留在时间范围内的数据点
+    if (filteredIndices.length > 0 && filteredIndices.length < cachedHistory.timestamps.length) {
+        cachedHistory.timestamps = filteredIndices.map(i => cachedHistory.timestamps[i]);
+        cachedHistory.online = filteredIndices.map(i => cachedHistory.online[i]);
+        cachedHistory.latency = filteredIndices.map(i => cachedHistory.latency[i]);
+        cachedHistory.players_online = filteredIndices.map(i => cachedHistory.players_online[i]);
+        cachedHistory.players_max = filteredIndices.map(i => cachedHistory.players_max[i]);
+    }
+    
+    // 重新渲染图表
+    renderLatencyChart(id, cachedHistory);
+    renderPlayersChart(id, cachedHistory);
+    renderStatusChart(id, cachedHistory);
 }
 
 async function loadServer(server){
@@ -360,72 +455,67 @@ async function loadServer(server){
     if (cardSpinner) cardSpinner.classList.remove('hidden');
     
     try {
-        const [statusRes, historyRes, statsRes, uptimeRes, statusTimelineRes, playersRes, headRes] = await Promise.all([
-        fetch(`/api/node/${id}`),
-        fetch(`/api/node/${id}/history-compact?hours=${chartHours}`),
-        fetch(`/api/node/${id}/stats?hours=${chartHours}`),
-        fetch(`/api/node/${id}/uptime?hours=24`),
-        fetch(`/api/node/${id}/status-timeline?hours=24`),
-        fetch(`/api/node/${id}/online_players`),
-        fetch(`/api/node/${id}/head`)
-    ]);
-    const statusData = statusRes.ok ? await statusRes.json() : null;
-    const history = historyRes.ok ? await historyRes.json() : [];
-    const stats = statsRes.ok ? await statsRes.json() : {};
-    const uptime24 = uptimeRes.ok ? await uptimeRes.json() : { uptime_percentage: 0 };
-    const statusTimeline = statusTimelineRes.ok ? await statusTimelineRes.json() : { timestamps: [], online: [] };
-    const players = playersRes.ok ? await playersRes.json() : [];
-    const head = headRes.ok ? await headRes.json() : null;
-
-    // Reconstruct latest from compact history
-    let latestOnline = false, latestPlayersOnline = 0, latestPlayersMax = 0, latestVersion = null;
-    if (history.timestamps && history.timestamps.length > 0) {
-        const idx = history.timestamps.length - 1;
-        latestOnline = history.online ? history.online[idx] : false;
-        latestPlayersOnline = history.players_online ? history.players_online[idx] : 0;
-        latestPlayersMax = history.players_max ? history.players_max[idx] : 0;
-    }
-
-    const anyOnline = head && head.latest_status ? !!head.latest_status.online : latestOnline;
-    const playersOnline = head && head.latest_status && head.latest_status.players_online !== undefined && head.latest_status.players_online !== null
-        ? head.latest_status.players_online
-        : latestPlayersOnline;
-    const playersMax = head && head.latest_status && head.latest_status.players_max !== undefined && head.latest_status.players_max !== null
-        ? head.latest_status.players_max
-        : latestPlayersMax;
-    const version = head && head.latest_status ? head.latest_status.version : latestVersion;
-
-    const records = [];
-    if (history.timestamps && Array.isArray(history.timestamps)) {
-        for (let i = 0; i < history.timestamps.length; i++) {
-            records.push({
-                timestamp: history.timestamps[i],
-                online: history.online ? history.online[i] : true,
-                latency: history.latency ? history.latency[i] : null,
-                players_online: history.players_online ? history.players_online[i] : null,
-                players_max: history.players_max ? history.players_max[i] : null
-            });
+        // 使用 Web API 一次性获取所有数据
+        const res = await fetch(`/api/web/node/${id}?hours=${chartHours}`);
+        if (!res.ok) throw new Error('Failed to load node data');
+        
+        const data = await res.json();
+        const { server: statusData, history, stats, status_timeline, players, config } = data;
+        
+        // 缓存历史数据供增量更新使用
+        cachedNodeHistories[id] = history;
+        
+        // 重构最新数据
+        let latestOnline = false, latestPlayersOnline = 0, latestPlayersMax = 0, latestVersion = null;
+        if (history.timestamps && history.timestamps.length > 0) {
+            const idx = history.timestamps.length - 1;
+            latestOnline = history.online ? history.online[idx] : false;
+            latestPlayersOnline = history.players_online ? history.players_online[idx] : 0;
+            latestPlayersMax = history.players_max ? history.players_max[idx] : 0;
         }
-    }
 
-    const latest = head && head.latest_status ? head.latest_status : (records.length ? records[records.length - 1] : null);
+        const anyOnline = statusData && statusData.latest_status ? !!statusData.latest_status.online : latestOnline;
+        const playersOnline = statusData && statusData.latest_status && statusData.latest_status.players_online !== undefined && statusData.latest_status.players_online !== null
+            ? statusData.latest_status.players_online
+            : latestPlayersOnline;
+        const playersMax = statusData && statusData.latest_status && statusData.latest_status.players_max !== undefined && statusData.latest_status.players_max !== null
+            ? statusData.latest_status.players_max
+            : latestPlayersMax;
+        const version = statusData && statusData.latest_status ? statusData.latest_status.version : latestVersion;
 
-    updateServerCard(id, {
-        uptime: uptime24.uptime_percentage ?? 0,
-        latency: latest ? latest.latency : null,
-        players: playersOnline,
-        maxPlayers: playersMax,
-        version: version,
-        online: anyOnline
-    });
+        const records = [];
+        if (history.timestamps && Array.isArray(history.timestamps)) {
+            for (let i = 0; i < history.timestamps.length; i++) {
+                records.push({
+                    timestamp: history.timestamps[i],
+                    online: history.online ? history.online[i] : true,
+                    latency: history.latency ? history.latency[i] : null,
+                    players_online: history.players_online ? history.players_online[i] : null,
+                    players_max: history.players_max ? history.players_max[i] : null
+                });
+            }
+        }
 
-    renderLatencyChart(id, history);
-    renderPlayersChart(id, history);
-    renderStatusChart(id, history);
-    renderInfo(id, latest);
-    renderPlayersList(id, players);
-    renderHeatmap24hNode(id, statusTimeline);
-    renderNodeLatencyStats(id, stats, uptime24, latest);
+        const latest = statusData && statusData.latest_status ? statusData.latest_status : (records.length ? records[records.length - 1] : null);
+
+        updateServerCard(id, {
+            uptime: stats ? stats.uptime_percentage : 0,
+            latency: latest ? latest.latency : null,
+            players: playersOnline,
+            maxPlayers: playersMax,
+            version: version,
+            online: anyOnline
+        });
+
+        renderLatencyChart(id, history);
+        renderPlayersChart(id, history);
+        renderStatusChart(id, history);
+        renderInfo(id, latest);
+        renderPlayersList(id, players);
+        renderHeatmap24hNode(id, status_timeline);
+        if (stats) {
+            renderNodeLatencyStats(id, stats, { uptime_percentage: stats.uptime_percentage }, latest);
+        }
     } catch (err) {
         console.error('加载节点数据失败', err);
     } finally {
@@ -566,8 +656,74 @@ function initWebSocket(){
     socket.on('disconnect', ()=>{ wsStatus.className='ws-status ws-disconnected'; wsStatus.textContent='已断开'; wsStatus.title='WebSocket已断开'; });
     socket.on('connect_error', (e)=>{ wsStatus.className='ws-status ws-error'; wsStatus.textContent='错误'; wsStatus.title='WebSocket错误: '+e.message; });
     socket.on('poll_complete', ()=>{
-        loadAll();
+        loadIncremental();
     });
+}
+
+// 增量更新：使用 Web API 获取最新状态
+async function loadIncremental(){
+    document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
+    
+    for (const server of servers) {
+        try {
+            // 使用 Web API 获取增量数据，传递当前时间范围参数
+            const res = await fetch(`/api/web/node/${server.id}/head?hours=${chartHours}`);
+            if (!res.ok) continue;
+            
+            const data = await res.json();
+            const { server: statusData, stats, latest_history_point, status_timeline, players, config } = data;
+            
+            if (!statusData || !statusData.latest_status) continue;
+            
+            const status = statusData.latest_status;
+            const id = server.id;
+            
+            // 更新卡片显示（包含最新的 uptime）
+            updateServerCard(id, {
+                online: status.online,
+                players: status.players_online,
+                maxPlayers: status.players_max,
+                version: status.version,
+                uptime: stats ? stats.uptime_percentage : undefined,
+                latency: status.latency
+            });
+            
+            // 更新详细信息
+            renderInfo(id, status);
+            
+            // 更新统计数据（如果可用）
+            if (stats) {
+                renderStats(id, stats);
+            }
+            
+            // 更新热图
+            if (status_timeline) {
+                renderHeatmap24h(id, status_timeline);
+            }
+            
+            // 更新玩家列表
+            if (players) {
+                renderPlayersList(id, players);
+            }
+            
+            // 更新图表：追加最新数据点
+            if (latest_history_point) {
+                updateChartsWithNewData(id, latest_history_point);
+            }
+        } catch (e) {
+            console.error(`增量更新失败 (节点 ${server.id}):`, e);
+        }
+    }
+}
+
+// 手动全量刷新
+window.manualRefresh = function(){
+    const btn = document.getElementById('manual-refresh-btn');
+    if (btn) {
+        btn.classList.add('refreshing');
+        setTimeout(() => btn.classList.remove('refreshing'), 1000);
+    }
+    loadAll();
 }
 
 const RANGE_STORAGE_KEY = 'chartRangeHours';

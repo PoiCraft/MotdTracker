@@ -1,7 +1,7 @@
-from datetime import timedelta
 from flask import request
 from flask_restx import Namespace, Resource, abort
-from app_utils import clamp_hours_param, get_server_nodes_data, parse_dt, utc8_now
+from app_utils import clamp_hours_param, get_server_nodes_data, parse_dt
+from routes.route_utils import filter_history_by_time
 
 
 def register_node_routes(api, poller):
@@ -65,13 +65,8 @@ def register_node_routes(api, poller):
             hours = clamp_hours_param(request)
             poll_interval = poller.config.get('poll_interval', 60)
             limit = max(1, int(hours * 3600 / poll_interval))
-            cutoff = utc8_now() - timedelta(hours=hours)
             history_raw = poller.db.get_server_history(node_id, limit=limit)
-            history = []
-            for record in history_raw:
-                ts = parse_dt(record.get('timestamp'))
-                if ts is None or ts >= cutoff:
-                    history.append(record)
+            history = filter_history_by_time(history_raw, hours)
             return history
 
     @node_ns.route('/<int:node_id>/history-compact')
@@ -85,13 +80,8 @@ def register_node_routes(api, poller):
             hours = clamp_hours_param(request)
             poll_interval = poller.config.get('poll_interval', 60)
             limit = max(1, int(hours * 3600 / poll_interval))
-            cutoff = utc8_now() - timedelta(hours=hours)
             history_raw = poller.db.get_server_history(node_id, limit=limit)
-            history = []
-            for record in history_raw:
-                ts = parse_dt(record.get('timestamp'))
-                if ts is None or ts >= cutoff:
-                    history.append(record)
+            history = filter_history_by_time(history_raw, hours)
             return {
                 'timestamps': [h['timestamp'] for h in history],
                 'online': [h['online'] for h in history],
@@ -111,14 +101,8 @@ def register_node_routes(api, poller):
             hours = clamp_hours_param(request)
             poll_interval = poller.config.get('poll_interval', 60)
             limit = max(1, int(hours * 3600 / poll_interval))
-            cutoff = utc8_now() - timedelta(hours=hours)
             history_raw = poller.db.get_server_history(node_id, limit=limit)
-            history = []
-            for h in history_raw:
-                ts = parse_dt(h.get('timestamp'))
-                if ts is not None and ts < cutoff:
-                    continue
-                history.append(h)
+            history = filter_history_by_time(history_raw, hours)
 
             if not history:
                 return {
@@ -181,14 +165,8 @@ def register_node_routes(api, poller):
             hours = clamp_hours_param(request, default=24)
             poll_interval = poller.config.get('poll_interval', 60)
             limit = max(1, int(hours * 3600 / poll_interval))
-            cutoff = utc8_now() - timedelta(hours=hours)
             history_raw = poller.db.get_server_history(node_id, limit=limit)
-            history = []
-            for h in history_raw:
-                ts = parse_dt(h.get('timestamp'))
-                if ts is not None and ts < cutoff:
-                    continue
-                history.append(h)
+            history = filter_history_by_time(history_raw, hours)
 
             if not history:
                 return {'uptime_percentage': 0, 'total_checks': 0, 'online_checks': 0}
@@ -214,15 +192,12 @@ def register_node_routes(api, poller):
             hours = clamp_hours_param(request, default=24)
             poll_interval = poller.config.get('poll_interval', 60)
             limit = max(1, int(hours * 3600 / poll_interval))
-            cutoff = utc8_now() - timedelta(hours=hours)
             history_raw = poller.db.get_server_history(node_id, limit=limit)
+            history = filter_history_by_time(history_raw, hours)
             
             timestamps = []
             online_list = []
-            for record in history_raw:
-                ts = parse_dt(record.get('timestamp'))
-                if ts is None or ts < cutoff:
-                    continue
+            for record in history:
                 timestamps.append(record['timestamp'])
                 online_list.append(record['online'])
 

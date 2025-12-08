@@ -342,7 +342,8 @@ class Database(DatabaseBase):
                     'player_name': r[0],
                     'session_start': r[1],
                     'last_seen': r[2],
-                    'duration_seconds': r[3]
+                    'duration_seconds': r[3],
+                    'online': True  # 此方法只返回在线玩家
                 }
                 for r in rows
             ]
