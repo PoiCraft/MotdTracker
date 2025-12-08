@@ -211,6 +211,13 @@ async function loadPlayersIncremental() {
                     statusDot.className = p.online ? 'status-dot online' : 'status-dot offline';
                     statusDot.textContent = p.online ? '在线' : '离线';
                 }
+
+                // 如果遇到在线状态变化，刷新整个列表以确保一致性
+                const currentStatus = statusDot ? (statusDot.classList.contains('online') ? true : false) : null;
+                if (currentStatus !== null && currentStatus !== p.online) {
+                    loadPlayers();
+                    return;
+                }
                 
                 // 更新状态信息
                 const statItems = playerCard.querySelectorAll('.stat-item');
