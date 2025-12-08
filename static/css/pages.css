@@ -35,34 +35,112 @@
 }
 
 .badge-card-content {
-    padding: 20px;
+    padding: 16px;
+}
+
+.badge-item {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.badge-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.badge-label {
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+.badge-preview {
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+}
+
+.badge-preview img {
+    display: block;
+}
+
+.badge-code,
+.badge-html,
+.badge-markdown {
+    margin-bottom: 8px;
+}
+
+.badge-code:last-child,
+.badge-html:last-child,
+.badge-markdown:last-child {
+    margin-bottom: 0;
 }
 
 .badge-selector-container {
-    margin-bottom: 20px;
-    padding: 12px;
-    background: var(--bg-tertiary);
-    border-radius: 6px;
+    margin-bottom: 16px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
     border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.2s ease;
+}
+
+.badge-selector-container:hover {
+    border-color: var(--accent-primary);
 }
 
 .badge-selector-label {
-    display: block;
     font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-    font-size: 0.85em;
+    color: var(--text-primary);
+    font-size: 0.9em;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 70px;
 }
 
 .badge-selector-full {
-    width: 100%;
+    flex: 1;
     margin: 0;
+    padding: 6px 10px;
+    font-size: 0.9em;
 }
 
 .badge-usage-text {
     padding: 20px;
     color: var(--text-secondary);
     line-height: 1.8;
+}
+
+.code-block {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.85em;
+    overflow-x: auto;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin: 0;
+}
+
+.code-block:hover {
+    background: var(--bg-secondary);
+    border-color: var(--accent-primary);
+}
+
+.code-block code {
+    color: var(--text-primary);
+    font-size: 1em;
+    line-height: 1.5;
+    white-space: pre;
+    word-wrap: normal;
 }
 
 /* Player detail page specific styles */

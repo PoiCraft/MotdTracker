@@ -1,6 +1,26 @@
 /* Responsive - Mobile and responsive design */
 
-/* 响应式设计 - 移动设备优化 */
+/* 平板设备优化 (768px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .badge-container {
+        padding: 16px;
+    }
+
+    .badge-toolbar {
+        padding: 16px;
+        gap: 16px;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .code-block {
+        font-size: 0.8em;
+    }
+}
+
+/* 移动设备优化 (max-width: 768px) */
 @media (max-width: 768px) {
     body {
         padding: 0;
@@ -203,41 +223,157 @@
     }
 
     /* Badges页面移动端优化 */
-    /* 工具栏优化 */
-    .server-card > div[style*="display: flex"][style*="gap: 20px"] {
-        flex-direction: column !important;
-        gap: 12px !important;
-        padding: 12px !important;
+    .badge-container {
+        padding: 12px;
     }
 
-    .server-card > div[style*="display: flex"][style*="gap: 20px"] > div {
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: 6px !important;
+    .badge-toolbar {
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .badge-toolbar-group {
         width: 100%;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
     }
 
-    .server-card > div[style*="display: flex"][style*="gap: 20px"] > div > span {
-        font-size: 0.8em !important;
-        font-weight: 600 !important;
+    .badge-toolbar-label {
+        font-size: 0.85em;
+        font-weight: 600;
     }
 
-    .server-card > div[style*="display: flex"][style*="gap: 20px"] > div > select {
-        width: 100% !important;
-        font-size: 0.85em !important;
+    .badge-toolbar-group select {
+        width: 100%;
+        font-size: 0.9em;
     }
 
-    /* Badge输入框优化 */
-    .code-block {
-        font-size: 0.75em !important;
-        padding: 8px !important;
+    .badge-card-content {
+        padding: 12px;
     }
 
-    .code-block code {
-        font-size: 1em !important;
+    .badge-item {
+        margin-bottom: 16px;
     }
 
     .badge-label {
-        font-size: 0.9em !important;
+        font-size: 0.9em;
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+
+    .badge-preview {
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: flex-start;
+    }
+
+    .badge-preview img {
+        max-width: 100%;
+        height: auto;
+    }
+
+    .code-block {
+        font-size: 0.7em;
+        padding: 8px;
+        overflow-x: auto;
+        word-break: break-all;
+    }
+
+    .code-block code {
+        font-size: 1em;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    }
+
+    .badge-selector-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px 12px;
+    }
+
+    .badge-selector-label {
+        font-size: 0.85em;
+        min-width: auto;
+    }
+
+    .badge-selector-full {
+        width: 100%;
+        font-size: 0.9em;
+    }
+
+    .badge-card-spacing {
+        margin-top: 16px;
+    }
+
+    .badge-usage-text {
+        padding: 12px;
+        font-size: 0.9em;
+        line-height: 1.6;
     }
 }
+
+/* 小屏移动设备优化 (max-width: 480px) */
+@media (max-width: 480px) {
+    .badge-container {
+        padding: 8px;
+    }
+
+    .server-card {
+        padding: 12px;
+    }
+
+    .badge-toolbar {
+        padding: 10px;
+    }
+
+    .badge-card-content {
+        padding: 10px;
+    }
+
+    .badge-item {
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+    }
+
+    .badge-label {
+        font-size: 0.85em;
+        margin-bottom: 6px;
+    }
+
+    .code-block {
+        font-size: 0.65em;
+        padding: 6px;
+    }
+
+    .badge-selector-container {
+        padding: 8px 10px;
+    }
+
+    .badge-toolbar-label,
+    .badge-selector-label {
+        font-size: 0.8em;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .stat-value {
+        font-size: 1.3em;
+    }
+
+    .header-title {
+        font-size: 1.1em;
+    }
+
+    .range-badge {
+        font-size: 0.7em;
+        padding: 4px 8px;
+    }
+}
+
