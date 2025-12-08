@@ -335,12 +335,15 @@
 .badge-table-container {
     background: var(--bg-secondary);
     border-radius: 8px;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
     border: 1px solid var(--border-color);
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
 .badge-table {
     width: 100%;
+    min-width: 600px; /* Ensure table maintains readable width */
     border-collapse: collapse;
 }
 
@@ -699,8 +702,33 @@ function initWebSocket() {
     }
     socket = io({ path: '/api/socket.io' });
     
+    const wsStatus = document.getElementById('ws-status');
+    
     socket.on('connect', function() {
         console.log('WebSocket connected for badges page');
+        if (wsStatus) {
+            wsStatus.className = 'ws-status ws-connected';
+            wsStatus.textContent = '已连接';
+            wsStatus.title = 'WebSocket已连接';
+        }
+    });
+    
+    socket.on('disconnect', function() {
+        console.log('WebSocket disconnected');
+        if (wsStatus) {
+            wsStatus.className = 'ws-status ws-disconnected';
+            wsStatus.textContent = '已断开';
+            wsStatus.title = 'WebSocket已断开';
+        }
+    });
+    
+    socket.on('connect_error', function(error) {
+        console.error('WebSocket connection error:', error);
+        if (wsStatus) {
+            wsStatus.className = 'ws-status ws-error';
+            wsStatus.textContent = '错误';
+            wsStatus.title = 'WebSocket错误: ' + error.message;
+        }
     });
     
     socket.on('poll_complete', function(data) {
