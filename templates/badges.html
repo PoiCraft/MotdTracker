@@ -13,260 +13,47 @@
 
 {% block content %}
 
-<div class="badge-container">
+<div class="badge-compact-container">
     
-    <!-- 工具栏 -->
-    <div class="server-card badge-toolbar-card">
-        <div class="badge-toolbar">
-            <div class="badge-toolbar-group">
-                <span class="badge-toolbar-label">输出格式:</span>
-                <select id="output-format" class="time-range-selector" onchange="switchOutputFormat(this.value)" aria-label="选择输出格式">
-                    <option value="url">完整URL</option>
+    <!-- 紧凑工具栏 -->
+    <div class="badge-compact-toolbar">
+        <div class="toolbar-row">
+            <div class="toolbar-item">
+                <label>格式</label>
+                <select id="output-format" onchange="switchOutputFormat(this.value)">
+                    <option value="url">URL</option>
                     <option value="html">HTML</option>
                     <option value="markdown">Markdown</option>
                 </select>
             </div>
             
-            <div class="badge-toolbar-group">
-                <span class="badge-toolbar-label">默认时间范围:</span>
-                <select id="default-time-range" class="time-range-selector" onchange="switchDefaultTimeRange(this.value)" aria-label="选择默认时间范围">
-                    <option value="" selected>24h (默认)</option>
+            <div class="toolbar-item">
+                <label>时间范围</label>
+                <select id="default-time-range" onchange="switchDefaultTimeRange(this.value)">
+                    <option value="" selected>24h</option>
                     <option value="?hours=1">1h</option>
                     <option value="?hours=3">3h</option>
                     <option value="?hours=6">6h</option>
                     <option value="?hours=12">12h</option>
                     <option value="?hours=24">24h</option>
-                    <option value="?hours=72">3d (72h)</option>
-                    <option value="?hours=168">7d (168h)</option>
-                    <option value="?hours=720">30d (720h)</option>
+                    <option value="?hours=72">3d</option>
+                    <option value="?hours=168">7d</option>
+                    <option value="?hours=720">30d</option>
                 </select>
             </div>
-        </div>
-    </div>
-    
-    <div class="server-card">
-        <div class="server-header">
-            <div class="server-name">服务器 Badges</div>
-        </div>
-        
-        <div class="badge-card-content">
-            <!-- 服务器状态 -->
-            <div class="badge-item">
-                <div class="badge-label">服务器状态</div>
-                <div class="badge-preview">
-                    <img src="/api/badge/server/status" alt="Server Status">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code data-path="/api/badge/server/status"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code data-path="/api/badge/server/status" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code data-path="/api/badge/server/status" data-format="markdown"></code></pre>
-                </div>
-            </div>
-
-            <!-- 服务器在线率 -->
-            <div class="badge-item">
-                <div class="badge-label">在线率</div>
-                <div class="badge-preview">
-                    <img id="preview-server-uptime" src="/api/badge/server/uptime" alt="Server Uptime">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-server-uptime" data-path="/api/badge/server/uptime"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-server-uptime" data-path="/api/badge/server/uptime" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-server-uptime" data-path="/api/badge/server/uptime" data-format="markdown"></code></pre>
-                </div>
-            </div>
-
-            <!-- 在线玩家数 -->
-            <div class="badge-item">
-                <div class="badge-label">在线玩家数</div>
-                <div class="badge-preview">
-                    <img src="/api/badge/server/players" alt="Online Players">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code data-path="/api/badge/server/players"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code data-path="/api/badge/server/players" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code data-path="/api/badge/server/players" data-format="markdown"></code></pre>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="server-card badge-card-spacing">
-        <div class="server-header">
-            <div class="server-name">节点 Badges</div>
-        </div>
-        
-        <div class="badge-card-content">
-            <!-- 节点选择器 -->
-            <div class="badge-selector-container">
-                <label class="badge-selector-label">选择节点</label>
-                <select class="time-range-selector badge-selector-full" onchange="switchNode(this)" aria-label="选择节点">
+            
+            <div class="toolbar-item">
+                <label>节点</label>
+                <select id="node-selector" onchange="switchNode(this)">
                     {% for node in nodes %}
                     <option value="{{ node.id }}" {% if loop.first %}selected{% endif %}>{{ node.name }}</option>
                     {% endfor %}
                 </select>
             </div>
             
-            <!-- 节点状态 -->
-            <div class="badge-item">
-                <div class="badge-label">节点状态</div>
-                <div class="badge-preview">
-                    <img id="preview-node-status" src="/api/badge/node/{{ nodes[0].id }}/status" alt="Node Status">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-status" data-path="/api/badge/node/{{ nodes[0].id }}/status"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-status" data-path="/api/badge/node/{{ nodes[0].id }}/status" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-status" data-path="/api/badge/node/{{ nodes[0].id }}/status" data-format="markdown"></code></pre>
-                </div>
-            </div>
-
-            <!-- 节点在线率 -->
-            <div class="badge-item">
-                <div class="badge-label">在线率</div>
-                <div class="badge-preview">
-                    <img id="preview-node-uptime" src="/api/badge/node/{{ nodes[0].id }}/uptime" alt="Node Uptime">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-uptime" data-path="/api/badge/node/{{ nodes[0].id }}/uptime"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-uptime" data-path="/api/badge/node/{{ nodes[0].id }}/uptime" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-uptime" data-path="/api/badge/node/{{ nodes[0].id }}/uptime" data-format="markdown"></code></pre>
-                </div>
-            </div>
-
-            <!-- 节点延迟 -->
-            <div class="badge-item">
-                <div class="badge-label">当前延迟</div>
-                <div class="badge-preview">
-                    <img id="preview-node-latency" src="/api/badge/node/{{ nodes[0].id }}/latency" alt="Node Latency">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency" data-path="/api/badge/node/{{ nodes[0].id }}/latency"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency" data-path="/api/badge/node/{{ nodes[0].id }}/latency" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency" data-path="/api/badge/node/{{ nodes[0].id }}/latency" data-format="markdown"></code></pre>
-                </div>
-            </div>
-
-            <!-- 延迟统计 - 平均延迟 -->
-            <div class="badge-item">
-                <div class="badge-label">平均延迟</div>
-                <div class="badge-preview">
-                    <img id="preview-node-latency-avg" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg" alt="Average Latency">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-avg" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-avg" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-avg" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg" data-format="markdown"></code></pre>
-                </div>
-            </div>
-
-            <!-- 延迟统计 - 最小延迟 -->
-            <div class="badge-item">
-                <div class="badge-label">最小延迟</div>
-                <div class="badge-preview">
-                    <img id="preview-node-latency-min" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min" alt="Min Latency">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-min" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-min" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-min" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min" data-format="markdown"></code></pre>
-                </div>
-            </div>
-
-            <!-- 延迟统计 - 最大延迟 -->
-            <div class="badge-item">
-                <div class="badge-label">最大延迟</div>
-                <div class="badge-preview">
-                    <img id="preview-node-latency-max" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max" alt="Max Latency">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-max" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-max" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-max" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max" data-format="markdown"></code></pre>
-                </div>
-            </div>
-
-            <!-- 延迟统计 - 标准差 -->
-            <div class="badge-item">
-                <div class="badge-label">标准差</div>
-                <div class="badge-preview">
-                    <img id="preview-node-latency-std" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std" alt="Latency Std Dev">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-std" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-std" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-std" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std" data-format="markdown"></code></pre>
-                </div>
-            </div>
-
-            <!-- 延迟统计 - 变异系数 -->
-            <div class="badge-item">
-                <div class="badge-label">变异系数</div>
-                <div class="badge-preview">
-                    <img id="preview-node-latency-cv" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv" alt="Latency CV">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-cv" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-cv" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-cv" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv" data-format="markdown"></code></pre>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="server-card badge-card-spacing">
-        <div class="server-header">
-            <div class="server-name">玩家 Badges</div>
-        </div>
-        
-        <div class="badge-card-content">
-            <!-- 玩家选择器 -->
-            <div class="badge-selector-container">
-                <label class="badge-selector-label">选择玩家</label>
-                <select class="time-range-selector badge-selector-full" onchange="updatePlayerName(this.value)" aria-label="选择玩家">
+            <div class="toolbar-item">
+                <label>玩家</label>
+                <select id="player-selector" onchange="updatePlayerName(this.value)">
                     {% if players %}
                         {% for player in players %}
                         <option value="{{ player }}" {% if player == 'Steve' or (loop.first and 'Steve' not in players) %}selected{% endif %}>{{ player }}</option>
@@ -276,194 +63,462 @@
                     {% endif %}
                 </select>
             </div>
-            
-            <!-- 玩家状态 -->
-            <div class="badge-item">
-                <div class="badge-label">玩家在线状态</div>
-                <div class="badge-preview">
-                    <img id="preview-player-status" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status" alt="Player Status">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-player-status" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-player-status" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-player-status" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status" data-format="markdown"></code></pre>
-                </div>
-            </div>
-
-            <!-- 当前会话时长 -->
-            <div class="badge-item">
-                <div class="badge-label">当前会话游戏时长</div>
-                <div class="badge-preview">
-                    <img id="preview-player-current-session" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session" alt="Current Session">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-player-current-session" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-player-current-session" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-player-current-session" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session" data-format="markdown"></code></pre>
-                </div>
-            </div>
-
-            <!-- 时段游戏时长 -->
-            <div class="badge-item">
-                <div class="badge-label">时段游戏时长</div>
-                <div class="badge-preview">
-                    <img id="preview-player-period-playtime" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime" alt="Period Playtime">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-player-period-playtime" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-player-period-playtime" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-player-period-playtime" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime" data-format="markdown"></code></pre>
-                </div>
-            </div>
-
-            <!-- 实时状态 -->
-            <div class="badge-item">
-                <div class="badge-label">实时状态(在线显示会话时长,离线显示最后在线)</div>
-                <div class="badge-preview">
-                    <img id="preview-player-live" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live" alt="Player Live">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-player-live" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-player-live" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-player-live" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live" data-format="markdown"></code></pre>
-                </div>
-            </div>
         </div>
     </div>
-
-    <div class="server-card badge-card-spacing">
-        <div class="server-header">
-            <div class="server-name">使用说明</div>
-        </div>
-        <div class="badge-usage-text">
-            <p>1. <strong>直接嵌入</strong>：复制 API 路径并在 HTML 中使用 <code>&lt;img src="..."&gt;</code></p>
-            <p>2. <strong>Markdown</strong>：复制 Markdown 格式并粘贴到 README.md 或文档中</p>
-            <p>3. <strong>自动更新</strong>：Badge 会实时反映服务器状态，无需手动更新</p>
-            <p>4. <strong>缓存</strong>：建议在引用时添加缓存控制，避免频繁刷新</p>
-        </div>
+    
+    <!-- Badge表格 -->
+    <div class="badge-table-container">
+        <table class="badge-table">
+            <thead>
+                <tr>
+                    <th>类型</th>
+                    <th>名称</th>
+                    <th>预览</th>
+                    <th>URL/代码</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 服务器 Badges -->
+                <tr class="category-row">
+                    <td colspan="4">服务器</td>
+                </tr>
+                <tr>
+                    <td>状态</td>
+                    <td>服务器状态</td>
+                    <td><img src="/api/badge/server/status" alt="Server Status"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code class="badge-url" data-path="/api/badge/server/status"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>在线率</td>
+                    <td>服务器在线率</td>
+                    <td><img id="preview-server-uptime" src="/api/badge/server/uptime" alt="Server Uptime"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code id="url-server-uptime" class="badge-url" data-path="/api/badge/server/uptime"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>玩家</td>
+                    <td>在线玩家数</td>
+                    <td><img src="/api/badge/server/players" alt="Online Players"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code class="badge-url" data-path="/api/badge/server/players"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                
+                <!-- 节点 Badges -->
+                <tr class="category-row">
+                    <td colspan="4">节点</td>
+                </tr>
+                <tr>
+                    <td>状态</td>
+                    <td>节点状态</td>
+                    <td><img id="preview-node-status" src="/api/badge/node/{{ nodes[0].id }}/status" alt="Node Status"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code id="url-node-status" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/status"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>在线率</td>
+                    <td>节点在线率</td>
+                    <td><img id="preview-node-uptime" src="/api/badge/node/{{ nodes[0].id }}/uptime" alt="Node Uptime"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code id="url-node-uptime" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/uptime"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>延迟</td>
+                    <td>当前延迟</td>
+                    <td><img id="preview-node-latency" src="/api/badge/node/{{ nodes[0].id }}/latency" alt="Node Latency"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code id="url-node-latency" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/latency"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>延迟统计</td>
+                    <td>平均延迟</td>
+                    <td><img id="preview-node-latency-avg" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg" alt="Avg Latency"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code id="url-node-latency-avg" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>延迟统计</td>
+                    <td>最小延迟</td>
+                    <td><img id="preview-node-latency-min" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min" alt="Min Latency"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code id="url-node-latency-min" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>延迟统计</td>
+                    <td>最大延迟</td>
+                    <td><img id="preview-node-latency-max" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max" alt="Max Latency"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code id="url-node-latency-max" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>延迟统计</td>
+                    <td>标准差</td>
+                    <td><img id="preview-node-latency-std" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std" alt="Std Latency"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code id="url-node-latency-std" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>延迟统计</td>
+                    <td>变异系数</td>
+                    <td><img id="preview-node-latency-cv" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv" alt="CV Latency"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code id="url-node-latency-cv" class="badge-url" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                
+                <!-- 玩家 Badges -->
+                <tr class="category-row">
+                    <td colspan="4">玩家</td>
+                </tr>
+                <tr>
+                    <td>状态</td>
+                    <td>玩家在线状态</td>
+                    <td><img id="preview-player-status" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status" alt="Player Status"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code id="url-player-status" class="badge-url" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/status"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>会话</td>
+                    <td>当前会话时长</td>
+                    <td><img id="preview-player-current-session" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session" alt="Current Session"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code id="url-player-current-session" class="badge-url" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/current-session"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>游戏时长</td>
+                    <td>时段游戏时长</td>
+                    <td><img id="preview-player-period-playtime" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime" alt="Period Playtime"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code id="url-player-period-playtime" class="badge-url" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/period-playtime"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>实时</td>
+                    <td>实时状态</td>
+                    <td><img id="preview-player-live" src="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live" alt="Player Live"></td>
+                    <td>
+                        <div class="code-cell">
+                            <code id="url-player-live" class="badge-url" data-path="/api/badge/player/{% if players and 'Steve' in players %}Steve{% elif players %}{{ players[0] }}{% else %}Steve{% endif %}/live"></code>
+                            <button class="copy-btn" onclick="copyBadgeUrl(this)" title="复制" aria-label="复制徽章URL" role="button">📋</button>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
     </div>
+    
+    <!-- 使用说明（折叠） -->
+    <details class="badge-help">
+        <summary>使用说明</summary>
+        <div class="help-content">
+            <p>• <strong>复制</strong>：点击 📋 按钮快速复制URL</p>
+            <p>• <strong>格式</strong>：切换URL/HTML/Markdown输出格式</p>
+            <p>• <strong>时间范围</strong>：影响在线率和延迟统计badges</p>
+            <p>• <strong>自动更新</strong>：Badges实时反映服务器状态</p>
+        </div>
+    </details>
+    
+    <!-- ARIA live region for screen reader announcements -->
+    <div id="copy-announcement" aria-live="polite" aria-atomic="true" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;"></div>
 </div>
 
 <style>
-.badge-item {
-    margin-bottom: 14px;
-    padding: 12px;
+.badge-compact-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.badge-compact-toolbar {
     background: var(--bg-secondary);
     border-radius: 8px;
-    border: 1px solid var(--border);
-}
-
-.badge-label {
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 8px;
-    font-size: 0.9em;
-}
-
-.badge-preview {
-    margin-bottom: 8px;
-    padding: 8px;
-    background: var(--bg);
-    border-radius: 4px;
-    display: inline-block;
-}
-
-.badge-code, .badge-markdown, .badge-html {
-    margin-top: 6px;
-}
-
-.badge-markdown, .badge-html {
-    display: none;
-}
-
-.code-block {
-    margin: 0;
-    padding: 10px 12px;
-    background: var(--bg-tertiary);
+    padding: 16px;
+    margin-bottom: 20px;
     border: 1px solid var(--border-color);
-    border-radius: 6px;
-    overflow-x: auto;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    position: relative;
 }
 
-.code-block:hover {
-    border-color: var(--accent-primary);
-    background: var(--bg-secondary);
+.toolbar-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
-.code-block:active {
-    background: var(--bg-primary);
+.toolbar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.code-block code {
-    display: block;
-    color: var(--text-primary);
-    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-    font-size: 0.85em;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    word-break: break-all;
-    background: none;
-    padding: 0;
-}
-
-code {
-    background: var(--bg);
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-family: 'Courier New', monospace;
+.toolbar-item label {
     font-size: 0.9em;
-}
-
-.container {
-    padding-bottom: 40px;
-}
-
-.time-range-selector {
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    font-size: 0.875em;
     font-weight: 500;
-    outline: none;
-    transition: all 0.2s ease;
-    cursor: pointer;
-    margin-left: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
 }
 
-.time-range-selector:hover {
-    border-color: var(--accent-primary);
-}
-
-.time-range-selector:focus {
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-}
-
-.time-range-selector option {
-    background: var(--bg-secondary);
+.toolbar-item select {
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: var(--bg);
     color: var(--text-primary);
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.toolbar-item select:hover {
+    border-color: var(--accent-primary);
+}
+
+.toolbar-item select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.badge-table-container {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.badge-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.badge-table thead {
+    background: var(--bg-tertiary);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.badge-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--text-primary);
+}
+
+.badge-table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s;
+}
+
+.badge-table tbody tr:hover:not(.category-row) {
+    background: var(--bg-tertiary);
+}
+
+.badge-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.badge-table td {
+    padding: 10px 16px;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+}
+
+.badge-table td:first-child {
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.badge-table td:nth-child(2) {
+    color: var(--text-primary);
+}
+
+.badge-table tbody tr.category-row {
+    background: var(--bg-tertiary);
+}
+
+.category-row td {
+    padding: 8px 16px;
+    font-weight: 600;
+    color: var(--accent-primary);
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.code-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.badge-url {
+    flex: 1;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.85em;
+    color: var(--text-primary);
+    background: var(--bg);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.copy-btn {
+    padding: 4px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.copy-btn:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    transform: scale(1.1);
+}
+
+.copy-btn:active {
+    transform: scale(0.95);
+}
+
+.badge-help {
+    margin-top: 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.badge-help summary {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-primary);
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+.badge-help summary:hover {
+    background: var(--bg-tertiary);
+}
+
+.help-content {
+    padding: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.help-content p {
+    margin: 8px 0;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .toolbar-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .toolbar-item {
+        justify-content: space-between;
+    }
+    
+    .badge-table {
+        font-size: 0.85em;
+    }
+    
+    .badge-table th,
+    .badge-table td {
+        padding: 8px 12px;
+    }
+    
+    /* Mobile-specific styles for code cells and badge URLs */
+    .code-cell {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    
+    .badge-url {
+        width: 100%;
+        font-size: 0.75em;
+        word-break: break-all;
+    }
+    
+    .copy-btn {
+        align-self: flex-end;
+    }
+}
+
+/* Responsive fix: allow wrapping or ellipsis on small screens */
+@media (max-width: 600px) {
+    .badge-table td:first-child {
+        white-space: normal;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 120px;
+    }
 }
 </style>
 
@@ -474,131 +529,83 @@ let socket;
 
 // 格式切换函数
 function switchOutputFormat(format) {
-    const codeElements = document.querySelectorAll('.badge-code');
-    const htmlElements = document.querySelectorAll('.badge-html');
-    const markdownElements = document.querySelectorAll('.badge-markdown');
-    
-    if (format === 'url') {
-        codeElements.forEach(el => el.style.display = 'block');
-        htmlElements.forEach(el => el.style.display = 'none');
-        markdownElements.forEach(el => el.style.display = 'none');
-    } else if (format === 'html') {
-        codeElements.forEach(el => el.style.display = 'none');
-        htmlElements.forEach(el => el.style.display = 'block');
-        markdownElements.forEach(el => el.style.display = 'none');
-    } else if (format === 'markdown') {
-        codeElements.forEach(el => el.style.display = 'none');
-        htmlElements.forEach(el => el.style.display = 'none');
-        markdownElements.forEach(el => el.style.display = 'block');
-    }
-}
-
-// 样式切换函数
-function switchBadgeStyle(style) {
-    // 更新所有badge预览图片的样式参数
-    const allImages = document.querySelectorAll('.badge-preview img');
-    allImages.forEach(img => {
-        let src = img.src.split('?')[0];
-        let params = new URLSearchParams(img.src.split('?')[1] || '');
-        
-        // 移除旧的样式参数和时间戳
-        params.delete('style');
-        params.delete('t');
-        
-        // 添加新样式(如果不是默认flat)
-        if (style !== 'flat') {
-            params.set('style', style);
-        }
-        
-        // 添加时间戳强制刷新
-        params.set('t', Date.now());
-        
-        const paramStr = params.toString();
-        img.src = src + (paramStr ? '?' + paramStr : '');
-    });
-    
-    // 更新所有URL输入框
     updateAllBadgeUrls();
 }
 
 // 默认时间范围切换函数
 function switchDefaultTimeRange(timeRange) {
-    // 更新所有支持时间范围的badge
-    const timeBasedBadges = ['server-uptime', 'node-uptime', 'player-period-playtime'];
+    const timeBasedBadges = [
+        'server-uptime', 
+        'node-uptime', 
+        'player-period-playtime',
+        'node-latency-avg',
+        'node-latency-min',
+        'node-latency-max',
+        'node-latency-std',
+        'node-latency-cv'
+    ];
     
     timeBasedBadges.forEach(badgeId => {
         const previewImg = document.querySelector('#preview-' + badgeId);
         if (previewImg) {
-            let src = previewImg.src.split('?')[0];
-            let params = new URLSearchParams();
+            let [baseSrc, existingQuery] = previewImg.src.split('?');
+            let params = new URLSearchParams(existingQuery || '');
             
-            // 获取当前样式
-            const styleSelect = document.getElementById('badge-style');
-            if (styleSelect && styleSelect.value !== 'flat') {
-                params.set('style', styleSelect.value);
-            }
+            params.delete('t');
             
-            // 添加时间范围参数
             if (timeRange) {
                 const hours = timeRange.replace('?hours=', '');
                 params.set('hours', hours);
+            } else {
+                params.delete('hours');
             }
             
-            // 添加时间戳强制刷新
             params.set('t', Date.now());
             
             const paramStr = params.toString();
-            previewImg.src = src + (paramStr ? '?' + paramStr : '');
+            previewImg.src = baseSrc + (paramStr ? '?' + paramStr : '');
         }
     });
     
-    // 更新URL输入框
     updateAllBadgeUrls();
-    
-    // 更新时间范围标签
     updateRangeLabel();
 }
 
-// 更新所有badge的URL输入框
+// 更新所有badge的URL
 function updateAllBadgeUrls() {
-    const styleSelect = document.getElementById('badge-style');
+    const formatSelect = document.getElementById('output-format');
     const timeRangeSelect = document.getElementById('default-time-range');
-    const currentStyle = styleSelect ? styleSelect.value : 'flat';
+    const currentFormat = formatSelect ? formatSelect.value : 'url';
     const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
     
-    // 从前端获取基础URL
     const baseUrl = window.location.origin;
     
-    // 更新所有code元素
-    document.querySelectorAll('.code-block code').forEach(codeElem => {
+    document.querySelectorAll('.badge-url').forEach(codeElem => {
         const path = codeElem.getAttribute('data-path');
-        const format = codeElem.getAttribute('data-format');
         
         if (!path) return;
         
-        let params = new URLSearchParams();
+        const [basePath, existingQuery] = path.includes('?') ? path.split('?') : [path, ''];
+        let params = new URLSearchParams(existingQuery);
         
-        // 添加样式参数
-        if (currentStyle !== 'flat') {
-            params.set('style', currentStyle);
-        }
-        
-        // 如果是时间相关badge,添加时间参数
         const pathLower = path.toLowerCase();
-        if ((pathLower.includes('uptime') || pathLower.includes('period-playtime')) && currentTimeRange) {
-            const hours = currentTimeRange.replace('?hours=', '');
-            params.set('hours', hours);
+        if (pathLower.includes('uptime') || pathLower.includes('period-playtime') || pathLower.includes('latency-stats')) {
+            if (currentTimeRange) {
+                const hours = currentTimeRange.replace('?hours=', '');
+                params.set('hours', hours);
+            } else {
+                params.delete('hours');
+            }
         }
         
         const paramStr = params.toString();
-        const fullUrl = baseUrl + path + (paramStr ? '?' + paramStr : '');
+        const fullUrl = baseUrl + basePath + (paramStr ? '?' + paramStr : '');
         
-        // 根据格式生成不同的输出
-        if (format === 'html') {
-            const altText = path.split('/').pop() || 'Badge';
+        if (currentFormat === 'html') {
+            const altText = basePath.split('/').pop() || 'Badge';
             codeElem.textContent = `<img src="${fullUrl}" alt="${altText}">`;
-        } else if (format === 'markdown') {
-            const altText = path.split('/').pop() || 'Badge';
+        } else if (currentFormat === 'markdown') {
+            const altText = basePath.split('/').pop() || 'Badge';
             codeElem.textContent = `![${altText}](${fullUrl})`;
         } else {
             codeElem.textContent = fullUrl;
@@ -606,55 +613,81 @@ function updateAllBadgeUrls() {
     });
 }
 
-// 复制到剪贴板
-function copyToClipboard(element) {
-    const codeElement = element.querySelector('code');
-    if (!codeElement) return;
+// 复制badge URL
+function copyBadgeUrl(button) {
+    const codeElem = button.previousElementSibling;
+    const text = codeElem.textContent;
     
-    const text = codeElement.textContent;
-    
-    // 使用现代API复制
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
-            showCopyFeedback(element);
+            showCopyFeedback(button);
         }).catch(err => {
             console.error('复制失败:', err);
-            fallbackCopy(text, element);
+            // Fallback to execCommand
+            fallbackCopy(text, button);
         });
     } else {
-        fallbackCopy(text, element);
+        // Fallback for browsers without clipboard API
+        fallbackCopy(text, button);
     }
 }
 
-// 后备复制方法
-function fallbackCopy(text, element) {
+// Fallback copy method
+function fallbackCopy(text, button) {
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.style.position = 'fixed';
     textarea.style.opacity = '0';
     document.body.appendChild(textarea);
     textarea.select();
-    
     try {
         document.execCommand('copy');
-        showCopyFeedback(element);
+        showCopyFeedback(button);
     } catch (err) {
-        console.error('复制失败:', err);
+        console.error('Fallback copy failed:', err);
+        alert('复制失败，请手动复制');
     }
-    
     document.body.removeChild(textarea);
 }
 
 // 显示复制反馈
-function showCopyFeedback(element) {
-    const originalBg = element.style.backgroundColor;
-    element.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
-    element.style.borderColor = 'var(--accent-primary)';
+function showCopyFeedback(button) {
+    const originalText = button.textContent;
+    const originalBg = button.style.background;
+    const originalColor = button.style.color;
+    const originalBorder = button.style.borderColor;
     
-    setTimeout(() => {
-        element.style.backgroundColor = originalBg;
-        element.style.borderColor = '';
-    }, 300);
+    button.textContent = '✓';
+    button.style.background = 'var(--success)';
+    button.style.color = 'white';
+    button.style.borderColor = 'var(--success)';
+    
+    // Announce to screen readers
+    const announcement = document.getElementById('copy-announcement');
+    if (announcement) {
+        announcement.textContent = 'URL已复制到剪贴板';
+    }
+    
+    try {
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.style.background = originalBg;
+            button.style.color = originalColor;
+            button.style.borderColor = originalBorder;
+            if (announcement) {
+                announcement.textContent = '';
+            }
+        }, 1000);
+    } catch (err) {
+        // Ensure we reset even if timeout fails
+        button.textContent = originalText;
+        button.style.background = originalBg;
+        button.style.color = originalColor;
+        button.style.borderColor = originalBorder;
+        if (announcement) {
+            announcement.textContent = '';
+        }
+    }
 }
 
 // 初始化WebSocket连接
@@ -666,37 +699,10 @@ function initWebSocket() {
     }
     socket = io({ path: '/api/socket.io' });
     
-    const wsStatus = document.getElementById('ws-status');
-    
-    // 连接建立时的处理
     socket.on('connect', function() {
         console.log('WebSocket connected for badges page');
-        if (wsStatus) {
-            wsStatus.className = 'ws-status ws-connected';
-            wsStatus.textContent = '已连接';
-            wsStatus.title = 'WebSocket已连接';
-        }
     });
     
-    socket.on('disconnect', function() {
-        console.log('WebSocket disconnected');
-        if (wsStatus) {
-            wsStatus.className = 'ws-status ws-disconnected';
-            wsStatus.textContent = '已断开';
-            wsStatus.title = 'WebSocket已断开';
-        }
-    });
-    
-    socket.on('connect_error', function(error) {
-        console.error('WebSocket connection error:', error);
-        if (wsStatus) {
-            wsStatus.className = 'ws-status ws-error';
-            wsStatus.textContent = '错误';
-            wsStatus.title = 'WebSocket错误: ' + error.message;
-        }
-    });
-    
-    // 监听轮询完成事件
     socket.on('poll_complete', function(data) {
         refreshAllBadges();
         updateLastRefreshTime();
@@ -721,187 +727,25 @@ function updateRangeLabel() {
         if (!selectedValue || selectedValue === '') {
             rangeLabel.textContent = '24H';
         } else {
-            // 从?hours=X中提取小时数
             const hours = selectedValue.replace('?hours=', '');
             rangeLabel.textContent = hours + 'H';
         }
     }
 }
 
-// 页面加载完成后初始化WebSocket
-document.addEventListener('DOMContentLoaded', function() {
-    initWebSocket();
-    updateLastRefreshTime();
-    updateRangeLabel();
-    switchOutputFormat('url'); // 确保初始显示状态正确
-    updateAllBadgeUrls(); // 初始化所有代码框内容
-});
-
-
-
 // 刷新所有badge
 function refreshAllBadges() {
-    refreshServerBadges();
-    refreshNodeBadges();
-    refreshPlayerBadges();
-}
-
-// 刷新服务器badges
-function refreshServerBadges() {
-    const serverStatusImg = document.querySelector('#preview-server-status');
-    const serverUptimeImg = document.querySelector('#preview-server-uptime');
-    const serverPlayersImg = document.querySelector('img[alt="Online Players"]');
-    
-    const styleSelect = document.getElementById('badge-style');
-    const timeRangeSelect = document.getElementById('default-time-range');
-    const currentStyle = styleSelect ? styleSelect.value : 'flat';
-    const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
-    
-    if (serverStatusImg) {
-        const baseSrc = serverStatusImg.src.split('?')[0];
-        const params = new URLSearchParams();
-        if (currentStyle !== 'flat') params.set('style', currentStyle);
+    document.querySelectorAll('.badge-table img').forEach(img => {
+        const [baseSrc, existingQuery] = img.src.split('?');
+        const params = new URLSearchParams(existingQuery || '');
         params.set('t', Date.now());
-        serverStatusImg.src = baseSrc + '?' + params.toString();
-    }
-    if (serverUptimeImg) {
-        const baseSrc = serverUptimeImg.src.split('?')[0];
-        const params = new URLSearchParams();
-        if (currentStyle !== 'flat') params.set('style', currentStyle);
-        if (currentTimeRange) {
-            const hours = currentTimeRange.replace('?hours=', '');
-            params.set('hours', hours);
-        }
-        params.set('t', Date.now());
-        serverUptimeImg.src = baseSrc + '?' + params.toString();
-    }
-    if (serverPlayersImg) {
-        const baseSrc = serverPlayersImg.src.split('?')[0];
-        const params = new URLSearchParams();
-        if (currentStyle !== 'flat') params.set('style', currentStyle);
-        params.set('t', Date.now());
-        serverPlayersImg.src = baseSrc + '?' + params.toString();
-    }
-}
-
-// 刷新节点badges
-function refreshNodeBadges() {
-    const nodeStatusImg = document.querySelector('#preview-node-status');
-    const nodeUptimeImg = document.querySelector('#preview-node-uptime');
-    const nodeLatencyImg = document.querySelector('#preview-node-latency');
-    
-    const styleSelect = document.getElementById('badge-style');
-    const timeRangeSelect = document.getElementById('default-time-range');
-    const currentStyle = styleSelect ? styleSelect.value : 'flat';
-    const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
-    
-    if (nodeStatusImg) {
-        const baseSrc = nodeStatusImg.src.split('?')[0];
-        const params = new URLSearchParams();
-        if (currentStyle !== 'flat') params.set('style', currentStyle);
-        params.set('t', Date.now());
-        nodeStatusImg.src = baseSrc + '?' + params.toString();
-    }
-    if (nodeUptimeImg) {
-        const baseSrc = nodeUptimeImg.src.split('?')[0];
-        const params = new URLSearchParams();
-        if (currentStyle !== 'flat') params.set('style', currentStyle);
-        if (currentTimeRange) {
-            const hours = currentTimeRange.replace('?hours=', '');
-            params.set('hours', hours);
-        }
-        params.set('t', Date.now());
-        nodeUptimeImg.src = baseSrc + '?' + params.toString();
-    }
-    if (nodeLatencyImg) {
-        const baseSrc = nodeLatencyImg.src.split('?')[0];
-        const params = new URLSearchParams();
-        if (currentStyle !== 'flat') params.set('style', currentStyle);
-        params.set('t', Date.now());
-        nodeLatencyImg.src = baseSrc + '?' + params.toString();
-    }
-}
-
-// 刷新玩家badges
-function refreshPlayerBadges() {
-    const playerStatusImg = document.querySelector('#preview-player-status');
-    const playerSessionImg = document.querySelector('#preview-player-current-session');
-    const playerPlaytimeImg = document.querySelector('#preview-player-period-playtime');
-    const playerLiveImg = document.querySelector('#preview-player-live');
-    
-    const styleSelect = document.getElementById('badge-style');
-    const timeRangeSelect = document.getElementById('default-time-range');
-    const currentStyle = styleSelect ? styleSelect.value : 'flat';
-    const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
-    
-    if (playerStatusImg) {
-        const baseSrc = playerStatusImg.src.split('?')[0];
-        const params = new URLSearchParams();
-        if (currentStyle !== 'flat') params.set('style', currentStyle);
-        params.set('t', Date.now());
-        playerStatusImg.src = baseSrc + '?' + params.toString();
-    }
-    if (playerSessionImg) {
-        const baseSrc = playerSessionImg.src.split('?')[0];
-        const params = new URLSearchParams();
-        if (currentStyle !== 'flat') params.set('style', currentStyle);
-        params.set('t', Date.now());
-        playerSessionImg.src = baseSrc + '?' + params.toString();
-    }
-    if (playerPlaytimeImg) {
-        const baseSrc = playerPlaytimeImg.src.split('?')[0];
-        const params = new URLSearchParams();
-        if (currentStyle !== 'flat') params.set('style', currentStyle);
-        if (currentTimeRange) {
-            const hours = currentTimeRange.replace('?hours=', '');
-            params.set('hours', hours);
-        }
-        params.set('t', Date.now());
-        playerPlaytimeImg.src = baseSrc + '?' + params.toString();
-    }
-    if (playerLiveImg) {
-        const baseSrc = playerLiveImg.src.split('?')[0];
-        const params = new URLSearchParams();
-        if (currentStyle !== 'flat') params.set('style', currentStyle);
-        params.set('t', Date.now());
-        playerLiveImg.src = baseSrc + '?' + params.toString();
-    }
-}
-
-function updateBadgeUrl(selector, badgeId) {
-    const params = selector.value;
-    const baseUrl = '{{ base_url }}';
-    
-    // 更新预览图片
-    const previewImg = document.getElementById('preview-' + badgeId);
-    if (previewImg) {
-        const baseSrc = previewImg.src.split('?')[0];
-        previewImg.src = baseSrc + (params ? params + '&' : '?') + 't=' + Date.now();
-    }
-    
-    // 更新API路径输入框
-    const apiInput = document.getElementById('api-' + badgeId);
-    if (apiInput) {
-        const currentPath = apiInput.value.split('?')[0];
-        apiInput.value = currentPath + params;
-    }
-    
-    // 更新Markdown输入框
-    const mdInput = document.getElementById('md-' + badgeId);
-    if (mdInput) {
-        const match = mdInput.value.match(/!\[([^\]]+)\]\(([^)]+)\)/);
-        if (match) {
-            const label = match[1];
-            const currentPath = match[2].split('?')[0];
-            mdInput.value = `![${label}](${currentPath}${params})`;
-        }
-    }
+        img.src = baseSrc + '?' + params.toString();
+    });
 }
 
 function switchNode(selector) {
     const nodeId = selector.value;
     
-    // 更新所有节点badge的data-path
     const nodeBadges = [
         { id: 'node-status', endpoint: '/status' },
         { id: 'node-uptime', endpoint: '/uptime' },
@@ -916,19 +760,12 @@ function switchNode(selector) {
     nodeBadges.forEach(badge => {
         const apiPath = `/api/badge/node/${nodeId}${badge.endpoint}`;
         
-        // 更新预览图片
         const previewImg = document.getElementById('preview-' + badge.id);
         if (previewImg) {
-            const params = new URLSearchParams();
-            const styleSelect = document.getElementById('badge-style');
-            const currentStyle = styleSelect ? styleSelect.value : 'flat';
+            const [basePath, existingQuery] = apiPath.includes('?') ? apiPath.split('?') : [apiPath, ''];
+            const params = new URLSearchParams(existingQuery || '');
             
-            if (currentStyle !== 'flat') {
-                params.set('style', currentStyle);
-            }
-            
-            // 如果是在线率或延迟统计badge,添加时间参数
-            if (badge.id === 'node-uptime' || badge.id.startsWith('node-latency-')) {
+            if (badge.id === 'node-uptime' || badge.id.includes('latency-stats')) {
                 const timeRangeSelect = document.getElementById('default-time-range');
                 const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
                 if (currentTimeRange) {
@@ -939,25 +776,21 @@ function switchNode(selector) {
             
             params.set('t', Date.now());
             const paramStr = params.toString();
-            previewImg.src = apiPath + (paramStr ? '?' + paramStr : '');
+            previewImg.src = basePath + (paramStr ? '?' + paramStr : '');
         }
         
-        // 更新所有code元素的data-path
-        ['api-', 'html-', 'md-'].forEach(prefix => {
-            const codeElem = document.getElementById(prefix + badge.id);
-            if (codeElem) {
-                codeElem.setAttribute('data-path', apiPath);
-            }
-        });
+        const urlElem = document.getElementById('url-' + badge.id);
+        if (urlElem) {
+            urlElem.setAttribute('data-path', apiPath);
+        }
     });
     
-    // 重新生成所有URL
     updateAllBadgeUrls();
 }
 
 function updatePlayerName(playerName) {
     if (!playerName || playerName.trim() === '') {
-        const selector = document.querySelector('[onchange*="updatePlayerName"]');
+        const selector = document.getElementById('player-selector');
         if (selector && selector.options.length > 0) {
             playerName = selector.options[0].value;
         } else {
@@ -966,28 +799,20 @@ function updatePlayerName(playerName) {
     }
     
     const playerBadges = [
-        { id: 'player-status', endpoint: '/status', hasParams: false },
-        { id: 'player-current-session', endpoint: '/current-session', hasParams: false },
-        { id: 'player-period-playtime', endpoint: '/period-playtime', hasParams: true },
-        { id: 'player-live', endpoint: '/live', hasParams: false }
+        { id: 'player-status', endpoint: '/status' },
+        { id: 'player-current-session', endpoint: '/current-session' },
+        { id: 'player-period-playtime', endpoint: '/period-playtime' },
+        { id: 'player-live', endpoint: '/live' }
     ];
     
     playerBadges.forEach(badge => {
         const apiPath = `/api/badge/player/${playerName}${badge.endpoint}`;
         
-        // 更新预览图片
         const previewImg = document.getElementById('preview-' + badge.id);
         if (previewImg) {
             const params = new URLSearchParams();
-            const styleSelect = document.getElementById('badge-style');
-            const currentStyle = styleSelect ? styleSelect.value : 'flat';
             
-            if (currentStyle !== 'flat') {
-                params.set('style', currentStyle);
-            }
-            
-            // 如果是时段游戏时长badge,添加时间参数
-            if (badge.hasParams && badge.id === 'player-period-playtime') {
+            if (badge.id === 'player-period-playtime') {
                 const timeRangeSelect = document.getElementById('default-time-range');
                 const currentTimeRange = timeRangeSelect ? timeRangeSelect.value : '';
                 if (currentTimeRange) {
@@ -1001,18 +826,22 @@ function updatePlayerName(playerName) {
             previewImg.src = apiPath + (paramStr ? '?' + paramStr : '');
         }
         
-        // 更新所有code元素的data-path
-        ['api-', 'html-', 'md-'].forEach(prefix => {
-            const codeElem = document.getElementById(prefix + badge.id);
-            if (codeElem) {
-                codeElem.setAttribute('data-path', apiPath);
-            }
-        });
+        const urlElem = document.getElementById('url-' + badge.id);
+        if (urlElem) {
+            urlElem.setAttribute('data-path', apiPath);
+        }
     });
     
-    // 重新生成所有URL
     updateAllBadgeUrls();
 }
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    initWebSocket();
+    updateLastRefreshTime();
+    updateRangeLabel();
+    updateAllBadgeUrls();
+});
 </script>
 
 {% endblock %}
