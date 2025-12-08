@@ -11,7 +11,8 @@
 - 玩家追踪：去重后的在线玩家列表与会话时长。
 - Prometheus 导出：完整节点级延迟与在线率指标。
 - 配色定制：节点可配置固定颜色用于图表与标识。
-- 轻量存储：SQLite；轮询间隔可配置，24h 统计窗口随 poll_interval 动态计算。
+- 双数据库支持：SQLite（默认）或 PostgreSQL，支持平滑迁移。
+- 轻量存储：轮询间隔可配置，24h 统计窗口随 poll_interval 动态计算。
 
 ## 环境要求
 
@@ -48,6 +49,25 @@ uv run main.py
 
 - `nodes[].color` 可选，十六进制色值。
 - `poll_interval` 单位秒；24h 统计窗口自动计算为 `86400 / poll_interval` 条。
+
+### PostgreSQL 支持（可选）
+
+支持使用 PostgreSQL 作为数据库，提供更好的并发性能。在 `config.json` 中添加：
+
+```json
+{
+    "database": "minecraft_stats.db",
+    "postgresql": {
+        "host": "localhost",
+        "port": 5432,
+        "database": "motdtracker",
+        "user": "postgres",
+        "password": "your_password"
+    }
+}
+```
+
+首次启动时会自动从 SQLite 迁移数据到 PostgreSQL。详见 [POSTGRESQL.md](POSTGRESQL.md)。
 
 ## 页面
 
@@ -92,7 +112,8 @@ uv run main.py
 
 - 终止：Ctrl+C，进程会优雅停止调度器。
 - 端口：`config.json` 的 `port`。
-- 数据库：SQLite 文件由应用自动创建/迁移必要表（首次启动）。
+- 数据库：支持 SQLite（默认）和 PostgreSQL，数据库文件/表由应用自动创建。
+- 数据迁移：配置 PostgreSQL 后首次启动自动迁移，或使用 `uv run migrate.py` 手动迁移。
 
 ## 技术栈
 
@@ -100,7 +121,7 @@ uv run main.py
 - 计划任务：APScheduler
 - MC 查询：mcstatus
 - 前端：原生 JS + Chart.js
-- 存储：SQLite
+- 存储：SQLite / PostgreSQL
 
 ## 许可证
 

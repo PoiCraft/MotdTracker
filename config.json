@@ -38,5 +38,13 @@
     }
   ],
   "database": "minecraft_stats.db",
+  "postgresql": {
+    
+    "host": "localhost",
+    "port": 5432,
+    "database": "motdtracker",
+    "user": "motdtracker",
+    "password": "motdtracker"
+  },
   "poll_interval": 15
 }

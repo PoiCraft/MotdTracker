@@ -5,7 +5,7 @@ from app_utils import utc8_now
 from typing import Dict, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from apscheduler.schedulers.background import BackgroundScheduler
-from database import Database
+from database_factory import create_database
 from monitor import MinecraftMonitor
 
 
@@ -24,8 +24,8 @@ class ServerPoller:
         with open(config_path, 'r', encoding='utf-8') as f:
             self.config = json.load(f)
         
-        # 初始化数据库
-        self.db = Database(self.config.get('database', 'minecraft_stats.db'))
+        # 使用数据库工厂创建数据库实例（支持SQLite和PostgreSQL）
+        self.db = create_database(self.config)
         
         # 初始化监控器
         self.monitor = MinecraftMonitor()
