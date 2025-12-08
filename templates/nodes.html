@@ -37,7 +37,10 @@
     <div class="server-card" id="node-{{ server.id }}" data-server-id="{{ server.id }}" data-name="{{ server.name }}" data-host="{{ server.host }}" data-port="{{ server.port }}">
         <div class="server-header">
             <div>
-                <div class="server-name">{{ server.name }}</div>
+                <div class="server-name">
+                    {{ server.name }}
+                    <span class="card-spinner hidden" id="card-spinner-{{ server.id }}"></span>
+                </div>
                 <div class="server-address">{{ server.host }}:{{ server.port }}</div>
             </div>
             <div class="status-badge {{ 'status-online' if status and status.online else 'status-offline' }}" id="badge-{{ server.id }}">
@@ -349,7 +352,9 @@ async function loadServer(server){
     // Show spinner when starting a load
     loadingCount++;
     const spinner = document.getElementById('loading-spinner');
+    const cardSpinner = document.getElementById(`card-spinner-${id}`);
     if (spinner) spinner.classList.remove('hidden');
+    if (cardSpinner) cardSpinner.classList.remove('hidden');
     
     try {
         const [statusRes, historyRes, statsRes, uptimeRes, statusTimelineRes, playersRes, headRes] = await Promise.all([
@@ -421,6 +426,10 @@ async function loadServer(server){
     } catch (err) {
         console.error('加载节点数据失败', err);
     } finally {
+        // Hide card spinner
+        const cardSpinner = document.getElementById(`card-spinner-${id}`);
+        if (cardSpinner) cardSpinner.classList.add('hidden');
+        
         // Hide spinner when all loads are done
         loadingCount--;
         const spinner = document.getElementById('loading-spinner');

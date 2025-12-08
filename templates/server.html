@@ -36,7 +36,10 @@
     <div class="server-card" data-slug="server">
         <div class="server-header">
             <div>
-                <div class="server-name">{{ server_name }}</div>
+                <div class="server-name">
+                    {{ server_name }}
+                    <span class="card-spinner hidden" id="card-spinner-server"></span>
+                </div>
                 <div class="server-address" id="node-count">加载中...</div>
             </div>
             <div class="status-badge status-offline" id="badge-server">--</div>
@@ -160,7 +163,9 @@
 
     async function loadServer() {
         const spinner = document.getElementById('loading-spinner');
+        const cardSpinner = document.getElementById('card-spinner-server');
         if (spinner) spinner.classList.remove('hidden');
+        if (cardSpinner) cardSpinner.classList.remove('hidden');
         
         try {
             const [nodesRes, historyRes, uptimeRes, statusTimelineRes, playersRes, headRes] = await Promise.all([
@@ -240,7 +245,9 @@
             console.error('加载服务器数据失败', err);
         } finally {
             const spinner = document.getElementById('loading-spinner');
+            const cardSpinner = document.getElementById('card-spinner-server');
             if (spinner) spinner.classList.add('hidden');
+            if (cardSpinner) cardSpinner.classList.add('hidden');
         }
     }
 

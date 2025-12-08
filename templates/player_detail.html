@@ -13,6 +13,7 @@
 {% block header_right %}
 <span class="toolbar-label" id="summary-text">加载中...</span>
 <span class="toolbar-label" id="updated-at">--</span>
+<span class="loading-spinner hidden" id="loading-spinner"></span>
 {% endblock %}
 
 {% block content %}
@@ -275,8 +276,12 @@ function renderHourlyChart(hourly) {
 }
 
 async function loadData() {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.classList.remove('hidden');
+    
     if (!playerName) {
         document.getElementById('summary-text').textContent = '未指定玩家';
+        if (spinner) spinner.classList.add('hidden');
         return;
     }
     try {
@@ -308,6 +313,8 @@ async function loadData() {
     } catch (e) {
         console.error(e);
         document.getElementById('summary-text').textContent = '加载失败';
+    } finally {
+        if (spinner) spinner.classList.add('hidden');
     }
 }
 

@@ -8,6 +8,7 @@
 
 {% block header_right %}
 <span class="toolbar-label" id="last-update">--</span>
+<span class="loading-spinner hidden" id="loading-spinner"></span>
 {% endblock %}
 
 {% block content %}
@@ -84,6 +85,9 @@ function renderHeatmap(heatmap) {
 }
 
 async function loadPlayers() {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) spinner.classList.remove('hidden');
+    
     try {
         const res = await fetch('/api/player');
         const players = await res.json();
@@ -127,6 +131,8 @@ async function loadPlayers() {
     } catch (e) {
         console.error('加载玩家列表失败:', e);
         document.getElementById('players-container').innerHTML = '<div class="loading">加载失败</div>';
+    } finally {
+        if (spinner) spinner.classList.add('hidden');
     }
 }
 
