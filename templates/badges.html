@@ -44,6 +44,7 @@
         </div>
     </div>
     
+    <!-- 服务器 Badges -->
     <div class="server-card">
         <div class="server-header">
             <div class="server-name">服务器 Badges</div>
@@ -103,6 +104,7 @@
         </div>
     </div>
 
+    <!-- 节点 Badges -->
     <div class="server-card badge-card-spacing">
         <div class="server-header">
             <div class="server-name">节点 Badges</div>
@@ -170,93 +172,99 @@
                 </div>
             </div>
 
-            <!-- 延迟统计 - 平均延迟 -->
-            <div class="badge-item">
-                <div class="badge-label">平均延迟</div>
-                <div class="badge-preview">
-                    <img id="preview-node-latency-avg" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg" alt="Average Latency">
+            <!-- 延迟统计分组 -->
+            <div class="badge-stats-group">
+                <div class="badge-stats-title">延迟统计 (支持时间范围参数)</div>
+                
+                <!-- 延迟统计 - 平均延迟 -->
+                <div class="badge-item">
+                    <div class="badge-label">平均延迟</div>
+                    <div class="badge-preview">
+                        <img id="preview-node-latency-avg" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg" alt="Average Latency">
+                    </div>
+                    <div class="badge-code">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-avg" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg"></code></pre>
+                    </div>
+                    <div class="badge-html">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-avg" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg" data-format="html"></code></pre>
+                    </div>
+                    <div class="badge-markdown">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-avg" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg" data-format="markdown"></code></pre>
+                    </div>
                 </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-avg" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-avg" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-avg" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=avg" data-format="markdown"></code></pre>
-                </div>
-            </div>
 
-            <!-- 延迟统计 - 最小延迟 -->
-            <div class="badge-item">
-                <div class="badge-label">最小延迟</div>
-                <div class="badge-preview">
-                    <img id="preview-node-latency-min" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min" alt="Min Latency">
+                <!-- 延迟统计 - 最小延迟 -->
+                <div class="badge-item">
+                    <div class="badge-label">最小延迟</div>
+                    <div class="badge-preview">
+                        <img id="preview-node-latency-min" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min" alt="Min Latency">
+                    </div>
+                    <div class="badge-code">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-min" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min"></code></pre>
+                    </div>
+                    <div class="badge-html">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-min" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min" data-format="html"></code></pre>
+                    </div>
+                    <div class="badge-markdown">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-min" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min" data-format="markdown"></code></pre>
+                    </div>
                 </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-min" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-min" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-min" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=min" data-format="markdown"></code></pre>
-                </div>
-            </div>
 
-            <!-- 延迟统计 - 最大延迟 -->
-            <div class="badge-item">
-                <div class="badge-label">最大延迟</div>
-                <div class="badge-preview">
-                    <img id="preview-node-latency-max" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max" alt="Max Latency">
+                <!-- 延迟统计 - 最大延迟 -->
+                <div class="badge-item">
+                    <div class="badge-label">最大延迟</div>
+                    <div class="badge-preview">
+                        <img id="preview-node-latency-max" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max" alt="Max Latency">
+                    </div>
+                    <div class="badge-code">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-max" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max"></code></pre>
+                    </div>
+                    <div class="badge-html">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-max" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max" data-format="html"></code></pre>
+                    </div>
+                    <div class="badge-markdown">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-max" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max" data-format="markdown"></code></pre>
+                    </div>
                 </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-max" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-max" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-max" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=max" data-format="markdown"></code></pre>
-                </div>
-            </div>
 
-            <!-- 延迟统计 - 标准差 -->
-            <div class="badge-item">
-                <div class="badge-label">标准差</div>
-                <div class="badge-preview">
-                    <img id="preview-node-latency-std" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std" alt="Latency Std Dev">
+                <!-- 延迟统计 - 标准差 -->
+                <div class="badge-item">
+                    <div class="badge-label">标准差</div>
+                    <div class="badge-preview">
+                        <img id="preview-node-latency-std" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std" alt="Latency Std Dev">
+                    </div>
+                    <div class="badge-code">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-std" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std"></code></pre>
+                    </div>
+                    <div class="badge-html">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-std" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std" data-format="html"></code></pre>
+                    </div>
+                    <div class="badge-markdown">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-std" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std" data-format="markdown"></code></pre>
+                    </div>
                 </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-std" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-std" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-std" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=std" data-format="markdown"></code></pre>
-                </div>
-            </div>
 
-            <!-- 延迟统计 - 变异系数 -->
-            <div class="badge-item">
-                <div class="badge-label">变异系数</div>
-                <div class="badge-preview">
-                    <img id="preview-node-latency-cv" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv" alt="Latency CV">
-                </div>
-                <div class="badge-code">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-cv" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv"></code></pre>
-                </div>
-                <div class="badge-html">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-cv" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv" data-format="html"></code></pre>
-                </div>
-                <div class="badge-markdown">
-                    <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-cv" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv" data-format="markdown"></code></pre>
+                <!-- 延迟统计 - 变异系数 -->
+                <div class="badge-item">
+                    <div class="badge-label">变异系数</div>
+                    <div class="badge-preview">
+                        <img id="preview-node-latency-cv" src="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv" alt="Latency CV">
+                    </div>
+                    <div class="badge-code">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="api-node-latency-cv" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv"></code></pre>
+                    </div>
+                    <div class="badge-html">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="html-node-latency-cv" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv" data-format="html"></code></pre>
+                    </div>
+                    <div class="badge-markdown">
+                        <pre class="code-block" onclick="copyToClipboard(this)"><code id="md-node-latency-cv" data-path="/api/badge/node/{{ nodes[0].id }}/latency-stats?stat=cv" data-format="markdown"></code></pre>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- 玩家 Badges -->
     <div class="server-card badge-card-spacing">
         <div class="server-header">
             <div class="server-name">玩家 Badges</div>
@@ -347,45 +355,83 @@
         </div>
     </div>
 
+    <!-- 使用说明 -->
     <div class="server-card badge-card-spacing">
         <div class="server-header">
             <div class="server-name">使用说明</div>
         </div>
         <div class="badge-usage-text">
-            <p>1. <strong>直接嵌入</strong>：复制 API 路径并在 HTML 中使用 <code>&lt;img src="..."&gt;</code></p>
-            <p>2. <strong>Markdown</strong>：复制 Markdown 格式并粘贴到 README.md 或文档中</p>
-            <p>3. <strong>自动更新</strong>：Badge 会实时反映服务器状态，无需手动更新</p>
-            <p>4. <strong>缓存</strong>：建议在引用时添加缓存控制，避免频繁刷新</p>
+            <p><strong>📋 复制方式</strong>：点击任意代码框即可复制到剪贴板</p>
+            <p><strong>🖼️ 直接嵌入</strong>：复制 URL 格式并在 HTML 中使用 <code>&lt;img src="..."&gt;</code></p>
+            <p><strong>📝 Markdown</strong>：复制 Markdown 格式并粘贴到 README.md 或文档中</p>
+            <p><strong>🔄 自动更新</strong>：Badge 会实时反映服务器状态，无需手动更新</p>
+            <p><strong>⏰ 时间范围</strong>：通过工具栏可设置默认时间范围，影响在线率和延迟统计 badges</p>
+            <p><strong>💾 缓存建议</strong>：在引用时可添加缓存控制头，建议缓存时间 30-60 秒</p>
         </div>
     </div>
 </div>
 
 <style>
+/* Badge stats group styling */
+.badge-stats-group {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 2px solid var(--border-color);
+}
+
+.badge-stats-title {
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent-primary);
+}
+
+/* Override default badge-item styling for cleaner look */
 .badge-item {
-    margin-bottom: 14px;
-    padding: 12px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    border: 1px solid var(--border);
+    margin-bottom: 0;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+    border: none;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.badge-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.badge-stats-group .badge-item {
+    margin-bottom: 16px;
 }
 
 .badge-label {
     font-weight: 600;
-    color: var(--text);
-    margin-bottom: 8px;
-    font-size: 0.9em;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    font-size: 0.95em;
 }
 
 .badge-preview {
-    margin-bottom: 8px;
-    padding: 8px;
-    background: var(--bg);
-    border-radius: 4px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
     display: inline-block;
+    border: 1px solid var(--border-color);
+}
+
+.badge-preview img {
+    display: block;
 }
 
 .badge-code, .badge-markdown, .badge-html {
-    margin-top: 6px;
+    margin-top: 8px;
 }
 
 .badge-markdown, .badge-html {
@@ -394,7 +440,7 @@
 
 .code-block {
     margin: 0;
-    padding: 10px 12px;
+    padding: 12px 14px;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
     border-radius: 6px;
@@ -407,10 +453,12 @@
 .code-block:hover {
     border-color: var(--accent-primary);
     background: var(--bg-secondary);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .code-block:active {
     background: var(--bg-primary);
+    transform: scale(0.995);
 }
 
 .code-block code {
@@ -418,7 +466,7 @@
     color: var(--text-primary);
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     font-size: 0.85em;
-    line-height: 1.5;
+    line-height: 1.6;
     white-space: pre-wrap;
     word-wrap: break-word;
     word-break: break-all;
@@ -427,11 +475,13 @@
 }
 
 code {
-    background: var(--bg);
-    padding: 2px 6px;
-    border-radius: 3px;
+    background: var(--bg-secondary);
+    padding: 3px 6px;
+    border-radius: 4px;
     font-family: 'Courier New', monospace;
     font-size: 0.9em;
+    color: var(--accent-primary);
+    border: 1px solid var(--border-color);
 }
 
 .container {
@@ -454,7 +504,32 @@ code {
 
 .time-range-selector:hover {
     border-color: var(--accent-primary);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
+
+.time-range-selector:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.time-range-selector option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+/* Badge usage text improvements */
+.badge-usage-text {
+    line-height: 1.8;
+}
+
+.badge-usage-text p {
+    margin-bottom: 12px;
+}
+
+.badge-usage-text p:last-child {
+    margin-bottom: 0;
+}
+</style>
 
 .time-range-selector:focus {
     border-color: var(--accent-primary);
@@ -523,14 +598,26 @@ function switchBadgeStyle(style) {
 
 // 默认时间范围切换函数
 function switchDefaultTimeRange(timeRange) {
-    // 更新所有支持时间范围的badge
-    const timeBasedBadges = ['server-uptime', 'node-uptime', 'player-period-playtime'];
+    // 更新所有支持时间范围的badge（包括延迟统计badges）
+    const timeBasedBadges = [
+        'server-uptime', 
+        'node-uptime', 
+        'player-period-playtime',
+        'node-latency-avg',
+        'node-latency-min',
+        'node-latency-max',
+        'node-latency-std',
+        'node-latency-cv'
+    ];
     
     timeBasedBadges.forEach(badgeId => {
         const previewImg = document.querySelector('#preview-' + badgeId);
         if (previewImg) {
-            let src = previewImg.src.split('?')[0];
-            let params = new URLSearchParams();
+            let [baseSrc, existingQuery] = previewImg.src.split('?');
+            let params = new URLSearchParams(existingQuery || '');
+            
+            // 移除旧的时间戳
+            params.delete('t');
             
             // 获取当前样式
             const styleSelect = document.getElementById('badge-style');
@@ -542,13 +629,15 @@ function switchDefaultTimeRange(timeRange) {
             if (timeRange) {
                 const hours = timeRange.replace('?hours=', '');
                 params.set('hours', hours);
+            } else {
+                params.delete('hours');
             }
             
             // 添加时间戳强制刷新
             params.set('t', Date.now());
             
             const paramStr = params.toString();
-            previewImg.src = src + (paramStr ? '?' + paramStr : '');
+            previewImg.src = baseSrc + (paramStr ? '?' + paramStr : '');
         }
     });
     
@@ -576,7 +665,9 @@ function updateAllBadgeUrls() {
         
         if (!path) return;
         
-        let params = new URLSearchParams();
+        // 分离路径和已有的查询参数
+        const [basePath, existingQuery] = path.includes('?') ? path.split('?') : [path, ''];
+        let params = new URLSearchParams(existingQuery);
         
         // 添加样式参数
         if (currentStyle !== 'flat') {
@@ -585,20 +676,20 @@ function updateAllBadgeUrls() {
         
         // 如果是时间相关badge,添加时间参数
         const pathLower = path.toLowerCase();
-        if ((pathLower.includes('uptime') || pathLower.includes('period-playtime')) && currentTimeRange) {
+        if ((pathLower.includes('uptime') || pathLower.includes('period-playtime') || pathLower.includes('latency-stats')) && currentTimeRange) {
             const hours = currentTimeRange.replace('?hours=', '');
             params.set('hours', hours);
         }
         
         const paramStr = params.toString();
-        const fullUrl = baseUrl + path + (paramStr ? '?' + paramStr : '');
+        const fullUrl = baseUrl + basePath + (paramStr ? '?' + paramStr : '');
         
         // 根据格式生成不同的输出
         if (format === 'html') {
-            const altText = path.split('/').pop() || 'Badge';
+            const altText = basePath.split('/').pop() || 'Badge';
             codeElem.textContent = `<img src="${fullUrl}" alt="${altText}">`;
         } else if (format === 'markdown') {
-            const altText = path.split('/').pop() || 'Badge';
+            const altText = basePath.split('/').pop() || 'Badge';
             codeElem.textContent = `![${altText}](${fullUrl})`;
         } else {
             codeElem.textContent = fullUrl;
@@ -789,6 +880,11 @@ function refreshNodeBadges() {
     const nodeStatusImg = document.querySelector('#preview-node-status');
     const nodeUptimeImg = document.querySelector('#preview-node-uptime');
     const nodeLatencyImg = document.querySelector('#preview-node-latency');
+    const nodeLatencyAvgImg = document.querySelector('#preview-node-latency-avg');
+    const nodeLatencyMinImg = document.querySelector('#preview-node-latency-min');
+    const nodeLatencyMaxImg = document.querySelector('#preview-node-latency-max');
+    const nodeLatencyStdImg = document.querySelector('#preview-node-latency-std');
+    const nodeLatencyCvImg = document.querySelector('#preview-node-latency-cv');
     
     const styleSelect = document.getElementById('badge-style');
     const timeRangeSelect = document.getElementById('default-time-range');
@@ -820,6 +916,27 @@ function refreshNodeBadges() {
         params.set('t', Date.now());
         nodeLatencyImg.src = baseSrc + '?' + params.toString();
     }
+    
+    // 刷新延迟统计badges
+    [nodeLatencyAvgImg, nodeLatencyMinImg, nodeLatencyMaxImg, nodeLatencyStdImg, nodeLatencyCvImg].forEach(img => {
+        if (img) {
+            const [baseSrc, existingQuery] = img.src.split('?');
+            const params = new URLSearchParams(existingQuery || '');
+            
+            // 移除旧的时间戳
+            params.delete('t');
+            
+            if (currentStyle !== 'flat') {
+                params.set('style', currentStyle);
+            }
+            if (currentTimeRange) {
+                const hours = currentTimeRange.replace('?hours=', '');
+                params.set('hours', hours);
+            }
+            params.set('t', Date.now());
+            img.src = baseSrc + '?' + params.toString();
+        }
+    });
 }
 
 // 刷新玩家badges
@@ -919,7 +1036,10 @@ function switchNode(selector) {
         // 更新预览图片
         const previewImg = document.getElementById('preview-' + badge.id);
         if (previewImg) {
-            const params = new URLSearchParams();
+            // 从endpoint中提取已有的查询参数
+            const [basePath, existingQuery] = apiPath.includes('?') ? apiPath.split('?') : [apiPath, ''];
+            const params = new URLSearchParams(existingQuery || '');
+            
             const styleSelect = document.getElementById('badge-style');
             const currentStyle = styleSelect ? styleSelect.value : 'flat';
             
@@ -939,7 +1059,7 @@ function switchNode(selector) {
             
             params.set('t', Date.now());
             const paramStr = params.toString();
-            previewImg.src = apiPath + (paramStr ? '?' + paramStr : '');
+            previewImg.src = basePath + (paramStr ? '?' + paramStr : '');
         }
         
         // 更新所有code元素的data-path
