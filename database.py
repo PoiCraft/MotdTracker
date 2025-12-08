@@ -340,8 +340,8 @@ class Database(DatabaseBase):
             return [
                 {
                     'player_name': r[0],
-                    'session_start': r[1],
-                    'last_seen': r[2],
+                    'session_start': r[1].isoformat() if isinstance(r[1], datetime) else r[1],
+                    'last_seen': r[2].isoformat() if isinstance(r[2], datetime) else r[2],
                     'duration_seconds': r[3],
                     'online': True  # 此方法只返回在线玩家
                 }

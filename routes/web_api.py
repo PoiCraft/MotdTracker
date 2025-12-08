@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import request
 from flask_restx import Namespace, Resource
 from app_utils import clamp_hours_param, get_server_nodes_data
@@ -59,7 +60,7 @@ def register_web_routes(api, poller):
         selected_status = selected['latest_status']
 
         return {
-            'timestamp': selected_status.get('timestamp'),
+            'timestamp': selected_status.get('timestamp'),  # 已经是 ISO 字符串
             'online': any(n['latest_status'].get('online') for n in nodes_with_status),
             'players_online': selected_status.get('players_online'),
             'players_max': selected_status.get('players_max'),
@@ -274,8 +275,9 @@ def register_web_routes(api, poller):
             latest_history_point = None
             if history:
                 latest = history[-1]
+                timestamp = latest.get('timestamp')
                 latest_history_point = {
-                    'timestamp': latest.get('timestamp'),
+                    'timestamp': timestamp.isoformat() if isinstance(timestamp, datetime) else timestamp,
                     'online': latest.get('online'),
                     'latency': latest.get('latency'),
                     'players_online': latest.get('players_online'),
