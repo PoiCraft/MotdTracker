@@ -2,6 +2,7 @@ from flask import Flask
 from flask_socketio import SocketIO
 from flask_restx import Api
 from poller import ServerPoller
+from app_utils import get_version
 import atexit
 import signal
 import sys
@@ -18,6 +19,11 @@ from routes.web_api import register_web_routes
 # 创建Flask应用
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'minecraft-tracker-secret-key'
+
+# 添加全局上下文处理器，使版本号对所有模板可用
+@app.context_processor
+def inject_version():
+    return {'app_version': get_version()}
 
 # 初始化SocketIO，调整路径到 /api/socket.io，便于与 API 前缀保持一致
 socketio = SocketIO(app, cors_allowed_origins="*", path="/api/socket.io")

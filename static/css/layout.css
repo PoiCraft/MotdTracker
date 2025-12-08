@@ -124,6 +124,17 @@ h1 {
     font-weight: 600;
 }
 
+.sidebar-version {
+    padding: 8px 20px;
+    margin-top: auto;
+}
+
+.version-text {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
 .sidebar-footer {
     padding: 16px 20px;
     border-top: 1px solid var(--border-color);

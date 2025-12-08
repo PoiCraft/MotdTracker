@@ -21,6 +21,9 @@
             <a href="/api/docs" class="nav-link" target="_blank">API 文档</a>
             {% block sidebar_items %}{% endblock %}
         </nav>
+        <div class="sidebar-version">
+            <span class="version-text">{{ app_version }}</span>
+        </div>
         <div class="sidebar-footer">
             <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
             <button id="manual-refresh-btn" class="manual-refresh-btn" title="手动全量刷新" onclick="if(window.manualRefresh) window.manualRefresh()">
