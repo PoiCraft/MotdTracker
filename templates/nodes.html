@@ -263,7 +263,8 @@ function renderPlayersChart(id, history){
             records.push({
                 timestamp: history.timestamps[i],
                 online: history.online ? history.online[i] : true,
-                players_online: history.players_online ? history.players_online[i] : null
+                players_online: history.players_online ? history.players_online[i] : null,
+                players_max: history.players_max ? history.players_max[i] : null
             });
         }
     }
@@ -271,17 +272,19 @@ function renderPlayersChart(id, history){
     const slice = [...records].reverse();
     const labels = slice.map(h => new Date(h.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'}));
     const playersOnline = slice.map(h => h.online ? h.players_online : null);
+    const playersMax = slice.map(h => h.players_max);
     const key = `players-${id}`;
     if (charts[key]) charts[key].destroy();
     charts[key] = new Chart(ctx, {
         type: 'line',
         data:{ labels, datasets:[
-            {label:'在线', data: playersOnline, borderColor:'#10b981', backgroundColor:'rgba(16, 185, 129, 0.1)', borderWidth:2, fill:true, tension:0.4, pointRadius:0, pointHoverRadius:5, spanGaps:true}
+            {label:'在线玩家', data: playersOnline, borderColor:'#10b981', backgroundColor:'rgba(16, 185, 129, 0.1)', borderWidth:3, fill:true, tension:0.4, pointRadius:0, pointHoverRadius:5, spanGaps:true},
+            {label:'最大玩家数', data: playersMax, borderColor:'#6b7280', backgroundColor:'rgba(107, 114, 128, 0.05)', borderWidth:1, borderDash:[5, 5], fill:false, tension:0.4, pointRadius:0, pointHoverRadius:3, spanGaps:true}
         ]},
         options:{
             responsive:true,
             maintainAspectRatio:false,
-            plugins:{legend:{display:true, position:'top', labels:{usePointStyle:true, padding:15, color: chartColors.text}}, tooltip:{mode:'index', intersect:false}},
+            plugins:{legend:{display:true, position:'top', onClick: () => {}, labels:{usePointStyle:true, padding:15, color: chartColors.text}}, tooltip:{mode:'index', intersect:false}},
             scales:{
                 x:{display:true, ticks:{maxTicksLimit:8, color: chartColors.text}, grid:{color: chartColors.grid}},
                 y:{display:true, beginAtZero:true, ticks:{callback:(v)=>Math.floor(v), stepSize:1, color: chartColors.text}, grid:{color: chartColors.grid}}

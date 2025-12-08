@@ -430,7 +430,7 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: true, position: 'top', labels: { usePointStyle: true, padding: 10, font: { size: 11 }, color: chartColors.text } },
+                    legend: { display: true, position: 'top', onClick: () => {}, labels: { usePointStyle: true, padding: 10, font: { size: 11 }, color: chartColors.text } },
                     tooltip: {
                         mode: 'index', intersect: false, callbacks: {
                             label: (ctx) => {
@@ -486,7 +486,7 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: true, position: 'top', labels: { usePointStyle: true, padding: 15, color: chartColors.text } }, tooltip: { mode: 'index', intersect: false } },
+                plugins: { legend: { display: true, position: 'top', onClick: () => {}, labels: { usePointStyle: true, padding: 15, color: chartColors.text } }, tooltip: { mode: 'index', intersect: false } },
                 scales: {
                     x: { display: true, ticks: { maxTicksLimit: 8, color: chartColors.text }, grid: { color: chartColors.grid } },
                     y: { display: true, beginAtZero: true, ticks: { callback: (v) => Math.floor(v), stepSize: 1, color: chartColors.text }, grid: { color: chartColors.grid } }
