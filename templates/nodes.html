@@ -629,13 +629,40 @@ function renderHeatmap24hNode(nodeId, history) {
 
 
 
-function initWebSocket(){
-    socket = io({ path: '/api/socket.io' });
+// 更新WebSocket状态显示
+function updateWebSocketStatus(status, text, title) {
     const wsStatus = document.getElementById('ws-status');
-    socket.on('connect', ()=>{ wsStatus.className='ws-status ws-connected'; wsStatus.textContent='已连接'; wsStatus.title='WebSocket已连接'; });
-    socket.on('disconnect', ()=>{ wsStatus.className='ws-status ws-disconnected'; wsStatus.textContent='已断开'; wsStatus.title='WebSocket已断开'; });
-    socket.on('connect_error', (e)=>{ wsStatus.className='ws-status ws-error'; wsStatus.textContent='错误'; wsStatus.title='WebSocket错误: '+e.message; });
-    socket.on('poll_complete', ()=>{
+    if (wsStatus) {
+        wsStatus.className = 'ws-status ws-' + status;
+        wsStatus.textContent = text;
+        wsStatus.title = title;
+    }
+}
+
+function initWebSocket() {
+    if (typeof io === 'undefined') {
+        console.warn('socket.io not loaded yet, retrying...');
+        setTimeout(initWebSocket, 100);
+        return;
+    }
+    socket = io({ path: '/api/socket.io' });
+    
+    socket.on('connect', function() {
+        console.log('WebSocket connected');
+        updateWebSocketStatus('connected', '已连接', 'WebSocket已连接');
+    });
+    
+    socket.on('disconnect', function() {
+        console.log('WebSocket disconnected');
+        updateWebSocketStatus('disconnected', '已断开', 'WebSocket已断开');
+    });
+    
+    socket.on('connect_error', function(error) {
+        console.error('WebSocket connection error:', error);
+        updateWebSocketStatus('error', '错误', 'WebSocket错误: ' + error.message);
+    });
+    
+    socket.on('poll_complete', function() {
         loadIncremental();
     });
 }
