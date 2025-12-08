@@ -126,7 +126,7 @@ def register_badge_routes(api, poller):
                 
                 total_players = len(unique_players)
                 message = str(total_players)
-                color = ' green' if total_players > 0 else 'grey'
+                color = 'green' if total_players > 0 else 'grey'
                 result = generate_badge('players', message, color)
                 return Response(result, mimetype='image/svg+xml')
             except Exception:
