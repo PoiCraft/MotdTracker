@@ -2,13 +2,39 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 from flask import Request
 import subprocess
+import tomllib
+from pathlib import Path
 
 # UTC+8 timezone constant
 UTC8 = timezone(timedelta(hours=8))
 
+# 缓存版本号，只在启动时计算一次
+_cached_version: Optional[str] = None
+
+
+def get_project_version() -> str:
+    """从 pyproject.toml 读取项目版本号"""
+    try:
+        pyproject_path = Path(__file__).parent / 'pyproject.toml'
+        with open(pyproject_path, 'rb') as f:
+            data = tomllib.load(f)
+            return data.get('project', {}).get('version', '0.0.0')
+    except Exception:
+        return '0.0.0'
+
 
 def get_version() -> str:
-    """生成 Go Mod 伪版本格式的版本号: v0.0.0-yyyymmddhhmmss-abcdefabcdef"""
+    """生成 Go Mod 伪版本格式的版本号: v{project_version}-yyyymmddhhmmss-abcdefabcdef
+    
+    版本号在首次调用时生成并缓存，后续调用直接返回缓存值。
+    """
+    global _cached_version
+    
+    if _cached_version is not None:
+        return _cached_version
+    
+    base_version = get_project_version()
+    
     try:
         # 获取最新 commit 的哈希和时间戳
         result = subprocess.run(
@@ -30,12 +56,14 @@ def get_version() -> str:
                     dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
                     date_str = dt.strftime('%Y%m%d%H%M%S')
                     
-                    return f"v0.0.0-{date_str}-{commit_hash}"
+                    _cached_version = f"v{base_version}-{date_str}-{commit_hash}"
+                    return _cached_version
     except Exception:
         pass
     
     # 如果 git 命令失败，返回开发版本
-    return "v0.0.0-dev"
+    _cached_version = f"v{base_version}-dev"
+    return _cached_version
 
 
 def parse_dt(value: Any) -> Optional[datetime]:
