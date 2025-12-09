@@ -47,7 +47,7 @@
 </div>
 
 <div class="server-card">
-    <div class="chart-title">每小时平均在线时长</div>
+    <div class="chart-title">每小时平均在线时长 <span class="card-spinner hidden" id="spinner-hourly"></span></div>
     <div class="chart-container chart-container-tall">
         <canvas id="hourly-chart"></canvas>
     </div>
@@ -66,8 +66,8 @@
 
 <!-- 周活跃热力图 -->
 <div class="server-card">
-    <div class="chart-title">周活跃热力图</div>
-    <div class="chart-subtitle">显示每周各时段的平均在线时长</div>
+    <div class="chart-title">周活跃热力图 <span class="card-spinner hidden" id="spinner-weekly"></span></div>
+    <div class="chart-subtitle">显示每周各时段的平均在线时长（<span id="weekly-sample-days">--</span> 天历史数据）</div>
     <div id="weekly-heatmap" class="weekly-heatmap">
         <div class="loading">加载中...</div>
     </div>
@@ -75,7 +75,7 @@
 
 <!-- 每日在线趋势 -->
 <div class="server-card">
-    <div class="chart-title">每日在线趋势（过去30天）</div>
+    <div class="chart-title">每日在线趋势（过去30天）<span class="card-spinner hidden" id="spinner-daily-trend"></span></div>
     <div class="chart-container chart-container-tall">
         <canvas id="daily-trend-chart"></canvas>
     </div>
@@ -83,14 +83,15 @@
 
 <!-- 星期偏好 -->
 <div class="server-card">
-    <div class="chart-title">星期偏好</div>
+    <div class="chart-title">星期偏好 <span class="card-spinner hidden" id="spinner-weekday"></span></div>
+    <div class="chart-subtitle">基于 <span id="weekday-sample-days">--</span> 天历史数据统计</div>
     <div class="chart-container">
         <canvas id="weekday-chart"></canvas>
     </div>
 </div>
 
 <div class="server-card">
-    <div class="chart-title">会话记录（最近20条）</div>
+    <div class="chart-title">会话记录（最近20条）<span class="card-spinner hidden" id="spinner-sessions"></span></div>
     <div id="session-list" class="session-list">
         <div class="loading">加载中...</div>
     </div>
@@ -321,70 +322,41 @@ function renderHourlyChart(hourly) {
     }
 }
 
-// 周活跃热力图 (7天 x 24小时)
-let weeklyHeatmapData = null;
-function renderWeeklyHeatmap(daily) {
+// 周活跃热力图 (7天 x 24小时) - 使用全量数据 API
+function renderWeeklyHeatmap(weeklyHeatmap, totalDays) {
     const container = document.getElementById('weekly-heatmap');
     if (!container) return;
     
-    // 收集每个星期几每个小时的数据
-    const weekdayHours = {}; // { dayOfWeek: { hour: totalSeconds, count } }
-    const weekdayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    
-    // 初始化
-    for (let d = 0; d < 7; d++) {
-        weekdayHours[d] = {};
-        for (let h = 0; h < 24; h++) {
-            weekdayHours[d][h] = { total: 0, count: 0 };
-        }
+    // 更新 subtitle
+    const subtitleEl = document.getElementById('weekly-sample-days');
+    if (subtitleEl && totalDays) {
+        subtitleEl.textContent = totalDays;
     }
     
-    // 遍历每日数据，按星期几聚合
-    daily.forEach(day => {
-        const date = new Date(day.date);
-        const dayOfWeek = date.getDay();
-        
-        (day.sessions || []).forEach(s => {
-            const start = new Date(s.start);
-            const end = new Date(s.end);
-            
-            // 简化处理：将会话按小时分配
-            let current = new Date(start);
-            while (current < end) {
-                const hour = current.getHours();
-                const nextHour = new Date(current);
-                nextHour.setHours(hour + 1, 0, 0, 0);
-                const segmentEnd = nextHour < end ? nextHour : end;
-                const seconds = (segmentEnd - current) / 1000;
-                
-                weekdayHours[dayOfWeek][hour].total += seconds;
-                current = nextHour;
-            }
-        });
-        
-        // 记录这一天有数据
-        for (let h = 0; h < 24; h++) {
-            weekdayHours[dayOfWeek][h].count++;
-        }
-    });
+    if (!weeklyHeatmap || weeklyHeatmap.length === 0) {
+        container.innerHTML = '<div class="player-heatmap-empty">暂无数据</div>';
+        return;
+    }
     
-    // 计算平均值并找最大值
+    const weekdayNames = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+    
+    // 找最大值
     let maxAvg = 0;
-    const avgData = [];
-    for (let d = 0; d < 7; d++) {
-        avgData[d] = [];
-        for (let h = 0; h < 24; h++) {
-            const data = weekdayHours[d][h];
-            const avg = data.count > 0 ? data.total / data.count : 0;
-            avgData[d][h] = avg;
-            if (avg > maxAvg) maxAvg = avg;
-        }
-    }
+    weeklyHeatmap.forEach(item => {
+        if (item.avg_seconds > maxAvg) maxAvg = item.avg_seconds;
+    });
     
     if (maxAvg === 0) {
         container.innerHTML = '<div class="player-heatmap-empty">暂无数据</div>';
         return;
     }
+    
+    // 转换为二维数组便于访问
+    const avgData = {};
+    weeklyHeatmap.forEach(item => {
+        if (!avgData[item.day]) avgData[item.day] = {};
+        avgData[item.day][item.hour] = item.avg_seconds;
+    });
     
     // 生成热力图 HTML
     let html = '<div class="weekly-heatmap-grid">';
@@ -395,13 +367,12 @@ function renderWeeklyHeatmap(daily) {
         html += `<div class="weekly-heatmap-hour-label">${String(h).padStart(2, '0')}</div>`;
     }
     
-    // 每行（每个星期几）
-    for (let d = 1; d <= 7; d++) {
-        const dayIdx = d % 7; // 从周一开始
-        html += `<div class="weekly-heatmap-day-label">${weekdayNames[dayIdx]}</div>`;
+    // 每行（每个星期几，API返回的day: 0=周一）
+    for (let d = 0; d < 7; d++) {
+        html += `<div class="weekly-heatmap-day-label">${weekdayNames[d]}</div>`;
         
         for (let h = 0; h < 24; h++) {
-            const avg = avgData[dayIdx][h];
+            const avg = avgData[d] && avgData[d][h] ? avgData[d][h] : 0;
             const intensity = maxAvg > 0 ? avg / maxAvg : 0;
             let className = 'weekly-heatmap-cell';
             if (intensity > 0.7) className += ' intensity-high';
@@ -409,7 +380,7 @@ function renderWeeklyHeatmap(daily) {
             else if (intensity > 0.1) className += ' intensity-low';
             else className += ' intensity-none';
             
-            const title = `${weekdayNames[dayIdx]} ${String(h).padStart(2, '0')}:00 - 平均 ${formatDuration(avg)}`;
+            const title = `${weekdayNames[d]} ${String(h).padStart(2, '0')}:00 - 平均 ${formatDuration(avg)}`;
             html += `<div class="${className}" title="${title}"></div>`;
         }
     }
@@ -481,36 +452,30 @@ function renderDailyTrendChart(daily) {
     }
 }
 
-// 星期偏好图
+// 星期偏好图 - 使用全量数据 API
 let weekdayChart = null;
-function renderWeekdayChart(daily) {
+function renderWeekdayChart(weekdayPreference, totalDays) {
     const ctx = document.getElementById('weekday-chart');
     if (!ctx) return;
     
-    const weekdayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    const weekdayTotals = [0, 0, 0, 0, 0, 0, 0];
-    const weekdayCounts = [0, 0, 0, 0, 0, 0, 0];
+    // 更新 subtitle
+    const subtitleEl = document.getElementById('weekday-sample-days');
+    if (subtitleEl && totalDays) {
+        subtitleEl.textContent = totalDays;
+    }
     
-    daily.forEach(d => {
-        const date = new Date(d.date);
-        const dayOfWeek = date.getDay();
-        weekdayTotals[dayOfWeek] += d.total_seconds || 0;
-        weekdayCounts[dayOfWeek]++;
-    });
+    if (!weekdayPreference || weekdayPreference.length === 0) {
+        return;
+    }
     
-    // 计算平均值（分钟）
-    const avgData = weekdayTotals.map((total, idx) => 
-        weekdayCounts[idx] > 0 ? (total / weekdayCounts[idx]) / 60 : 0
-    );
-    
-    // 重排为周一到周日
-    const labels = [...weekdayNames.slice(1), weekdayNames[0]];
-    const data = [...avgData.slice(1), avgData[0]];
+    // API 返回的数据已经是按周一到周日排序的
+    const labels = weekdayPreference.map(d => d.day_name);
+    const data = weekdayPreference.map(d => (d.avg_seconds || 0) / 60); // 转为分钟
     
     // 颜色渐变
-    const colors = data.map((v, i) => {
-        const max = Math.max(...data, 1);
-        const intensity = v / max;
+    const maxVal = Math.max(...data, 1);
+    const colors = data.map(v => {
+        const intensity = v / maxVal;
         return `rgba(16, 185, 129, ${0.3 + intensity * 0.7})`;
     });
     
@@ -537,7 +502,15 @@ function renderWeekdayChart(daily) {
                 maintainAspectRatio: false,
                 indexAxis: 'y',
                 plugins: {
-                    legend: { display: false }
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: (ctx) => {
+                                const item = weekdayPreference[ctx.dataIndex];
+                                return `样本: ${item.sample_days} 天`;
+                            }
+                        }
+                    }
                 },
                 scales: {
                     x: {
@@ -554,19 +527,39 @@ function renderWeekdayChart(daily) {
             }
         });
     } else {
+        weekdayChart.data.labels = labels;
         weekdayChart.data.datasets[0].data = data;
         weekdayChart.data.datasets[0].backgroundColor = colors;
         weekdayChart.update('none');
     }
 }
 
+// Spinner 控制函数
+function showSpinner(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('hidden');
+}
+
+function hideSpinner(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+}
+
+function hideAllSpinners() {
+    ['spinner-hourly', 'spinner-weekly', 'spinner-daily-trend', 'spinner-weekday', 'spinner-sessions'].forEach(hideSpinner);
+}
+
 async function loadData() {
     const spinner = document.getElementById('loading-spinner');
     if (spinner) spinner.classList.remove('hidden');
     
+    // 显示所有卡片的 spinner
+    ['spinner-hourly', 'spinner-weekly', 'spinner-daily-trend', 'spinner-weekday', 'spinner-sessions'].forEach(showSpinner);
+    
     if (!playerName) {
         document.getElementById('summary-text').textContent = '未指定玩家';
         if (spinner) spinner.classList.add('hidden');
+        hideAllSpinners();
         return;
     }
     try {
@@ -574,16 +567,33 @@ async function loadData() {
         const detail = await detailRes.json();
         renderSummary(detail);
 
+        // 获取近30天会话数据
         const sessionsRes = await fetch(`/api/player/${encodeURIComponent(playerName)}/sessions?days=30`);
         const sessions = await sessionsRes.json();
+        
         renderHeatmap24h(sessions.heatmap);
+        
         renderHourlyChart(sessions.hourly_average || []);
-        renderWeeklyHeatmap(sessions.daily || []);
+        hideSpinner('spinner-hourly');
+        
         renderDailyTrendChart(sessions.daily || []);
-        renderWeekdayChart(sessions.daily || []);
+        hideSpinner('spinner-daily-trend');
+        
         document.getElementById('avg-daily').textContent = formatDuration(sessions.average_daily_seconds);
         document.getElementById('avg-session').textContent = formatDuration(sessions.average_session_seconds);
+        
         renderSessions(sessions.daily || [], sessions.player_online || false);
+        hideSpinner('spinner-sessions');
+        
+        // 获取全量周统计数据
+        const weeklyRes = await fetch(`/api/player/${encodeURIComponent(playerName)}/weekly-stats`);
+        const weeklyStats = await weeklyRes.json();
+        
+        renderWeeklyHeatmap(weeklyStats.weekly_heatmap || [], weeklyStats.total_sample_days);
+        hideSpinner('spinner-weekly');
+        
+        renderWeekdayChart(weeklyStats.weekday_preference || [], weeklyStats.total_sample_days);
+        hideSpinner('spinner-weekday');
         
         // Calculate past 24h duration
         const now = new Date();
@@ -601,6 +611,7 @@ async function loadData() {
     } catch (e) {
         console.error(e);
         document.getElementById('summary-text').textContent = '加载失败';
+        hideAllSpinners();
     } finally {
         if (spinner) spinner.classList.add('hidden');
     }

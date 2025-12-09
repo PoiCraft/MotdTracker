@@ -376,5 +376,121 @@ def register_player_routes(api, poller):
 
             return response
 
+    @player_ns.route("/<string:player_name>/weekly-stats")
+    class PlayerWeeklyStats(Resource):
+        @player_ns.doc(
+            "获取玩家周统计",
+            description="获取玩家全量历史数据的周活跃统计，包括每周各时段的平均在线时长和星期偏好",
+        )
+        def get(self, player_name):
+            # 获取全量历史数据（不限制天数）
+            history = poller.db.get_player_history(player_name, days=None)
+
+            now = utc8_now()
+
+            # 添加当前在线会话
+            for server in poller.db.get_all_servers():
+                sessions = poller.db.get_all_player_sessions(server["id"])
+                for s in sessions:
+                    if s.get("player_name") != player_name:
+                        continue
+                    if s.get("online"):
+                        start = s.get("session_start")
+                        history.append(
+                            {
+                                "session_start": start,
+                                "session_end": now.isoformat(),
+                                "server_id": server["id"],
+                            }
+                        )
+
+            # 初始化周统计数据结构
+            # weekday_hours[dayOfWeek][hour] = { total_seconds, sample_count }
+            weekday_hours = {d: {h: {"total": 0, "count": 0} for h in range(24)} for d in range(7)}
+            # weekday_totals[dayOfWeek] = { total_seconds, day_count }
+            weekday_totals = {d: {"total": 0, "days": set()} for d in range(7)}
+
+            def split_by_hour(start: datetime, end: datetime):
+                """将会话按小时切分"""
+                current = start
+                while current < end:
+                    next_hour = current.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+                    segment_end = min(next_hour, end)
+                    yield current, segment_end
+                    current = next_hour
+
+            # 处理每个会话
+            for item in history:
+                start = (
+                    datetime.fromisoformat(item["session_start"])
+                    if isinstance(item["session_start"], str)
+                    else item["session_start"]
+                )
+                end = (
+                    datetime.fromisoformat(item["session_end"])
+                    if isinstance(item["session_end"], str)
+                    else item["session_end"]
+                )
+                if not start or not end or end <= start:
+                    continue
+
+                # 按小时切分并统计
+                for seg_start, seg_end in split_by_hour(start, end):
+                    day_of_week = seg_start.weekday()  # 0=周一, 6=周日
+                    hour = seg_start.hour
+                    seconds = (seg_end - seg_start).total_seconds()
+
+                    weekday_hours[day_of_week][hour]["total"] += seconds
+                    
+                    # 记录这一天作为样本
+                    day_key = seg_start.date()
+                    weekday_totals[day_of_week]["days"].add(day_key)
+                    weekday_totals[day_of_week]["total"] += seconds
+
+            # 计算每个时段的样本数（以天为单位）
+            for d in range(7):
+                day_count = len(weekday_totals[d]["days"])
+                for h in range(24):
+                    weekday_hours[d][h]["count"] = day_count
+
+            # 生成周热力图数据 (7天 x 24小时)
+            weekly_heatmap = []
+            weekday_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+            for d in range(7):
+                for h in range(24):
+                    data = weekday_hours[d][h]
+                    avg = data["total"] / data["count"] if data["count"] > 0 else 0
+                    weekly_heatmap.append({
+                        "day": d,
+                        "day_name": weekday_names[d],
+                        "hour": h,
+                        "avg_seconds": avg,
+                        "sample_days": data["count"],
+                    })
+
+            # 生成星期偏好数据
+            weekday_preference = []
+            for d in range(7):
+                day_count = len(weekday_totals[d]["days"])
+                avg = weekday_totals[d]["total"] / day_count if day_count > 0 else 0
+                weekday_preference.append({
+                    "day": d,
+                    "day_name": weekday_names[d],
+                    "avg_seconds": avg,
+                    "sample_days": day_count,
+                })
+
+            # 统计总天数
+            all_days = set()
+            for d in range(7):
+                all_days.update(weekday_totals[d]["days"])
+
+            return {
+                "player_name": player_name,
+                "total_sample_days": len(all_days),
+                "weekly_heatmap": weekly_heatmap,
+                "weekday_preference": weekday_preference,
+            }
+
     api.add_namespace(player_ns)
     return player_ns

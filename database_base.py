@@ -50,7 +50,7 @@ class DatabaseBase(ABC):
         pass
     
     @abstractmethod
-    def get_player_history(self, player_name: str, days: int = 30) -> List[Dict]:
+    def get_player_history(self, player_name: str, days: int = None) -> List[Dict]:
         """获取玩家历史会话"""
         pass
     

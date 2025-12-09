@@ -405,19 +405,28 @@ class Database(DatabaseBase):
         finally:
             conn.close()
 
-    def get_player_history(self, player_name: str, days: int = 30) -> List[Dict]:
-        """获取玩家历史会话"""
+    def get_player_history(self, player_name: str, days: int = None) -> List[Dict]:
+        """获取玩家历史会话，days=None 时获取全量数据"""
         from app_utils import utc8_now
         conn = self.get_connection()
         try:
             cursor = conn.cursor()
-            cutoff = utc8_now() - timedelta(days=days)
-            cursor.execute('''
-                SELECT session_start, session_end, server_id
-                FROM player_session_history
-                WHERE player_name = ? AND session_end >= ?
-                ORDER BY session_start DESC
-            ''', (player_name, cutoff))
+            if days is None:
+                # 获取全量数据
+                cursor.execute('''
+                    SELECT session_start, session_end, server_id
+                    FROM player_session_history
+                    WHERE player_name = ?
+                    ORDER BY session_start DESC
+                ''', (player_name,))
+            else:
+                cutoff = utc8_now() - timedelta(days=days)
+                cursor.execute('''
+                    SELECT session_start, session_end, server_id
+                    FROM player_session_history
+                    WHERE player_name = ? AND session_end >= ?
+                    ORDER BY session_start DESC
+                ''', (player_name, cutoff))
             rows = cursor.fetchall()
             result = []
             for r in rows:
