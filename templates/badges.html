@@ -13,61 +13,59 @@
 
 {% block content %}
 
-<div class="badge-compact-container">
-    
-    <!-- 紧凑工具栏 -->
-    <div class="badge-compact-toolbar">
-        <div class="toolbar-row">
-            <div class="toolbar-item">
-                <label>格式</label>
-                <select id="output-format" onchange="switchOutputFormat(this.value)">
-                    <option value="url">URL</option>
-                    <option value="html">HTML</option>
-                    <option value="markdown">Markdown</option>
-                </select>
-            </div>
-            
-            <div class="toolbar-item">
-                <label>时间范围</label>
-                <select id="default-time-range" onchange="switchDefaultTimeRange(this.value)">
-                    <option value="" selected>24h</option>
-                    <option value="?hours=1">1h</option>
-                    <option value="?hours=3">3h</option>
-                    <option value="?hours=6">6h</option>
-                    <option value="?hours=12">12h</option>
-                    <option value="?hours=24">24h</option>
-                    <option value="?hours=72">3d</option>
-                    <option value="?hours=168">7d</option>
-                    <option value="?hours=720">30d</option>
-                </select>
-            </div>
-            
-            <div class="toolbar-item">
-                <label>节点</label>
-                <select id="node-selector" onchange="switchNode(this)">
-                    {% for node in nodes %}
-                    <option value="{{ node.id }}" {% if loop.first %}selected{% endif %}>{{ node.name }}</option>
+<!-- 紧凑工具栏 -->
+<div class="badge-compact-toolbar">
+    <div class="toolbar-row">
+        <div class="toolbar-item">
+            <label>格式</label>
+            <select id="output-format" onchange="switchOutputFormat(this.value)">
+                <option value="url">URL</option>
+                <option value="html">HTML</option>
+                <option value="markdown">Markdown</option>
+            </select>
+        </div>
+        
+        <div class="toolbar-item">
+            <label>时间范围</label>
+            <select id="default-time-range" onchange="switchDefaultTimeRange(this.value)">
+                <option value="" selected>24h</option>
+                <option value="?hours=1">1h</option>
+                <option value="?hours=3">3h</option>
+                <option value="?hours=6">6h</option>
+                <option value="?hours=12">12h</option>
+                <option value="?hours=24">24h</option>
+                <option value="?hours=72">3d</option>
+                <option value="?hours=168">7d</option>
+                <option value="?hours=720">30d</option>
+            </select>
+        </div>
+        
+        <div class="toolbar-item">
+            <label>节点</label>
+            <select id="node-selector" onchange="switchNode(this)">
+                {% for node in nodes %}
+                <option value="{{ node.id }}" {% if loop.first %}selected{% endif %}>{{ node.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="toolbar-item">
+            <label>玩家</label>
+            <select id="player-selector" onchange="updatePlayerName(this.value)">
+                {% if players %}
+                    {% for player in players %}
+                    <option value="{{ player }}" {% if player == 'Steve' or (loop.first and 'Steve' not in players) %}selected{% endif %}>{{ player }}</option>
                     {% endfor %}
-                </select>
-            </div>
-            
-            <div class="toolbar-item">
-                <label>玩家</label>
-                <select id="player-selector" onchange="updatePlayerName(this.value)">
-                    {% if players %}
-                        {% for player in players %}
-                        <option value="{{ player }}" {% if player == 'Steve' or (loop.first and 'Steve' not in players) %}selected{% endif %}>{{ player }}</option>
-                        {% endfor %}
-                    {% else %}
-                        <option value="Steve" selected>Steve</option>
-                    {% endif %}
-                </select>
-            </div>
+                {% else %}
+                    <option value="Steve" selected>Steve</option>
+                {% endif %}
+            </select>
         </div>
     </div>
-    
-    <!-- Badge表格 -->
-    <div class="badge-table-container">
+</div>
+
+<!-- Badge表格 -->
+<div class="badge-table-container">
         <table class="badge-table">
             <thead>
                 <tr>
@@ -271,10 +269,9 @@
             <p>• <strong>自动更新</strong>：Badges实时反映服务器状态</p>
         </div>
     </details>
-    
-    <!-- ARIA live region for screen reader announcements -->
-    <div id="copy-announcement" aria-live="polite" aria-atomic="true" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;"></div>
-</div>
+
+<!-- ARIA live region for screen reader announcements -->
+<div id="copy-announcement" aria-live="polite" aria-atomic="true" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;"></div>
 
 <style>
 .badge-compact-container {
@@ -335,14 +332,14 @@
 .badge-table-container {
     background: var(--bg-secondary);
     border-radius: 8px;
-    overflow: hidden auto; /* Hide vertical overflow, enable horizontal scroll */
+    overflow-x: auto; /* 启用水平滚动 */
+    overflow-y: visible;
     border: 1px solid var(--border-color);
-    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
 .badge-table {
     width: 100%;
-    min-width: 600px; /* Ensure table maintains readable width */
+    min-width: 1400px; /* 最小宽度，小于此宽度时触发滚动 */
     border-collapse: collapse;
 }
 

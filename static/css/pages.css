@@ -7,6 +7,190 @@
     padding: 20px;
 }
 
+/* Badge Compact Layout - 非卡片化，直接布局 */
+.badge-compact-container {
+    /* 无需 padding，直接占满 */
+}
+
+.badge-compact-toolbar {
+    background: var(--card-bg);
+    border-radius: 0;
+    padding: 16px 20px;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.badge-compact-toolbar .toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.badge-compact-toolbar .toolbar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.badge-compact-toolbar .toolbar-item label {
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 0.875em;
+    white-space: nowrap;
+}
+
+.badge-compact-toolbar select {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.875em;
+    font-weight: 500;
+    outline: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    min-width: 120px;
+}
+
+.badge-compact-toolbar select:hover {
+    border-color: var(--accent-primary);
+}
+
+.badge-compact-toolbar select:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.badge-compact-toolbar select option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 8px;
+}
+
+/* Badge Table - 响应式横向滚动 */
+.badge-table-container {
+    background: var(--card-bg);
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    margin: 0;
+    padding: 0;
+}
+
+/* 自定义滚动条样式 */
+.badge-table-container::-webkit-scrollbar {
+    height: 12px;
+}
+
+.badge-table-container::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+.badge-table-container::-webkit-scrollbar-thumb {
+    background: var(--accent-primary);
+    border-radius: 6px;
+}
+
+.badge-table-container::-webkit-scrollbar-thumb:hover {
+    background: #2563eb;
+}
+
+.badge-table {
+    width: 100%;
+    min-width: 1400px; /* 宽屏自适应，窄屏触发滚动 */
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.badge-table thead {
+    background: var(--bg-secondary);
+}
+
+.badge-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.875em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.badge-table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s ease;
+}
+
+.badge-table tbody tr:hover {
+    background: var(--bg-secondary);
+}
+
+.badge-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.badge-table td {
+    padding: 12px 16px;
+    color: var(--text-secondary);
+    font-size: 0.875em;
+}
+
+.badge-table .category-row {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.badge-table .category-row:hover {
+    background: var(--bg-tertiary);
+}
+
+.badge-table .category-row td {
+    padding: 10px 16px;
+    font-size: 0.9em;
+    letter-spacing: 0.3px;
+}
+
+.badge-table .code-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.badge-table .badge-url {
+    flex: 1;
+    background: var(--bg-tertiary);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.85em;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+.badge-table .copy-btn {
+    background: var(--accent-primary);
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.badge-table .copy-btn:hover {
+    background: #2563eb;
+    transform: scale(1.05);
+}
+
+.badge-table .copy-btn:active {
+    transform: scale(0.95);
+}
+
 .badge-toolbar-card {
     margin-bottom: 20px;
 }
