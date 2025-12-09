@@ -64,9 +64,34 @@
     </div>
 </div>
 
+<!-- 周活跃热力图 -->
+<div class="server-card">
+    <div class="chart-title">周活跃热力图</div>
+    <div class="chart-subtitle">显示每周各时段的平均在线时长</div>
+    <div id="weekly-heatmap" class="weekly-heatmap">
+        <div class="loading">加载中...</div>
+    </div>
+</div>
+
+<!-- 每日在线趋势 -->
+<div class="server-card">
+    <div class="chart-title">每日在线趋势（过去30天）</div>
+    <div class="chart-container chart-container-tall">
+        <canvas id="daily-trend-chart"></canvas>
+    </div>
+</div>
+
+<!-- 星期偏好 -->
+<div class="server-card">
+    <div class="chart-title">星期偏好</div>
+    <div class="chart-container">
+        <canvas id="weekday-chart"></canvas>
+    </div>
+</div>
+
 <div class="server-card">
     <div class="chart-title">会话记录（最近20条）</div>
-    <div id="session-list" class="info-list">
+    <div id="session-list" class="session-list">
         <div class="loading">加载中...</div>
     </div>
 </div>
@@ -91,7 +116,7 @@ function formatTime(value) {
     return new Date(value).toLocaleString('zh-CN');
 }
 
-function renderSessions(daily = []) {
+function renderSessions(daily = [], playerOnline = false) {
     const container = document.getElementById('session-list');
     if (!container) return;
 
@@ -114,16 +139,38 @@ function renderSessions(daily = []) {
     sessions.sort((a, b) => new Date(b.start) - new Date(a.start));
     const latest = sessions.slice(0, 20);
 
-    const rows = latest.map(s => {
-        const start = formatTime(s.start);
-        const end = s.end ? formatTime(s.end) : '进行中';
-        const durSec = s.end ? (new Date(s.end) - new Date(s.start)) / 1000 : 0;
-        const durText = s.end ? formatDuration(Math.max(durSec, 0)) : '进行中';
-        return `<div class="info-line">
-            <div>
-                <div>${start} - ${end}</div>
+    const rows = latest.map((s, idx) => {
+        const startDate = new Date(s.start);
+        const endDate = new Date(s.end);
+        // 如果玩家在线，第一条（最新）会话标记为进行中
+        const isOngoing = playerOnline && idx === 0;
+        const durSec = isOngoing ? (Date.now() - startDate) / 1000 : (endDate - startDate) / 1000;
+        const durText = formatDuration(Math.max(durSec, 0));
+        
+        // 格式化日期和时间
+        const dateStr = startDate.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+        const startTime = startDate.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        const endTime = endDate.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        
+        // 判断是否跨天（对于非进行中的会话）
+        const isCrossDay = !isOngoing && startDate.toDateString() !== endDate.toDateString();
+        const endDateStr = isCrossDay ? endDate.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }) : '';
+        
+        return `<div class="session-card${isOngoing ? ' session-ongoing' : ''}">
+            <div class="session-main">
+                <div class="session-date">${dateStr}</div>
+                <div class="session-time">
+                    <span class="session-start">${startTime}</span>
+                    <span class="session-arrow">→</span>
+                    ${isOngoing 
+                        ? '<span class="session-end session-live">进行中</span>' 
+                        : `<span class="session-end">${isCrossDay ? endDateStr + ' ' : ''}${endTime}</span>`
+                    }
+                </div>
             </div>
-            <div>${durText}</div>
+            <div class="session-duration${isOngoing ? ' session-duration-live' : ''}">
+                ${durText}
+            </div>
         </div>`;
     }).join('');
 
@@ -274,6 +321,245 @@ function renderHourlyChart(hourly) {
     }
 }
 
+// 周活跃热力图 (7天 x 24小时)
+let weeklyHeatmapData = null;
+function renderWeeklyHeatmap(daily) {
+    const container = document.getElementById('weekly-heatmap');
+    if (!container) return;
+    
+    // 收集每个星期几每个小时的数据
+    const weekdayHours = {}; // { dayOfWeek: { hour: totalSeconds, count } }
+    const weekdayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    
+    // 初始化
+    for (let d = 0; d < 7; d++) {
+        weekdayHours[d] = {};
+        for (let h = 0; h < 24; h++) {
+            weekdayHours[d][h] = { total: 0, count: 0 };
+        }
+    }
+    
+    // 遍历每日数据，按星期几聚合
+    daily.forEach(day => {
+        const date = new Date(day.date);
+        const dayOfWeek = date.getDay();
+        
+        (day.sessions || []).forEach(s => {
+            const start = new Date(s.start);
+            const end = new Date(s.end);
+            
+            // 简化处理：将会话按小时分配
+            let current = new Date(start);
+            while (current < end) {
+                const hour = current.getHours();
+                const nextHour = new Date(current);
+                nextHour.setHours(hour + 1, 0, 0, 0);
+                const segmentEnd = nextHour < end ? nextHour : end;
+                const seconds = (segmentEnd - current) / 1000;
+                
+                weekdayHours[dayOfWeek][hour].total += seconds;
+                current = nextHour;
+            }
+        });
+        
+        // 记录这一天有数据
+        for (let h = 0; h < 24; h++) {
+            weekdayHours[dayOfWeek][h].count++;
+        }
+    });
+    
+    // 计算平均值并找最大值
+    let maxAvg = 0;
+    const avgData = [];
+    for (let d = 0; d < 7; d++) {
+        avgData[d] = [];
+        for (let h = 0; h < 24; h++) {
+            const data = weekdayHours[d][h];
+            const avg = data.count > 0 ? data.total / data.count : 0;
+            avgData[d][h] = avg;
+            if (avg > maxAvg) maxAvg = avg;
+        }
+    }
+    
+    if (maxAvg === 0) {
+        container.innerHTML = '<div class="player-heatmap-empty">暂无数据</div>';
+        return;
+    }
+    
+    // 生成热力图 HTML
+    let html = '<div class="weekly-heatmap-grid">';
+    
+    // 时间轴标签（顶部）
+    html += '<div class="weekly-heatmap-corner"></div>';
+    for (let h = 0; h < 24; h += 3) {
+        html += `<div class="weekly-heatmap-hour-label">${String(h).padStart(2, '0')}</div>`;
+    }
+    
+    // 每行（每个星期几）
+    for (let d = 1; d <= 7; d++) {
+        const dayIdx = d % 7; // 从周一开始
+        html += `<div class="weekly-heatmap-day-label">${weekdayNames[dayIdx]}</div>`;
+        
+        for (let h = 0; h < 24; h++) {
+            const avg = avgData[dayIdx][h];
+            const intensity = maxAvg > 0 ? avg / maxAvg : 0;
+            let className = 'weekly-heatmap-cell';
+            if (intensity > 0.7) className += ' intensity-high';
+            else if (intensity > 0.4) className += ' intensity-medium';
+            else if (intensity > 0.1) className += ' intensity-low';
+            else className += ' intensity-none';
+            
+            const title = `${weekdayNames[dayIdx]} ${String(h).padStart(2, '0')}:00 - 平均 ${formatDuration(avg)}`;
+            html += `<div class="${className}" title="${title}"></div>`;
+        }
+    }
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// 每日在线趋势图
+let dailyTrendChart = null;
+function renderDailyTrendChart(daily) {
+    const ctx = document.getElementById('daily-trend-chart');
+    if (!ctx) return;
+    
+    // 按日期排序
+    const sorted = [...daily].sort((a, b) => a.date.localeCompare(b.date));
+    const labels = sorted.map(d => {
+        const date = new Date(d.date);
+        return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+    });
+    const data = sorted.map(d => (d.total_seconds || 0) / 60); // 转为分钟
+    
+    const chartColors = {
+        text: '#cbd5e1',
+        grid: '#334155'
+    };
+    
+    if (!dailyTrendChart) {
+        dailyTrendChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: '在线时长(分钟)',
+                    data,
+                    backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                    borderColor: '#6366f1',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: '分钟', color: chartColors.text },
+                        ticks: { color: chartColors.text },
+                        grid: { color: chartColors.grid }
+                    },
+                    x: {
+                        ticks: { 
+                            color: chartColors.text,
+                            maxRotation: 45,
+                            minRotation: 45
+                        },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    } else {
+        dailyTrendChart.data.labels = labels;
+        dailyTrendChart.data.datasets[0].data = data;
+        dailyTrendChart.update('none');
+    }
+}
+
+// 星期偏好图
+let weekdayChart = null;
+function renderWeekdayChart(daily) {
+    const ctx = document.getElementById('weekday-chart');
+    if (!ctx) return;
+    
+    const weekdayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    const weekdayTotals = [0, 0, 0, 0, 0, 0, 0];
+    const weekdayCounts = [0, 0, 0, 0, 0, 0, 0];
+    
+    daily.forEach(d => {
+        const date = new Date(d.date);
+        const dayOfWeek = date.getDay();
+        weekdayTotals[dayOfWeek] += d.total_seconds || 0;
+        weekdayCounts[dayOfWeek]++;
+    });
+    
+    // 计算平均值（分钟）
+    const avgData = weekdayTotals.map((total, idx) => 
+        weekdayCounts[idx] > 0 ? (total / weekdayCounts[idx]) / 60 : 0
+    );
+    
+    // 重排为周一到周日
+    const labels = [...weekdayNames.slice(1), weekdayNames[0]];
+    const data = [...avgData.slice(1), avgData[0]];
+    
+    // 颜色渐变
+    const colors = data.map((v, i) => {
+        const max = Math.max(...data, 1);
+        const intensity = v / max;
+        return `rgba(16, 185, 129, ${0.3 + intensity * 0.7})`;
+    });
+    
+    const chartColors = {
+        text: '#cbd5e1',
+        grid: '#334155'
+    };
+    
+    if (!weekdayChart) {
+        weekdayChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: '平均在线(分钟)',
+                    data,
+                    backgroundColor: colors,
+                    borderColor: '#10b981',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        title: { display: true, text: '平均在线(分钟)', color: chartColors.text },
+                        ticks: { color: chartColors.text },
+                        grid: { color: chartColors.grid }
+                    },
+                    y: {
+                        ticks: { color: chartColors.text },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    } else {
+        weekdayChart.data.datasets[0].data = data;
+        weekdayChart.data.datasets[0].backgroundColor = colors;
+        weekdayChart.update('none');
+    }
+}
+
 async function loadData() {
     const spinner = document.getElementById('loading-spinner');
     if (spinner) spinner.classList.remove('hidden');
@@ -288,20 +574,23 @@ async function loadData() {
         const detail = await detailRes.json();
         renderSummary(detail);
 
-        const calendarRes = await fetch(`/api/player/${encodeURIComponent(playerName)}/calendar?days=30`);
-        const calendar = await calendarRes.json();
-        renderHeatmap24h(calendar.heatmap);
-        renderHourlyChart(calendar.hourly_average || []);
-        document.getElementById('avg-daily').textContent = formatDuration(calendar.average_daily_seconds);
-        document.getElementById('avg-session').textContent = formatDuration(calendar.average_session_seconds);
-        renderSessions(calendar.daily || []);
+        const sessionsRes = await fetch(`/api/player/${encodeURIComponent(playerName)}/sessions?days=30`);
+        const sessions = await sessionsRes.json();
+        renderHeatmap24h(sessions.heatmap);
+        renderHourlyChart(sessions.hourly_average || []);
+        renderWeeklyHeatmap(sessions.daily || []);
+        renderDailyTrendChart(sessions.daily || []);
+        renderWeekdayChart(sessions.daily || []);
+        document.getElementById('avg-daily').textContent = formatDuration(sessions.average_daily_seconds);
+        document.getElementById('avg-session').textContent = formatDuration(sessions.average_session_seconds);
+        renderSessions(sessions.daily || [], sessions.player_online || false);
         
         // Calculate past 24h duration
         const now = new Date();
         const past24h = now.getTime() - 24 * 60 * 60 * 1000;
         let duration24h = 0;
         
-        calendar.heatmap.forEach(h => {
+        sessions.heatmap.forEach(h => {
             const cellTime = new Date(h.date + 'T' + String(h.hour).padStart(2, '0') + ':00:00').getTime();
             if (cellTime >= past24h && cellTime <= now.getTime()) {
                 duration24h += h.seconds;

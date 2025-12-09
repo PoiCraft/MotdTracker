@@ -186,11 +186,11 @@ def register_player_routes(api, poller):
 
             return summary
 
-    @player_ns.route("/<string:player_name>/calendar")
-    class PlayerCalendar(Resource):
+    @player_ns.route("/<string:player_name>/sessions")
+    class PlayerSessions(Resource):
         @player_ns.doc(
-            "获取玩家日历",
-            description="获取玩家在线日历数据，显示玩家在过去N天内的在线情况（默认30天）",
+            "获取玩家会话",
+            description="获取玩家会话历史数据，包括热力图、每日会话列表和统计信息（默认30天）",
             params={"days": "可选，整数，覆盖默认天数，示例：?days=7"},
         )
         def get(self, player_name):
@@ -219,12 +219,15 @@ def register_player_routes(api, poller):
                 )
                 server_to_group[server["id"]] = server_name
 
+            # 检查玩家是否在线
+            player_online = False
             for server in poller.db.get_all_servers():
                 sessions = poller.db.get_all_player_sessions(server["id"])
                 for s in sessions:
                     if s.get("player_name") != player_name:
                         continue
                     if s.get("online"):
+                        player_online = True
                         start = s.get("session_start")
                         history.append(
                             {
@@ -356,6 +359,7 @@ def register_player_routes(api, poller):
 
             response = {
                 "days": days,
+                "player_online": player_online,  # 玩家是否在线
                 "heatmap": heatmap,
                 "daily": [
                     {

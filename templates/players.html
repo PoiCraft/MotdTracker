@@ -96,7 +96,7 @@ async function loadPlayers() {
         const playersWithHeatmap = await Promise.all(
             players.map(async (p) => {
                 try {
-                    const calRes = await fetch(`/api/player/${encodeURIComponent(p.player_name)}/calendar?days=2`);
+                    const calRes = await fetch(`/api/player/${encodeURIComponent(p.player_name)}/sessions?days=2`);
                     const calendar = await calRes.json();
                     
                     // Calculate past 24h duration
