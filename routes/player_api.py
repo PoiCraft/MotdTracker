@@ -388,7 +388,8 @@ def register_player_routes(api, poller):
 
             now = utc8_now()
 
-            # 添加当前在线会话
+            # 添加当前在线会话（使用 set 去重，避免多服务器重复）
+            online_sessions = []
             for server in poller.db.get_all_servers():
                 sessions = poller.db.get_all_player_sessions(server["id"])
                 for s in sessions:
@@ -396,13 +397,53 @@ def register_player_routes(api, poller):
                         continue
                     if s.get("online"):
                         start = s.get("session_start")
-                        history.append(
-                            {
-                                "session_start": start,
-                                "session_end": now.isoformat(),
-                                "server_id": server["id"],
-                            }
+                        online_sessions.append({
+                            "session_start": start,
+                            "session_end": now.isoformat(),
+                            "server_id": server["id"],
+                        })
+            
+            # 合并历史数据和当前在线会话
+            history.extend(online_sessions)
+
+            # 合并重叠的时间段（避免多服务器同时在线导致重复计算）
+            def merge_intervals(intervals):
+                """合并重叠的时间区间"""
+                if not intervals:
+                    return []
+                intervals.sort(key=lambda x: x[0])
+                merged = [intervals[0]]
+                for current_start, current_end, server_id in intervals[1:]:
+                    last_start, last_end, last_server = merged[-1]
+                    if current_start <= last_end:
+                        # 重叠，合并
+                        merged[-1] = (
+                            last_start,
+                            max(last_end, current_end),
+                            last_server,
                         )
+                    else:
+                        merged.append((current_start, current_end, server_id))
+                return merged
+
+            # 转换为区间列表并合并
+            intervals = []
+            for item in history:
+                start = (
+                    datetime.fromisoformat(item["session_start"])
+                    if isinstance(item["session_start"], str)
+                    else item["session_start"]
+                )
+                end = (
+                    datetime.fromisoformat(item["session_end"])
+                    if isinstance(item["session_end"], str)
+                    else item["session_end"]
+                )
+                if not start or not end or end <= start:
+                    continue
+                intervals.append((start, end, item.get("server_id")))
+
+            merged_sessions = merge_intervals(intervals)
 
             # 初始化周统计数据结构
             # weekday_hours[dayOfWeek][hour] = { total_seconds, sample_count }
@@ -419,21 +460,8 @@ def register_player_routes(api, poller):
                     yield current, segment_end
                     current = next_hour
 
-            # 处理每个会话
-            for item in history:
-                start = (
-                    datetime.fromisoformat(item["session_start"])
-                    if isinstance(item["session_start"], str)
-                    else item["session_start"]
-                )
-                end = (
-                    datetime.fromisoformat(item["session_end"])
-                    if isinstance(item["session_end"], str)
-                    else item["session_end"]
-                )
-                if not start or not end or end <= start:
-                    continue
-
+            # 处理每个合并后的会话（已去重）
+            for start, end, server_id in merged_sessions:
                 # 按小时切分并统计
                 for seg_start, seg_end in split_by_hour(start, end):
                     day_of_week = seg_start.weekday()  # 0=周一, 6=周日
