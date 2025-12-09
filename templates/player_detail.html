@@ -401,7 +401,7 @@ function renderDailyTrendChart(daily) {
         const date = new Date(d.date);
         return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
     });
-    const data = sorted.map(d => (d.total_seconds || 0) / 60); // 转为分钟
+    const data = sorted.map(d => d.total_seconds || 0); // 保持为秒
     
     const chartColors = {
         text: '#cbd5e1',
@@ -414,7 +414,7 @@ function renderDailyTrendChart(daily) {
             data: {
                 labels,
                 datasets: [{
-                    label: '在线时长(分钟)',
+                    label: '在线时长',
                     data,
                     backgroundColor: 'rgba(99, 102, 241, 0.6)',
                     borderColor: '#6366f1',
@@ -425,13 +425,31 @@ function renderDailyTrendChart(daily) {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false }
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const seconds = ctx.parsed.y;
+                                const hours = Math.floor(seconds / 3600);
+                                const minutes = Math.floor((seconds % 3600) / 60);
+                                return `在线时长: ${hours}h${minutes}m`;
+                            }
+                        }
+                    }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        title: { display: true, text: '分钟', color: chartColors.text },
-                        ticks: { color: chartColors.text },
+                        title: { display: true, text: '时长', color: chartColors.text },
+                        ticks: { 
+                            color: chartColors.text,
+                            callback: (value) => {
+                                const hours = Math.floor(value / 3600);
+                                const minutes = Math.floor((value % 3600) / 60);
+                                if (hours > 0) return `${hours}h${minutes}m`;
+                                return `${minutes}m`;
+                            }
+                        },
                         grid: { color: chartColors.grid }
                     },
                     x: {
@@ -470,7 +488,7 @@ function renderWeekdayChart(weekdayPreference, totalDays) {
     
     // API 返回的数据已经是按周一到周日排序的
     const labels = weekdayPreference.map(d => d.day_name);
-    const data = weekdayPreference.map(d => (d.avg_seconds || 0) / 60); // 转为分钟
+    const data = weekdayPreference.map(d => d.avg_seconds || 0); // 保持为秒
     
     // 颜色渐变
     const maxVal = Math.max(...data, 1);
@@ -490,7 +508,7 @@ function renderWeekdayChart(weekdayPreference, totalDays) {
             data: {
                 labels,
                 datasets: [{
-                    label: '平均在线(分钟)',
+                    label: '平均在线时长',
                     data,
                     backgroundColor: colors,
                     borderColor: '#10b981',
@@ -505,6 +523,12 @@ function renderWeekdayChart(weekdayPreference, totalDays) {
                     legend: { display: false },
                     tooltip: {
                         callbacks: {
+                            label: (ctx) => {
+                                const seconds = ctx.parsed.x;
+                                const hours = Math.floor(seconds / 3600);
+                                const minutes = Math.floor((seconds % 3600) / 60);
+                                return `平均在线: ${hours}h${minutes}m`;
+                            },
                             afterLabel: (ctx) => {
                                 const item = weekdayPreference[ctx.dataIndex];
                                 return `样本: ${item.sample_days} 天`;
@@ -515,8 +539,16 @@ function renderWeekdayChart(weekdayPreference, totalDays) {
                 scales: {
                     x: {
                         beginAtZero: true,
-                        title: { display: true, text: '平均在线(分钟)', color: chartColors.text },
-                        ticks: { color: chartColors.text },
+                        title: { display: true, text: '平均在线时长', color: chartColors.text },
+                        ticks: { 
+                            color: chartColors.text,
+                            callback: (value) => {
+                                const hours = Math.floor(value / 3600);
+                                const minutes = Math.floor((value % 3600) / 60);
+                                if (hours > 0) return `${hours}h${minutes}m`;
+                                return `${minutes}m`;
+                            }
+                        },
                         grid: { color: chartColors.grid }
                     },
                     y: {
