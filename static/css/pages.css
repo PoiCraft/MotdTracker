@@ -99,7 +99,7 @@
 
 .badge-table {
     width: 100%;
-    min-width: 1400px; /* 宽屏自适应，窄屏触发滚动 */
+    min-width: 1000px; /* 宽屏自适应，窄屏触发滚动 */
     border-collapse: collapse;
     margin: 0;
 }
