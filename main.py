@@ -32,7 +32,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", path="/api/socket.io")
 api = Api(
     app,
     title='MotdTracker API',
-    version='1.0',
+    version=get_version(),
     description='Minecraft 服务器监控 API 文档',
     doc='/api/docs',
     prefix='/api'
