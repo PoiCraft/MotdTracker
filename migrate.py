@@ -68,7 +68,7 @@ def main():
     # 创建 PostgreSQL 数据库实例
     try:
         logger.info("连接到 PostgreSQL...")
-        from database_pgsql import PostgreSQLDatabase
+        from database_postgresql import PostgreSQLDatabase
         pgsql_db = PostgreSQLDatabase(
             host=pgsql_config['host'],
             port=pgsql_config['port'],

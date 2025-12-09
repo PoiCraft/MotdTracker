@@ -10,8 +10,8 @@ MotdTracker 是一个基于 Flask 的 Minecraft 多节点服务器监控系统�
 
 ### 三层数据库抽象
 - **DatabaseBase** (`database_base.py`): ABC 抽象基类定义所有数据库操作接口
-- **Database** (`database.py`): SQLite 实现（默认）
-- **PostgreSQLDatabase** (`database_pgsql.py`): PostgreSQL 实现（可选高性能后端）
+- **Database** (`database_sqlite.py`): SQLite 实现（默认）
+- **PostgreSQLDatabase** (`database_postgresql.py`): PostgreSQL 实现（可选高性能后端）
 - **工厂模式** (`database_factory.py`): 根据 `config.json` 自动选择数据库，首次启动 PostgreSQL 时自动从 SQLite 迁移数据（带进度条）
 
 **关键约定**: 新增数据库方法必须在 `DatabaseBase` 声明，然后在两个实现类中同步添加。
@@ -130,7 +130,7 @@ return Response(badge.badge_svg_text, mimetype='image/svg+xml')
 - **配置**: `config.json` (服务器列表、轮询间隔、数据库)
 - **启动**: `main.py` (Flask + SocketIO + 路由注册)
 - **核心逻辑**: `poller.py` (轮询调度)、`monitor.py` (mcstatus 查询)
-- **数据库**: `database_base.py` (接口)、`database.py` (SQLite)、`database_pgsql.py` (PostgreSQL)
+- **数据库**: `database_base.py` (接口)、`database_sqlite.py` (SQLite)、`database_postgresql.py` (PostgreSQL)
 - **迁移文档**: `POSTGRESQL.md`、`MIGRATION_PROGRESS.md`
 
 ## 测试与调试

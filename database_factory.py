@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Dict
 from database_base import DatabaseBase
-from database import Database as SQLiteDatabase
+from database_sqlite import Database as SQLiteDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def create_database(config: Dict) -> DatabaseBase:
     if pgsql_config and all(k in pgsql_config for k in ['host', 'port', 'database', 'user', 'password']):
         # 使用PostgreSQL
         try:
-            from database_pgsql import PostgreSQLDatabase
+            from database_postgresql import PostgreSQLDatabase
             logger.info("使用 PostgreSQL 数据库")
             
             db = PostgreSQLDatabase(
@@ -211,7 +211,7 @@ def migrate_sqlite_to_pgsql(sqlite_path: str, pgsql_db: DatabaseBase):
     ''')
     
     # 使用PostgreSQL连接直接批量插入
-    from database_pgsql import PostgreSQLDatabase
+    from database_postgresql import PostgreSQLDatabase
     if isinstance(pgsql_db, PostgreSQLDatabase):
         pg_conn = pgsql_db.get_connection()
         pg_cursor = pg_conn.cursor()

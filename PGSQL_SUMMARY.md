@@ -7,8 +7,8 @@
 
 ### 2. 数据库抽象层
 - ✅ 创建 `database_base.py` - 数据库操作抽象基类
-- ✅ 修改 `database.py` - SQLite 实现继承自基类
-- ✅ 创建 `database_pgsql.py` - PostgreSQL 完整实现
+- ✅ 修改 `database_sqlite.py` - SQLite 实现继承自基类
+- ✅ 创建 `database_postgresql.py` - PostgreSQL 完整实现
 
 ### 3. 数据库工厂
 - ✅ 创建 `database_factory.py` - 智能数据库选择和迁移
@@ -122,7 +122,8 @@ uv run migrate.py
 
 ### 新增文件
 - `database_base.py` - 抽象基类
-- `database_pgsql.py` - PostgreSQL 实现
+- `database_sqlite.py` - SQLite 实现
+- `database_postgresql.py` - PostgreSQL 实现
 - `database_factory.py` - 工厂和迁移
 - `migrate.py` - 手动迁移脚本
 - `config.example.json` - 配置示例
