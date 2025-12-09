@@ -60,7 +60,7 @@ def register_server_routes(api, poller):
     class ServerHistory(Resource):
         @server_ns.doc(
             '获取服务器历史',
-            description='获取服务器的聚合历史数据（所有节点的聚合）',
+            description='获取服务器的聚合历史数据（所有节点的聚合）。返回数据按时间升序排列（最旧在前，最新在后），适合图表从左到右显示。',
             params={'hours': '可选，整数小时，默认12，范围1-720，示例：?hours=24'}
         )
         def get(self):
@@ -90,7 +90,8 @@ def register_server_routes(api, poller):
                     all_histories[timestamp]['nodes'][node_name] = record
 
             aggregated_history = []
-            for timestamp in sorted(all_histories.keys(), reverse=True):
+            # 按时间升序排列（最旧在前，最新在后）
+            for timestamp in sorted(all_histories.keys()):
                 data = all_histories[timestamp]
                 nodes_data = data['nodes']
 
@@ -115,7 +116,7 @@ def register_server_routes(api, poller):
     class ServerHistoryCompact(Resource):
         @server_ns.doc(
             '获取服务器历史（精简版）',
-            description='获取服务器的聚合历史数据（仅返回图表必需字段以减少传输体积）',
+            description='获取服务器的聚合历史数据（仅返回图表必需字段以减少传输体积）。返回数据按时间升序排列（最旧在前，最新在后），适合图表从左到右显示。',
             params={'hours': '可选，整数小时，默认12，范围1-720，示例：?hours=24'}
         )
         def get(self):
@@ -156,7 +157,8 @@ def register_server_routes(api, poller):
             players_max_list = []
             latencies_list = {}
 
-            for timestamp in sorted(all_histories.keys(), reverse=True):
+            # 按时间升序排列（最旧在前，最新在后）
+            for timestamp in sorted(all_histories.keys()):
                 data = all_histories[timestamp]
                 nodes_data = data['nodes']
 

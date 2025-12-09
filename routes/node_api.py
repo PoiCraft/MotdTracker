@@ -58,7 +58,7 @@ def register_node_routes(api, poller):
     class NodeHistory(Resource):
         @node_ns.doc(
             '获取节点历史',
-            description='获取指定节点的历史状态记录',
+            description='获取指定节点的历史状态记录。返回数据按时间升序排列（最旧在前，最新在后），适合图表从左到右显示。',
             params={'hours': '可选，整数小时，默认12，范围1-720，示例：?hours=24'}
         )
         def get(self, node_id):
@@ -67,13 +67,15 @@ def register_node_routes(api, poller):
             limit = max(1, int(hours * 3600 / poll_interval))
             history_raw = poller.db.get_server_history(node_id, limit=limit)
             history = filter_history_by_time(history_raw, hours)
+            # 按时间升序排列（最旧在前，最新在后）
+            history = sorted(history, key=lambda x: x.get('timestamp', ''))
             return history
 
     @node_ns.route('/<int:node_id>/history-compact')
     class NodeHistoryCompact(Resource):
         @node_ns.doc(
             '获取节点历史（精简版）',
-            description='获取指定节点的历史状态记录（仅返回图表必需字段以减少传输体积）',
+            description='获取指定节点的历史状态记录（仅返回图表必需字段以减少传输体积）。返回数据按时间升序排列（最旧在前，最新在后），适合图表从左到右显示。',
             params={'hours': '可选，整数小时，默认12，范围1-720，示例：?hours=24'}
         )
         def get(self, node_id):
@@ -82,6 +84,8 @@ def register_node_routes(api, poller):
             limit = max(1, int(hours * 3600 / poll_interval))
             history_raw = poller.db.get_server_history(node_id, limit=limit)
             history = filter_history_by_time(history_raw, hours)
+            # 按时间升序排列（最旧在前，最新在后）
+            history = sorted(history, key=lambda x: x.get('timestamp', ''))
             return {
                 'timestamps': [h['timestamp'] for h in history],
                 'online': [h['online'] for h in history],

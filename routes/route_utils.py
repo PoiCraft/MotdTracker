@@ -96,9 +96,13 @@ def get_compact_history(history):
     
     Returns:
         紧凑格式的字典，包含 timestamps, online, latency, players_online, players_max 数组
+        数据按时间升序排列（最旧在前，最新在后），适合图表从左到右显示
     """
     if not history:
         return {}
+    
+    # 按时间戳升序排序（最旧在前，最新在后），确保图表从左到右显示
+    sorted_history = sorted(history, key=lambda x: x.get('timestamp', ''))
     
     timestamps = []
     online_list = []
@@ -106,7 +110,7 @@ def get_compact_history(history):
     players_online_list = []
     players_max_list = []
     
-    for record in history:
+    for record in sorted_history:
         timestamps.append(record.get('timestamp'))
         online_list.append(record.get('online', False))
         latencies.append(record.get('latency'))
@@ -291,7 +295,7 @@ def get_node_status_timeline(poller, node_id, hours):
         hours: 小时数
     
     Returns:
-        包含 timestamps 和 online 数组的字典
+        包含 timestamps 和 online 数组的字典，按时间升序排列（最旧在前，最新在后）
     """
     poll_interval = poller.config.get('poll_interval', 60)
     limit = max(1, int(hours * 3600 / poll_interval))
@@ -300,6 +304,9 @@ def get_node_status_timeline(poller, node_id, hours):
     history = filter_history_by_time(history, hours)
     if not history:
         return {'timestamps': [], 'online': []}
+    
+    # 按时间升序排列（最旧在前，最新在后）
+    history = sorted(history, key=lambda x: x.get('timestamp', ''))
     
     timestamps = [h.get('timestamp') for h in history]
     online_list = [h.get('online', False) for h in history]

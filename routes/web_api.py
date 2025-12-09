@@ -161,7 +161,7 @@ def register_web_routes(api, poller):
     class WebServer(Resource):
         @web_ns.doc(
             "获取服务器页面完整数据",
-            description="一次性获取服务器页面所需的所有数据（完整加载）",
+            description="一次性获取服务器页面所需的所有数据（完整加载）。历史数据按时间升序排列（最旧在前，最新在后），适合图表从左到右显示。",
         )
         @web_ns.param("hours", "时间范围（小时）", type="int", default=12)
         def get(self):
@@ -219,7 +219,7 @@ def register_web_routes(api, poller):
     class WebServerHead(Resource):
         @web_ns.doc(
             "获取服务器增量更新数据",
-            description="获取服务器页面增量更新所需的完整增量数据，包括最新状态、统计数据和历史数据点",
+            description="获取服务器页面增量更新所需的完整增量数据，包括最新状态、统计数据和历史数据点。历史数据按时间升序排列（最旧在前，最新在后）。",
         )
         @web_ns.param("hours", "时间范围（小时）", type="int", default=12)
         def get(self):
@@ -298,7 +298,7 @@ def register_web_routes(api, poller):
     class WebNode(Resource):
         @web_ns.doc(
             "获取节点页面完整数据",
-            description="一次性获取单个节点页面所需的所有数据（完整加载）",
+            description="一次性获取单个节点页面所需的所有数据（完整加载）。历史数据按时间升序排列（最旧在前，最新在后），适合图表从左到右显示。",
         )
         @web_ns.param("hours", "时间范围（小时）", type="int", default=12)
         def get(self, node_id):
@@ -343,7 +343,7 @@ def register_web_routes(api, poller):
     class WebNodeHead(Resource):
         @web_ns.doc(
             "获取节点增量更新数据",
-            description="获取单个节点页面增量更新所需的完整增量数据，包括最新状态、统计数据和历史数据点",
+            description="获取单个节点页面增量更新所需的完整增量数据，包括最新状态、统计数据和历史数据点。历史数据按时间升序排列（最旧在前，最新在后）。",
         )
         @web_ns.param("hours", "时间范围（小时）", type="int", default=12)
         def get(self, node_id):
