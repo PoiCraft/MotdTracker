@@ -110,8 +110,8 @@ def register_player_routes(api, poller):
             players.sort(
                 key=lambda x: (
                     not x["online"],  # 在线玩家在前
-                    x["player_name"].lower() if x["online"] else "",  # 在线玩家按字母排序
-                    -(x["last_seen_dt"].timestamp() if not x["online"] and x["last_seen_dt"] else 0),  # 离线玩家按最后在线时间降序
+                    x["player_name"].lower() if x["online"] else "",  # 在线玩家按字母排序，离线玩家此键为空字符串（会被忽略）
+                    -(x["last_seen_dt"].timestamp() if not x["online"] and x["last_seen_dt"] else float("-inf")),  # 离线玩家按最后在线时间降序，无记录的排在最后
                 )
             )
 
