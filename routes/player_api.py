@@ -103,15 +103,15 @@ def register_player_routes(api, poller):
                     }
 
             players = list(aggregated.values())
+            # 排序逻辑：
+            # 1. 在线玩家优先
+            # 2. 在线玩家按字母顺序排序
+            # 3. 离线玩家按最后在线时间（last_seen）降序排序
             players.sort(
                 key=lambda x: (
-                    not x["online"],
-                    x["player_name"].lower(),
-                    -(
-                        x["last_seen_dt"].timestamp()
-                        if x["last_seen_dt"]
-                        else float("-inf")
-                    ),
+                    not x["online"],  # 在线玩家在前
+                    x["player_name"].lower() if x["online"] else "",  # 在线玩家按字母排序
+                    -(x["last_seen_dt"].timestamp() if not x["online"] and x["last_seen_dt"] else 0),  # 离线玩家按最后在线时间降序
                 )
             )
 
