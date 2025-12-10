@@ -223,8 +223,7 @@
                 : latestPlayersMax;
             
             const activeEntrances = Object.keys(latestLatencies).filter(name => {
-                const latArray = latestLatencies[name];
-                return latArray && latArray.some(v => v !== null);
+                name.latest_status?.online;
             }).length;
             
             updateServerCard({
