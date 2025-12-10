@@ -100,19 +100,9 @@ def register_web_routes(api, poller):
                         ):
                             agg["duration_seconds"] = duration_seconds
 
-        # 转换为列表并排序（按最后见到时间降序）
+        # 转换为列表并按字母顺序排序（仅在线玩家）
         result = list(aggregated.values())
-        result.sort(
-            key=lambda x: (
-                not x["online"],
-                x["player_name"].lower(),
-                -(
-                    x["last_seen_dt"].timestamp()
-                    if x["last_seen_dt"]
-                    else float("-inf")
-                ),
-            )
-        )
+        result.sort(key=lambda x: x["player_name"].lower())
 
         # 移除临时字段
         for p in result:
