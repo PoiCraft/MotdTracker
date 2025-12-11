@@ -222,9 +222,7 @@
                 ? head.players_max
                 : latestPlayersMax;
             
-            const activeEntrances = Object.keys(latestLatencies).filter(name => {
-                name.latest_status?.online;
-            }).length;
+            const activeEntrances = nodes.filter(n => n.latest_status?.online).length;
             
             updateServerCard({
                 uptime: uptime.uptime_percentage ?? 0,
