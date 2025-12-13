@@ -233,7 +233,7 @@ function renderLatencyChart(id, history){
         // Create new chart
         charts[key] = new Chart(ctx, {
             type: 'line',
-            data:{ labels, datasets:[{label:'延迟 (ms)', data: latencies, borderColor:'#667eea', backgroundColor:'rgba(102, 126, 234, 0.1)', borderWidth:2, fill:true, tension:0.4, spanGaps:true, pointRadius:0, pointHoverRadius:5}]},
+            data:{ labels, datasets:[{label:'延迟 (ms)', data: latencies, borderColor:'#667eea', backgroundColor:'rgba(102, 126, 234, 0.1)', borderWidth:2, fill:true, tension:0.4, pointRadius:0, pointHoverRadius:5}]},
             options:{
                 responsive:true,
                 maintainAspectRatio:false,
@@ -287,8 +287,8 @@ function renderPlayersChart(id, history){
         charts[key] = new Chart(ctx, {
             type: 'line',
             data:{ labels, datasets:[
-                {label:'在线玩家', data: playersOnline, borderColor:'#10b981', backgroundColor:'rgba(16, 185, 129, 0.1)', borderWidth:3, fill:true, tension:0.4, pointRadius:0, pointHoverRadius:5, spanGaps:true},
-                {label:'最大玩家数', data: playersMax, borderColor:'#6b7280', backgroundColor:'rgba(107, 114, 128, 0.05)', borderWidth:1, borderDash:[5, 5], fill:false, tension:0.4, pointRadius:0, pointHoverRadius:3, spanGaps:true}
+                {label:'在线玩家', data: playersOnline, borderColor:'#10b981', backgroundColor:'rgba(16, 185, 129, 0.1)', borderWidth:3, fill:true, tension:0.4, pointRadius:0, pointHoverRadius:5 },
+                {label:'最大玩家数', data: playersMax, borderColor:'#6b7280', backgroundColor:'rgba(107, 114, 128, 0.05)', borderWidth:1, borderDash:[5, 5], fill:false, tension:0.4, pointRadius:0, pointHoverRadius:3 }
             ]},
             options:{
                 responsive:true,
