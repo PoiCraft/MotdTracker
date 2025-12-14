@@ -48,7 +48,8 @@
   "napcat_alert": {
     "host": "gxb-sh:6110",
     "groups": [
-      "1087059162"
+      "1087059162",
+      "769885907"
     ]
   },
   "poll_interval": 15
