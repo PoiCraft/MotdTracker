@@ -1,6 +1,6 @@
 [project]
 name = "motdtracker"
-version = "1.1.5"
+version = "1.1.6"
 description = "Minecraft服务器监控工具"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -12,5 +12,6 @@ dependencies = [
     "python-socketio>=5.11.0",
     "flask-restx>=0.5.0",
     "psycopg2-binary>=2.9.0",
-    "anybadge>=1.14.0"
+    "anybadge>=1.14.0",
+    "requests>=2.32.5",
 ]
