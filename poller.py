@@ -3,6 +3,7 @@ import logging
 import requests
 from app_utils import utc8_now
 from typing import Dict, List
+from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from apscheduler.schedulers.background import BackgroundScheduler
 from database_factory import create_database
@@ -166,7 +167,10 @@ class ServerPoller:
             )
 
         # 检查告警
-        self.check_alerts()
+        try:
+            self.check_alerts()
+        except Exception as e:
+            self.logger.error(f"检查告警时出错: {str(e)}")
 
         self.logger.info("本轮轮询完成")
         self.logger.info("=" * 60)
@@ -244,12 +248,27 @@ class ServerPoller:
 
         # 如果上一帧全部离线且当前帧有在线，发送上线告警
         if previous_all_offline and current_any_online:
-            msg = "【告警】服务器已上线"
+            msg = "✅【缓解】服务器已上线"
             self.send_alert(msg)
             self.logger.info("发送上线告警")
 
         # 如果上一帧有在线且当前帧全部离线，发送离线告警
         if not previous_all_offline and not current_any_online:
-            msg = "【告警】服务器已离线"
+            msg = "⚠️【警报】服务器已离线"
             self.send_alert(msg)
             self.logger.info("发送离线告警")
+            self.next_alert_time = utc8_now() + timedelta(
+                minutes=self.config.get("napcat_alert", {}).get("delta_minutes", 30)
+            )
+
+        if current_any_online:
+            self.next_alert_time = None  # 重置下一次告警时间
+
+        if next_alert_time := getattr(self, "next_alert_time", None):
+            if utc8_now() >= next_alert_time:
+                msg = "⚠️【警报】服务器仍然离线"
+                self.send_alert(msg)
+                self.logger.info("发送持续离线告警")
+                self.next_alert_time = utc8_now() + timedelta(
+                    minutes=self.config.get("napcat_alert", {}).get("delta_minutes", 30)
+                )

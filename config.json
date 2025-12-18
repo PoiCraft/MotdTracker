@@ -50,7 +50,8 @@
     "groups": [
       "1087059162",
       "769885907"
-    ]
+    ],
+    "delta_minutes": 30
   },
   "poll_interval": 15
 }
