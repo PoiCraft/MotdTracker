@@ -2,6 +2,7 @@ mod api;
 mod db;
 mod models;
 mod monitor;
+mod poller;
 mod utils;
 
 use anyhow::Result;
@@ -19,16 +20,14 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use models::config::AppConfig;
 use db::Database;
+use poller::ServerPoller;
 
 /// 应用状态
 pub struct AppState {
     pub config: AppConfig,
     pub db: Database,
-    pub poller: Arc<RwLock<Poller>>,
+    pub poller: Arc<RwLock<ServerPoller>>,
 }
-
-/// 轮询器占位符（将在后续实现）
-pub struct Poller;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -48,16 +47,20 @@ async fn main() -> Result<()> {
     let config = AppConfig::from_file("config.json")?;
     tracing::info!("配置文件加载成功");
 
-    // 初始化数据库
-    let db = Database::new(&config.database).await?;
+    // 初始化数据库（使用工厂方法）
+    let db = db::factory::create_database(&config).await?;
     db.init_schema().await?;
-    tracing::info!("数据库初始化完成: {}", config.database);
+    tracing::info!("数据库初始化完成");
+
+    // 初始化轮询器
+    let mut poller = ServerPoller::new(config.clone(), db.clone()).await?;
+    poller.start().await?;
 
     // 创建应用状态
     let state = Arc::new(AppState {
         config: config.clone(),
         db,
-        poller: Arc::new(RwLock::new(Poller)),
+        poller: Arc::new(RwLock::new(poller)),
     });
 
     // 创建路由
