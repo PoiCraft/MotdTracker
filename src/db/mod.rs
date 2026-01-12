@@ -93,7 +93,7 @@ impl Database {
     }
 
     /// 获取SQLite连接池引用（如果是SQLite）
-    fn sqlite_pool(&self) -> Option<&SqlitePool> {
+    pub(crate) fn sqlite_pool(&self) -> Option<&SqlitePool> {
         match &self.pool {
             PoolType::Sqlite(pool) => Some(pool),
             _ => None,
@@ -101,7 +101,7 @@ impl Database {
     }
 
     /// 获取PostgreSQL连接池引用（如果是PostgreSQL）
-    fn postgres_pool(&self) -> Option<&PgPool> {
+    pub(crate) fn postgres_pool(&self) -> Option<&PgPool> {
         match &self.pool {
             PoolType::Postgres(pool) => Some(pool),
             _ => None,

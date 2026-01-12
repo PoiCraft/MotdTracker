@@ -2,7 +2,6 @@ use crate::db::Database;
 use crate::models::{player::PlayerSession, server::Server, status::StatusLog};
 use chrono::{DateTime, Utc};
 use sqlx::Row;
-use crate::{execute_query, fetch_optional_query, fetch_all_query, fetch_one_query};
 
 impl Database {
     /// 添加或更新服务器
@@ -14,58 +13,58 @@ impl Database {
         color: Option<&str>,
         server_id: Option<i32>,
     ) -> anyhow::Result<i32> {
-        // PostgreSQL使用$1, $2, SQLite使用?, ?
-        // 为了简化，使用动态SQL
-        
         if let Some(id) = server_id {
             // 使用UPSERT或INSERT OR REPLACE
             if self.is_postgres() {
-                execute_query!(self, sqlx::query(
+                sqlx::query(
                     "INSERT INTO servers (id, name, host, port, color) VALUES ($1, $2, $3, $4, $5)
                      ON CONFLICT (host, port) DO UPDATE SET name = $2, color = $5"
-                ).bind(id).bind(name).bind(host).bind(port).bind(color))?;
+                )
+                .bind(id).bind(name).bind(host).bind(port).bind(color)
+                .execute(self.postgres_pool().unwrap()).await?;
             } else {
-                execute_query!(self, sqlx::query(
+                sqlx::query(
                     "INSERT OR REPLACE INTO servers (id, name, host, port, color) VALUES (?, ?, ?, ?, ?)"
-                ).bind(id).bind(name).bind(host).bind(port).bind(color))?;
+                )
+                .bind(id).bind(name).bind(host).bind(port).bind(color)
+                .execute(self.sqlite_pool().unwrap()).await?;
             }
             Ok(id)
         } else {
             // 查找已存在的服务器
-            let existing_row = if self.is_postgres() {
-                fetch_optional_query!(self, sqlx::query(
-                    "SELECT id FROM servers WHERE host = $1 AND port = $2"
-                ).bind(host).bind(port))?
+            let existing_id: Option<i32> = if self.is_postgres() {
+                sqlx::query_scalar("SELECT id FROM servers WHERE host = $1 AND port = $2")
+                    .bind(host).bind(port)
+                    .fetch_optional(self.postgres_pool().unwrap()).await?
             } else {
-                fetch_optional_query!(self, sqlx::query(
-                    "SELECT id FROM servers WHERE host = ? AND port = ?"
-                ).bind(host).bind(port))?
+                sqlx::query_scalar("SELECT id FROM servers WHERE host = ? AND port = ?")
+                    .bind(host).bind(port)
+                    .fetch_optional(self.sqlite_pool().unwrap()).await?
             };
 
-            if let Some(row) = existing_row {
-                let id: i32 = row.get("id");
+            if let Some(id) = existing_id {
                 // 更新现有服务器
                 if self.is_postgres() {
-                    execute_query!(self, sqlx::query(
-                        "UPDATE servers SET name = $1, color = $2 WHERE id = $3"
-                    ).bind(name).bind(color).bind(id))?;
+                    sqlx::query("UPDATE servers SET name = $1, color = $2 WHERE id = $3")
+                        .bind(name).bind(color).bind(id)
+                        .execute(self.postgres_pool().unwrap()).await?;
                 } else {
-                    execute_query!(self, sqlx::query(
-                        "UPDATE servers SET name = ?, color = ? WHERE id = ?"
-                    ).bind(name).bind(color).bind(id))?;
+                    sqlx::query("UPDATE servers SET name = ?, color = ? WHERE id = ?")
+                        .bind(name).bind(color).bind(id)
+                        .execute(self.sqlite_pool().unwrap()).await?;
                 }
                 Ok(id)
             } else {
                 // 插入新服务器
                 if self.is_postgres() {
-                    let row = fetch_one_query!(self, sqlx::query(
-                        "INSERT INTO servers (name, host, port, color) VALUES ($1, $2, $3, $4) RETURNING id"
-                    ).bind(name).bind(host).bind(port).bind(color))?;
+                    let row = sqlx::query("INSERT INTO servers (name, host, port, color) VALUES ($1, $2, $3, $4) RETURNING id")
+                        .bind(name).bind(host).bind(port).bind(color)
+                        .fetch_one(self.postgres_pool().unwrap()).await?;
                     Ok(row.get("id"))
                 } else {
-                    let result = execute_query!(self, sqlx::query(
-                        "INSERT INTO servers (name, host, port, color) VALUES (?, ?, ?, ?)"
-                    ).bind(name).bind(host).bind(port).bind(color))?;
+                    let result = sqlx::query("INSERT INTO servers (name, host, port, color) VALUES (?, ?, ?, ?)")
+                        .bind(name).bind(host).bind(port).bind(color)
+                        .execute(self.sqlite_pool().unwrap()).await?;
                     Ok(result.last_insert_rowid() as i32)
                 }
             }
@@ -92,7 +91,7 @@ impl Database {
         let plugins_json = plugins.and_then(|p| serde_json::to_string(p).ok());
 
         if self.is_postgres() {
-            execute_query!(self, sqlx::query(
+            sqlx::query(
                 r#"
                 INSERT INTO status_logs 
                 (server_id, timestamp, online, latency, players_online, players_max, 
@@ -102,9 +101,10 @@ impl Database {
             )
             .bind(server_id).bind(timestamp).bind(online).bind(latency)
             .bind(players_online).bind(players_max).bind(version).bind(motd)
-            .bind(sample_players_json).bind(software).bind(plugins_json).bind(map_name))?;
+            .bind(sample_players_json).bind(software).bind(plugins_json).bind(map_name)
+            .execute(self.postgres_pool().unwrap()).await?;
         } else {
-            execute_query!(self, sqlx::query(
+            sqlx::query(
                 r#"
                 INSERT INTO status_logs 
                 (server_id, timestamp, online, latency, players_online, players_max, 
@@ -114,7 +114,8 @@ impl Database {
             )
             .bind(server_id).bind(timestamp).bind(online).bind(latency)
             .bind(players_online).bind(players_max).bind(version).bind(motd)
-            .bind(sample_players_json).bind(software).bind(plugins_json).bind(map_name))?;
+            .bind(sample_players_json).bind(software).bind(plugins_json).bind(map_name)
+            .execute(self.sqlite_pool().unwrap()).await?;
         }
 
         Ok(())
@@ -122,20 +123,28 @@ impl Database {
 
     /// 获取所有服务器
     pub async fn get_all_servers(&self) -> anyhow::Result<Vec<Server>> {
-        let servers = fetch_all_query!(self, sqlx::query_as::<_, Server>("SELECT * FROM servers ORDER BY id"))?;
+        let servers = if self.is_postgres() {
+            sqlx::query_as::<_, Server>("SELECT * FROM servers ORDER BY id")
+                .fetch_all(self.postgres_pool().unwrap()).await?
+        } else {
+            sqlx::query_as::<_, Server>("SELECT * FROM servers ORDER BY id")
+                .fetch_all(self.sqlite_pool().unwrap()).await?
+        };
         Ok(servers)
     }
 
     /// 获取服务器最新状态
     pub async fn get_server_latest_status(&self, server_id: i32) -> anyhow::Result<Option<StatusLog>> {
         let status = if self.is_postgres() {
-            fetch_optional_query!(self, sqlx::query_as::<_, StatusLog>(
+            sqlx::query_as::<_, StatusLog>(
                 "SELECT * FROM status_logs WHERE server_id = $1 ORDER BY timestamp DESC LIMIT 1"
-            ).bind(server_id))?
+            ).bind(server_id)
+             .fetch_optional(self.postgres_pool().unwrap()).await?
         } else {
-            fetch_optional_query!(self, sqlx::query_as::<_, StatusLog>(
+            sqlx::query_as::<_, StatusLog>(
                 "SELECT * FROM status_logs WHERE server_id = ? ORDER BY timestamp DESC LIMIT 1"
-            ).bind(server_id))?
+            ).bind(server_id)
+             .fetch_optional(self.sqlite_pool().unwrap()).await?
         };
         Ok(status)
     }
@@ -143,13 +152,15 @@ impl Database {
     /// 获取服务器历史记录
     pub async fn get_server_history(&self, server_id: i32, limit: i64) -> anyhow::Result<Vec<StatusLog>> {
         let history = if self.is_postgres() {
-            fetch_all_query!(self, sqlx::query_as::<_, StatusLog>(
+            sqlx::query_as::<_, StatusLog>(
                 "SELECT * FROM status_logs WHERE server_id = $1 ORDER BY timestamp DESC LIMIT $2"
-            ).bind(server_id).bind(limit))?
+            ).bind(server_id).bind(limit)
+             .fetch_all(self.postgres_pool().unwrap()).await?
         } else {
-            fetch_all_query!(self, sqlx::query_as::<_, StatusLog>(
+            sqlx::query_as::<_, StatusLog>(
                 "SELECT * FROM status_logs WHERE server_id = ? ORDER BY timestamp DESC LIMIT ?"
-            ).bind(server_id).bind(limit))?
+            ).bind(server_id).bind(limit)
+             .fetch_all(self.sqlite_pool().unwrap()).await?
         };
         Ok(history)
     }
@@ -212,13 +223,15 @@ impl Database {
     ) -> anyhow::Result<()> {
         if sample_players.is_none() || sample_players == Some(&[]) {
             if self.is_postgres() {
-                execute_query!(self, sqlx::query(
+                sqlx::query(
                     "UPDATE player_sessions SET is_online = false, session_end = $1 WHERE server_id = $2 AND is_online = true"
-                ).bind(timestamp).bind(server_id))?;
+                ).bind(timestamp).bind(server_id)
+                 .execute(self.postgres_pool().unwrap()).await?;
             } else {
-                execute_query!(self, sqlx::query(
+                sqlx::query(
                     "UPDATE player_sessions SET is_online = 0, session_end = ? WHERE server_id = ? AND is_online = 1"
-                ).bind(timestamp).bind(server_id))?;
+                ).bind(timestamp).bind(server_id)
+                 .execute(self.sqlite_pool().unwrap()).await?;
             }
             return Ok(());
         }
@@ -226,25 +239,31 @@ impl Database {
         let players = sample_players.unwrap();
 
         let current_online: Vec<String> = if self.is_postgres() {
-            fetch_all_query!(self, sqlx::query(
+            let rows = sqlx::query(
                 "SELECT player_name FROM player_sessions WHERE server_id = $1 AND is_online = true"
-            ).bind(server_id))?
+            ).bind(server_id)
+             .fetch_all(self.postgres_pool().unwrap()).await?;
+            rows.iter().map(|row| row.get("player_name")).collect()
         } else {
-            fetch_all_query!(self, sqlx::query(
+            let rows = sqlx::query(
                 "SELECT player_name FROM player_sessions WHERE server_id = ? AND is_online = 1"
-            ).bind(server_id))?
-        }.iter().map(|row| row.get("player_name")).collect();
+            ).bind(server_id)
+             .fetch_all(self.sqlite_pool().unwrap()).await?;
+            rows.iter().map(|row| row.get("player_name")).collect()
+        };
 
         for player in current_online.iter() {
             if !players.contains(player) {
                 if self.is_postgres() {
-                    execute_query!(self, sqlx::query(
+                    sqlx::query(
                         "UPDATE player_sessions SET is_online = false, session_end = $1 WHERE server_id = $2 AND player_name = $3 AND is_online = true"
-                    ).bind(timestamp).bind(server_id).bind(player))?;
+                    ).bind(timestamp).bind(server_id).bind(player)
+                     .execute(self.postgres_pool().unwrap()).await?;
                 } else {
-                    execute_query!(self, sqlx::query(
+                    sqlx::query(
                         "UPDATE player_sessions SET is_online = 0, session_end = ? WHERE server_id = ? AND player_name = ? AND is_online = 1"
-                    ).bind(timestamp).bind(server_id).bind(player))?;
+                    ).bind(timestamp).bind(server_id).bind(player)
+                     .execute(self.sqlite_pool().unwrap()).await?;
                 }
             }
         }
@@ -252,13 +271,15 @@ impl Database {
         for player in players.iter() {
             if !current_online.contains(player) {
                 if self.is_postgres() {
-                    execute_query!(self, sqlx::query(
+                    sqlx::query(
                         "INSERT INTO player_sessions (server_id, player_name, session_start, is_online) VALUES ($1, $2, $3, true)"
-                    ).bind(server_id).bind(player).bind(timestamp))?;
+                    ).bind(server_id).bind(player).bind(timestamp)
+                     .execute(self.postgres_pool().unwrap()).await?;
                 } else {
-                    execute_query!(self, sqlx::query(
+                    sqlx::query(
                         "INSERT INTO player_sessions (server_id, player_name, session_start, is_online) VALUES (?, ?, ?, 1)"
-                    ).bind(server_id).bind(player).bind(timestamp))?;
+                    ).bind(server_id).bind(player).bind(timestamp)
+                     .execute(self.sqlite_pool().unwrap()).await?;
                 }
             }
         }
@@ -268,29 +289,43 @@ impl Database {
 
     /// 获取当前在线玩家
     pub async fn get_online_players(&self, server_id: i32) -> anyhow::Result<Vec<crate::models::player::OnlinePlayer>> {
-        let rows = if self.is_postgres() {
-            fetch_all_query!(self, sqlx::query(
-                "SELECT player_name, session_start FROM player_sessions WHERE server_id = $1 AND is_online = true ORDER BY session_start DESC"
-            ).bind(server_id))?
-        } else {
-            fetch_all_query!(self, sqlx::query(
-                "SELECT player_name, session_start FROM player_sessions WHERE server_id = ? AND is_online = 1 ORDER BY session_start DESC"
-            ).bind(server_id))?
-        };
-
         let now = Utc::now();
         let mut players = Vec::new();
 
-        for row in rows {
-            let player_name: String = row.get("player_name");
-            let session_start: DateTime<Utc> = row.get("session_start");
-            let duration = now.signed_duration_since(session_start).num_seconds();
+        if self.is_postgres() {
+            let rows = sqlx::query(
+                "SELECT player_name, session_start FROM player_sessions WHERE server_id = $1 AND is_online = true ORDER BY session_start DESC"
+            ).bind(server_id)
+             .fetch_all(self.postgres_pool().unwrap()).await?;
 
-            players.push(crate::models::player::OnlinePlayer {
-                player_name,
-                session_start,
-                duration_seconds: duration,
-            });
+            for row in rows {
+                let player_name: String = row.get("player_name");
+                let session_start: DateTime<Utc> = row.get("session_start");
+                let duration = now.signed_duration_since(session_start).num_seconds();
+
+                players.push(crate::models::player::OnlinePlayer {
+                    player_name,
+                    session_start,
+                    duration_seconds: duration,
+                });
+            }
+        } else {
+            let rows = sqlx::query(
+                "SELECT player_name, session_start FROM player_sessions WHERE server_id = ? AND is_online = 1 ORDER BY session_start DESC"
+            ).bind(server_id)
+             .fetch_all(self.sqlite_pool().unwrap()).await?;
+
+            for row in rows {
+                let player_name: String = row.get("player_name");
+                let session_start: DateTime<Utc> = row.get("session_start");
+                let duration = now.signed_duration_since(session_start).num_seconds();
+
+                players.push(crate::models::player::OnlinePlayer {
+                    player_name,
+                    session_start,
+                    duration_seconds: duration,
+                });
+            }
         }
 
         Ok(players)
@@ -299,13 +334,15 @@ impl Database {
     /// 获取所有玩家会话
     pub async fn get_all_player_sessions(&self, server_id: i32) -> anyhow::Result<Vec<PlayerSession>> {
         let sessions = if self.is_postgres() {
-            fetch_all_query!(self, sqlx::query_as::<_, PlayerSession>(
+            sqlx::query_as::<_, PlayerSession>(
                 "SELECT * FROM player_sessions WHERE server_id = $1 ORDER BY session_start DESC"
-            ).bind(server_id))?
+            ).bind(server_id)
+             .fetch_all(self.postgres_pool().unwrap()).await?
         } else {
-            fetch_all_query!(self, sqlx::query_as::<_, PlayerSession>(
+            sqlx::query_as::<_, PlayerSession>(
                 "SELECT * FROM player_sessions WHERE server_id = ? ORDER BY session_start DESC"
-            ).bind(server_id))?
+            ).bind(server_id)
+             .fetch_all(self.sqlite_pool().unwrap()).await?
         };
         Ok(sessions)
     }
@@ -314,23 +351,27 @@ impl Database {
     pub async fn get_player_history(&self, player_name: &str, days: Option<i32>) -> anyhow::Result<Vec<PlayerSession>> {
         let sessions = if let Some(d) = days {
             if self.is_postgres() {
-                fetch_all_query!(self, sqlx::query_as::<_, PlayerSession>(
-                    "SELECT * FROM player_sessions WHERE player_name = $1 AND session_start >= NOW() - INTERVAL '$2 days' ORDER BY session_start DESC"
-                ).bind(player_name).bind(d))?
+                sqlx::query_as::<_, PlayerSession>(
+                    "SELECT * FROM player_sessions WHERE player_name = $1 AND session_start >= NOW() - INTERVAL '1 day' * $2 ORDER BY session_start DESC"
+                ).bind(player_name).bind(d)
+                 .fetch_all(self.postgres_pool().unwrap()).await?
             } else {
-                fetch_all_query!(self, sqlx::query_as::<_, PlayerSession>(
+                sqlx::query_as::<_, PlayerSession>(
                     "SELECT * FROM player_sessions WHERE player_name = ? AND session_start >= datetime('now', ?) ORDER BY session_start DESC"
-                ).bind(player_name).bind(format!("-{} days", d)))?
+                ).bind(player_name).bind(format!("-{} days", d))
+                 .fetch_all(self.sqlite_pool().unwrap()).await?
             }
         } else {
             if self.is_postgres() {
-                fetch_all_query!(self, sqlx::query_as::<_, PlayerSession>(
+                sqlx::query_as::<_, PlayerSession>(
                     "SELECT * FROM player_sessions WHERE player_name = $1 ORDER BY session_start DESC"
-                ).bind(player_name))?
+                ).bind(player_name)
+                 .fetch_all(self.postgres_pool().unwrap()).await?
             } else {
-                fetch_all_query!(self, sqlx::query_as::<_, PlayerSession>(
+                sqlx::query_as::<_, PlayerSession>(
                     "SELECT * FROM player_sessions WHERE player_name = ? ORDER BY session_start DESC"
-                ).bind(player_name))?
+                ).bind(player_name)
+                 .fetch_all(self.sqlite_pool().unwrap()).await?
             }
         };
 
