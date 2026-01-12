@@ -1,0 +1,72 @@
+.badges-page {
+  max-width: 1200px;
+}
+
+.page-description {
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+.badges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.badge-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.badge-card h3 {
+  font-size: 1.25rem;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.badge-preview {
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+  background-color: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.badge-preview img {
+  height: 20px;
+}
+
+.badge-code {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.code-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.code-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.code-block {
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+  color: var(--primary-color);
+  overflow-x: auto;
+  white-space: pre;
+  display: block;
+}

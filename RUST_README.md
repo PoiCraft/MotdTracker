@@ -42,28 +42,47 @@
 
 - Rust 1.70+ (推荐使用 rustup)
 - SQLite 3
+- Node.js 18+ (用于构建前端)
 
 ### 编译
 
 ```bash
-# 调试版本
-cargo build
-
-# 发布版本（优化编译）
+# 构建后端
 cargo build --release
+
+# 构建前端
+./build-frontend.sh
+# 或手动构建
+cd frontend && npm install && npm run build
 ```
 
 ### 运行
 
 ```bash
-# 调试模式
-cargo run
-
-# 发布模式
+# 运行后端（会自动提供前端静态文件）
+cargo run --release
+# 或
 ./target/release/motdtracker
 ```
 
 默认监听 `0.0.0.0:5011`，可在 `config.json` 中调整。
+
+访问 http://localhost:5011 查看 React 前端界面。
+
+### 开发模式
+
+开发前端时可以使用热重载：
+
+```bash
+# 终端1: 运行后端
+cargo run
+
+# 终端2: 运行前端开发服务器
+cd frontend
+npm run dev
+```
+
+然后访问 http://localhost:3000 (前端会自动代理API到后端)
 
 ### 配置
 

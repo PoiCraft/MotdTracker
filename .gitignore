@@ -5,6 +5,10 @@ __pycache__/
 *.db-journal
 *.migrated
 
-# Added by cargo
-
+# Rust
 /target
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+static/dist/
