@@ -38,6 +38,13 @@
     }
   ],
   "database": "minecraft_stats.db",
+  "postgresql": {
+    "host": "localhost",
+    "port": 5432,
+    "database": "motdtracker",
+    "user": "motdtracker",
+    "password": "motdtracker"
+  },
   "napcat_alert": {
     "host": "gxb-sh:6110",
     "groups": [
