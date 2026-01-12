@@ -1,0 +1,50 @@
+# Rust版本的Docker构建文件
+
+# 构建阶段
+FROM rust:1.75-slim as builder
+
+WORKDIR /app
+
+# 安装构建依赖
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制依赖清单
+COPY Cargo.toml Cargo.lock ./
+
+# 创建空的src目录并构建依赖（利用Docker缓存）
+RUN mkdir src && \
+    echo "fn main() {}" > src/main.rs && \
+    cargo build --release && \
+    rm -rf src
+
+# 复制实际源代码
+COPY src ./src
+
+# 重新构建（只编译改动的代码）
+RUN cargo build --release
+
+# 运行阶段
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+# 安装运行时依赖
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# 从构建阶段复制可执行文件
+COPY --from=builder /app/target/release/motdtracker /usr/local/bin/motdtracker
+
+# 复制静态文件和模板（如果需要）
+COPY static ./static
+COPY templates ./templates
+
+# 暴露端口
+EXPOSE 5011
+
+# 运行应用
+CMD ["motdtracker"]
