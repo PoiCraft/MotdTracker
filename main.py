@@ -14,6 +14,7 @@ from routes.player_api import register_player_routes
 from routes.exporter import register_exporter_routes
 from routes.badge_api import register_badge_routes
 from routes.web_api import register_web_routes
+from routes.query_api import register_query_routes
 
 
 # 创建Flask应用
@@ -48,6 +49,7 @@ register_player_routes(api, poller)
 register_exporter_routes(api, poller)
 register_badge_routes(api, poller)
 register_web_routes(api, poller)  # Web 前端专用 API
+register_query_routes(api, poller)  # 类SQL查询 API
 
 
 def main():
