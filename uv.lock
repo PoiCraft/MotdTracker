@@ -343,7 +343,7 @@ wheels = [
 
 [[package]]
 name = "motdtracker"
-version = "1.1.7"
+version = "1.2.0"
 source = { virtual = "." }
 dependencies = [
     { name = "anybadge" },
