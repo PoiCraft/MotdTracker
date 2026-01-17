@@ -23,6 +23,7 @@ def register_badge_routes(api, poller):
     @badge_ns.route('/server/status')
     class ServerStatusBadge(Resource):
         @badge_ns.doc('服务器状态Badge', description='返回服务器在线状态的SVG badge')
+        @badge_ns.produces(['image/svg+xml'])
         def get(self):
             """服务器状态badge"""
             try:
@@ -53,6 +54,7 @@ def register_badge_routes(api, poller):
     @badge_ns.route('/server/uptime')
     class ServerUptimeBadge(Resource):
         @badge_ns.doc('服务器在线率Badge', description='返回服务器指定时间范围内在线率的SVG badge', params={'hours': '时间范围(小时),默认24'})
+        @badge_ns.produces(['image/svg+xml'])
         def get(self):
             """服务器在线率badge"""
             try:
@@ -107,6 +109,7 @@ def register_badge_routes(api, poller):
     @badge_ns.route('/server/players')
     class ServerPlayersBadge(Resource):
         @badge_ns.doc('服务器在线玩家Badge', description='返回服务器当前在线玩家数的SVG badge')
+        @badge_ns.produces(['image/svg+xml'])
         def get(self):
             """服务器在线玩家数badge"""
             try:
@@ -136,6 +139,7 @@ def register_badge_routes(api, poller):
     @badge_ns.route('/node/<int:node_id>/status')
     class NodeStatusBadge(Resource):
         @badge_ns.doc('节点状态Badge', description='返回指定节点在线状态的SVG badge')
+        @badge_ns.produces(['image/svg+xml'])
         def get(self, node_id):
             """节点状态badge"""
             try:
@@ -161,6 +165,7 @@ def register_badge_routes(api, poller):
     @badge_ns.route('/node/<int:node_id>/uptime')
     class NodeUptimeBadge(Resource):
         @badge_ns.doc('节点在线率Badge', description='返回指定节点指定时间范围内在线率的SVG badge', params={'hours': '时间范围(小时),默认24'})
+        @badge_ns.produces(['image/svg+xml'])
         def get(self, node_id):
             """节点在线率badge"""
             try:
@@ -213,6 +218,7 @@ def register_badge_routes(api, poller):
     @badge_ns.route('/node/<int:node_id>/latency')
     class NodeLatencyBadge(Resource):
         @badge_ns.doc('节点延迟Badge', description='返回指定节点当前延迟的SVG badge')
+        @badge_ns.produces(['image/svg+xml'])
         def get(self, node_id):
             """节点延迟badge"""
             try:
@@ -258,6 +264,7 @@ def register_badge_routes(api, poller):
             'stat': '统计类型: avg(平均), min(最小), max(最大), std(标准差), cv(变异系数), 默认avg',
             'hours': '时间范围(小时),默认24'
         })
+        @badge_ns.produces(['image/svg+xml'])
         def get(self, node_id):
             """节点延迟统计badge"""
             try:
@@ -370,6 +377,7 @@ def register_badge_routes(api, poller):
     @badge_ns.route('/player/<player_name>/status')
     class PlayerStatusBadge(Resource):
         @badge_ns.doc('玩家在线状态Badge', description='返回指定玩家当前在线状态的SVG badge')
+        @badge_ns.produces(['image/svg+xml'])
         def get(self, player_name):
             """玩家在线状态badge"""
             try:
@@ -402,6 +410,7 @@ def register_badge_routes(api, poller):
     @badge_ns.route('/player/<player_name>/current-session')
     class PlayerCurrentSessionBadge(Resource):
         @badge_ns.doc('玩家当前会话时长Badge', description='返回指定玩家当前会话时长的SVG badge')
+        @badge_ns.produces(['image/svg+xml'])
         def get(self, player_name):
             """玩家当前会话时长badge"""
             try:
@@ -451,6 +460,7 @@ def register_badge_routes(api, poller):
     @badge_ns.route('/player/<player_name>/period-playtime')
     class PlayerPeriodPlaytimeBadge(Resource):
         @badge_ns.doc('玩家时段游戏时长Badge', description='返回指定玩家在指定时间范围内游戏时长的SVG badge', params={'hours': '时间范围(小时),默认24'})
+        @badge_ns.produces(['image/svg+xml'])
         def get(self, player_name):
             """玩家时段游戏时长badge"""
             try:
@@ -539,6 +549,7 @@ def register_badge_routes(api, poller):
         @badge_ns.doc('玩家实时状态Badge', 
                       description='返回玩家实时状态,在线显示当前会话时长,离线显示最后在线时间', 
                       )
+        @badge_ns.produces(['image/svg+xml'])
         def get(self, player_name):
             """玩家实时状态badge"""
             try:

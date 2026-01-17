@@ -9,10 +9,12 @@ from utils.data_processing import (
 from utils.history_query import (
     get_history_limit, get_aggregated_history, get_uptime_data, get_status_timeline
 )
+from routes.api_models import get_server_models
 
 
 def register_server_routes(api, poller):
     server_ns = Namespace('server', description='服务器聚合接口', path='/server')
+    models = get_server_models(server_ns)
 
     @server_ns.route('/nodes')
     class ServerNodes(Resource):
@@ -20,6 +22,7 @@ def register_server_routes(api, poller):
             '获取所有节点及 24h 统计',
             description='获取服务器的所有节点及其最新状态。每个节点包含过去 24 小时的延迟统计（平均值、标准差、P95、变异系数等）。'
         )
+        @server_ns.response(200, '成功', [models['server_node_with_stats']])
         def get(self):
             nodes = get_server_nodes_data(poller)
             # Add latency statistics for each node
@@ -38,6 +41,7 @@ def register_server_routes(api, poller):
             '获取服务器实时状态',
             description='获取服务器的实时（head）聚合状态，包含：是否在线、在线玩家数、各节点延迟、版本、MOTD 等。'
         )
+        @server_ns.response(200, '成功', models['server_head'])
         def get(self):
             nodes = get_server_nodes_data(poller)
             if not nodes:
@@ -77,6 +81,7 @@ def register_server_routes(api, poller):
             description='获取服务器的聚合历史数据（所有节点合并）。返回完整的历史记录，包含每个时间点的所有节点数据。按时间升序排列，适合图表展示。',
             params={'hours': '可选，整数小时，默认12，范围1-720，示例：?hours=24'}
         )
+        @server_ns.response(200, '成功', [models['server_history_record']])
         def get(self):
             hours = clamp_hours_param(request)
             limit = get_history_limit(poller, hours)
@@ -133,6 +138,7 @@ def register_server_routes(api, poller):
             description='获取服务器的聚合历史数据，仅包含图表必需的字段（timestamps, online, players, latencies）以减少传输体积。',
             params={'hours': '可选，整数小时，默认12，范围1-720'}
         )
+        @server_ns.response(200, '成功', models['server_history_compact'])
         def get(self):
             hours = clamp_hours_param(request)
             return get_aggregated_history(poller, hours)
@@ -144,6 +150,7 @@ def register_server_routes(api, poller):
             description='获取服务器的聚合统计数据：在线率、平均/标准差/P95 延迟、变异系数等。统计基于指定时间范围内所有节点的合并数据。',
             params={'hours': '可选，整数小时，默认12，范围1-720'}
         )
+        @server_ns.response(200, '成功', models['server_stats'])
         def get(self):
             hours = clamp_hours_param(request)
             limit = get_history_limit(poller, hours)
@@ -191,6 +198,7 @@ def register_server_routes(api, poller):
             description='计算服务器的在线率百分比及检查统计。在线率由所有节点的聚合在线状态计算。',
             params={'hours': '可选，整数小时，默认24，范围1-720'}
         )
+        @server_ns.response(200, '成功', models['uptime_info'])
         def get(self):
             hours = clamp_hours_param(request, default=24)
             return get_uptime_data(poller, hours)
@@ -202,6 +210,7 @@ def register_server_routes(api, poller):
             description='获取服务器 24 小时的在线/离线状态时间轴。用于热力图展示可用性。',
             params={'hours': '可选，整数小时，默认24，范围1-720'}
         )
+        @server_ns.response(200, '成功', [models['status_timeline_record']])
         def get(self):
             hours = clamp_hours_param(request, default=24)
             return get_status_timeline(poller, hours)
@@ -212,6 +221,7 @@ def register_server_routes(api, poller):
             '获取在线玩家列表',
             description='获取所有节点的在线玩家列表（实时）。同名玩家仅显示最后一次看到的信息，按最后看到时间倒序排列。'
         )
+        @server_ns.response(200, '成功', [models['player_online']])
         def get(self):
             servers = poller.db.get_all_servers()
             result = []
@@ -252,6 +262,7 @@ def register_server_routes(api, poller):
             '获取服务器配置',
             description='获取服务器运行配置：轮询间隔、服务器名称等。'
         )
+        @server_ns.response(200, '成功', models['server_config'])
         def get(self):
             return {
                 'poll_interval': poller.config.get('poll_interval', 60),

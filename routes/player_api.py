@@ -3,10 +3,12 @@ from flask import request
 from flask_restx import Namespace, Resource
 from utils.app_utils import utc8_now
 from utils.app_utils import parse_dt
+from routes.api_models import get_player_models
 
 
 def register_player_routes(api, poller):
     player_ns = Namespace("player", description="玩家相关接口", path="/player")
+    models = get_player_models(player_ns)
 
     @player_ns.route("")
     class AllPlayers(Resource):
@@ -14,6 +16,7 @@ def register_player_routes(api, poller):
             "获取玩家列表",
             description="获取所有玩家的汇总列表（包括历史玩家），包含所有节点的玩家数据",
         )
+        @player_ns.response(200, "成功", [models["player_aggregated"]])
         def get(self):
             # 获取所有玩家名字（包括历史）
             all_player_names = poller.db.get_all_player_names()
@@ -128,6 +131,7 @@ def register_player_routes(api, poller):
             "获取玩家详情",
             description="获取指定玩家的详细信息，包括当前在线状态、连接节点等",
         )
+        @player_ns.response(200, "成功", models["player_detail"])
         def get(self, player_name):
             servers = poller.db.get_all_servers()
 
@@ -193,6 +197,7 @@ def register_player_routes(api, poller):
             description="获取玩家会话历史数据，包括热力图、每日会话列表和统计信息（默认30天）",
             params={"days": "可选，整数，覆盖默认天数，示例：?days=7"},
         )
+        @player_ns.response(200, "成功", models["player_sessions"])
         def get(self, player_name):
             days = int(poller.config.get("player_calendar_days", 30))
             try:
@@ -382,6 +387,7 @@ def register_player_routes(api, poller):
             "获取玩家周统计",
             description="获取玩家全量历史数据的周活跃统计，包括每周各时段的平均在线时长和星期偏好",
         )
+        @player_ns.response(200, "成功", models["player_weekly_stats"])
         def get(self, player_name):
             # 获取全量历史数据（不限制天数）
             history = poller.db.get_player_history(player_name, days=None)

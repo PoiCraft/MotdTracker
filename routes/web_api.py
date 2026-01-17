@@ -14,6 +14,7 @@ from utils.history_query import (
     get_status_timeline,
     get_node_status_timeline,
 )
+from routes.api_models import get_web_models
 
 
 def register_web_routes(api, poller):
@@ -22,6 +23,7 @@ def register_web_routes(api, poller):
     提供完整数据和增量数据，减少前端请求次数
     """
     web_ns = Namespace("web", description="Web 前端专用接口", path="/web")
+    models = get_web_models(web_ns)
 
     # ==================== 辅助函数 ====================
 
@@ -157,6 +159,7 @@ def register_web_routes(api, poller):
             description="一次性获取服务器页面所需的所有数据（完整加载）。历史数据按时间升序排列（最旧在前，最新在后），适合图表从左到右显示。",
         )
         @web_ns.param("hours", "时间范围（小时）", type="int", default=12)
+        @web_ns.response(200, "成功", models["web_server_full"])
         def get(self):
             hours = clamp_hours_param(request)
 
@@ -215,6 +218,7 @@ def register_web_routes(api, poller):
             description="获取服务器页面增量更新所需的完整增量数据，包括最新状态、统计数据和历史数据点。历史数据按时间升序排列（最旧在前，最新在后）。",
         )
         @web_ns.param("hours", "时间范围（小时）", type="int", default=12)
+        @web_ns.response(200, "成功", models["web_server_head"])
         def get(self):
             hours = clamp_hours_param(request)
 
@@ -318,6 +322,7 @@ def register_web_routes(api, poller):
             description="一次性获取单个节点页面所需的所有数据（完整加载）。历史数据按时间升序排列（最旧在前，最新在后），适合图表从左到右显示。",
         )
         @web_ns.param("hours", "时间范围（小时）", type="int", default=12)
+        @web_ns.response(200, "成功", models["web_node_full"])
         def get(self, node_id):
             hours = clamp_hours_param(request)
             poll_interval = poller.config.get("poll_interval", 60)
@@ -366,6 +371,7 @@ def register_web_routes(api, poller):
             description="获取单个节点页面增量更新所需的完整增量数据，包括最新状态、统计数据和历史数据点。历史数据按时间升序排列（最旧在前，最新在后）。",
         )
         @web_ns.param("hours", "时间范围（小时）", type="int", default=12)
+        @web_ns.response(200, "成功", models["web_node_head"])
         def get(self, node_id):
             hours = clamp_hours_param(request)
             poll_interval = poller.config.get("poll_interval", 60)

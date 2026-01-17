@@ -3,14 +3,18 @@ from flask_restx import Namespace, Resource, abort
 from utils.app_utils import clamp_hours_param, get_server_nodes_data, parse_dt
 from utils.data_stats import calculate_latency_stats
 from utils.data_processing import (
-    filter_history_by_time, sort_history_by_timestamp, select_representative_record,
+    filter_history_by_time, sort_history_by_timestamp,
     format_compact_history
 )
 from utils.history_query import get_history_limit, get_node_status_timeline
+from routes.api_models import get_node_models
 
 
 def register_node_routes(api, poller):
     node_ns = Namespace('node', description='节点相关接口', path='/node')
+    
+    # 注册响应模型
+    models = get_node_models(node_ns)
 
     @node_ns.route('')
     class Nodes(Resource):
@@ -18,6 +22,7 @@ def register_node_routes(api, poller):
             '获取所有节点列表',
             description='获取服务器的所有节点及其最新状态。每个节点包含 24 小时延迟统计数据。注意：如果节点已禁用（enabled=false），status 将返回 null。'
         )
+        @node_ns.response(200, '成功', [models['node_head']])
         def get(self):
             return poller.get_all_servers_status()
 
@@ -28,6 +33,8 @@ def register_node_routes(api, poller):
             description='获取指定节点的最新状态信息，包含在线玩家、版本、MOTD 等。',
             params={'node_id': '节点 ID'}
         )
+        @node_ns.response(200, '成功', models['node_status'])
+        @node_ns.response(404, '节点不存在')
         def get(self, node_id):
             status = poller.db.get_server_latest_status(node_id)
             if status is None:
@@ -41,6 +48,8 @@ def register_node_routes(api, poller):
             description='获取指定节点的最新状态（head），包含节点配置和最新的服务器状态信息。注意：如果节点已禁用（enabled=false），latest_status 将始终返回 null。',
             params={'node_id': '节点 ID'}
         )
+        @node_ns.response(200, '成功', models['node_head'])
+        @node_ns.response(404, '节点不存在')
         def get(self, node_id):
             server = next((s for s in poller.db.get_all_servers() if s['id'] == node_id), None)
             if server is None:
@@ -63,6 +72,7 @@ def register_node_routes(api, poller):
             description='获取指定节点当前在线的玩家列表，包含会话时长信息。',
             params={'node_id': '节点 ID'}
         )
+        @node_ns.response(200, '成功', [models['player_online']])
         def get(self, node_id):
             players = poller.db.get_online_players(node_id)
             result = []
@@ -85,6 +95,7 @@ def register_node_routes(api, poller):
             description='获取指定节点的历史状态记录。返回数据按时间升序排列（最旧在前，最新在后），适合图表从左到右显示。数据粒度由轮询间隔决定。',
             params={'node_id': '节点 ID', 'hours': '可选，整数小时，默认12，范围1-720'}
         )
+        @node_ns.response(200, '成功', [models['node_history_record']])
         def get(self, node_id):
             hours = clamp_hours_param(request)
             limit = get_history_limit(poller, hours)
@@ -101,6 +112,7 @@ def register_node_routes(api, poller):
             description='获取指定节点的历史状态记录，仅返回图表必需的字段（timestamps, online, latency, players），以减少传输体积。适合实时图表渲染。',
             params={'node_id': '节点 ID', 'hours': '可选，整数小时，默认12，范围1-720'}
         )
+        @node_ns.response(200, '成功', models['node_history_compact'])
         def get(self, node_id):
             hours = clamp_hours_param(request)
             limit = get_history_limit(poller, hours)
@@ -117,6 +129,7 @@ def register_node_routes(api, poller):
             description='获取指定节点的统计信息：在线率、平均/标准差/P95 延迟、变异系数等。',
             params={'node_id': '节点 ID', 'hours': '可选，整数小时，默认12，范围1-720'}
         )
+        @node_ns.response(200, '成功', models['latency_stats'])
         def get(self, node_id):
             hours = clamp_hours_param(request)
             limit = get_history_limit(poller, hours)
@@ -131,6 +144,7 @@ def register_node_routes(api, poller):
             description='计算指定节点的在线率百分比及检查统计。',
             params={'node_id': '节点 ID', 'hours': '可选，整数小时，默认24，范围1-720'}
         )
+        @node_ns.response(200, '成功', models['uptime_info'])
         def get(self, node_id):
             hours = clamp_hours_param(request, default=24)
             limit = get_history_limit(poller, hours)
@@ -146,6 +160,7 @@ def register_node_routes(api, poller):
             description='获取指定节点的在线/离线状态时间轴。用于热力图展示 24 小时内的可用性。',
             params={'node_id': '节点 ID', 'hours': '可选，整数小时，默认24，范围1-720'}
         )
+        @node_ns.response(200, '成功', [models['status_timeline_record']])
         def get(self, node_id):
             hours = clamp_hours_param(request, default=24)
             return get_node_status_timeline(poller, node_id, hours)
@@ -156,6 +171,7 @@ def register_node_routes(api, poller):
             '获取所有节点实时状态',
             description='获取所有节点的最新状态数据（head），包括在线玩家数、延迟、版本等信息。注意：如果节点已禁用（enabled=false），latest_status 将返回 null。'
         )
+        @node_ns.response(200, '成功', [models['node_head']])
         def get(self):
             return get_server_nodes_data(poller)
 

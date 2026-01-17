@@ -1,5 +1,5 @@
 from flask import Response
-from flask_restx import Namespace, Resource
+from flask_restx import Namespace, Resource, fields
 from utils.data_processing import filter_history_by_time
 from utils.app_utils import get_server_nodes_data
 
@@ -8,9 +8,17 @@ def register_exporter_routes(api, poller):
     """Register Prometheus exporter endpoints."""
     exporter_ns = Namespace('exporter', description='导出器接口', path='/exporter')
 
+    # 定义健康检查响应模型
+    health_model = exporter_ns.model('HealthCheck', {
+        'status': fields.String(description='健康状态', example='ok'),
+        'servers_count': fields.Integer(description='服务器节点数', example=3),
+        'exporter_version': fields.String(description='导出器版本', example='1.0')
+    })
+
     @exporter_ns.route('/metrics')
     class PrometheusMetrics(Resource):
         @exporter_ns.doc('获取Prometheus指标', description='导出Prometheus格式的监控数据')
+        @exporter_ns.produces(['text/plain'])
         def get(self):
             """Export metrics in Prometheus format."""
             metrics = []
@@ -194,6 +202,7 @@ def register_exporter_routes(api, poller):
     @exporter_ns.route('/health')
     class ExporterHealth(Resource):
         @exporter_ns.doc('健康检查', description='检查导出器和后端是否正常运行')
+        @exporter_ns.response(200, '成功', health_model)
         def get(self):
             """Simple health check."""
             try:
