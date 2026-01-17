@@ -939,6 +939,7 @@
             chartHours = getSelectedHours();
             localStorage.setItem(RANGE_STORAGE_KEY, String(chartHours));
             updateRangeLabel();
+            trackEvent('chart_range_change', { page: 'server', hours: chartHours });
             loadServer();
         });
     }

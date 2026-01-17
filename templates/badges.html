@@ -17,8 +17,8 @@
 <div class="badge-compact-toolbar">
     <div class="toolbar-row">
         <div class="toolbar-item">
-            <label>格式</label>
-            <select id="output-format" onchange="switchOutputFormat(this.value)">
+            <label for="output-format">格式</label>
+            <select id="output-format" title="输出格式" onchange="switchOutputFormat(this.value)">
                 <option value="url">URL</option>
                 <option value="html">HTML</option>
                 <option value="markdown">Markdown</option>
@@ -26,8 +26,8 @@
         </div>
         
         <div class="toolbar-item">
-            <label>时间范围</label>
-            <select id="default-time-range" onchange="switchDefaultTimeRange(this.value)">
+            <label for="default-time-range">时间范围</label>
+            <select id="default-time-range" title="时间范围" onchange="switchDefaultTimeRange(this.value)">
                 <option value="" selected>24h</option>
                 <option value="?hours=1">1h</option>
                 <option value="?hours=3">3h</option>
@@ -41,8 +41,8 @@
         </div>
         
         <div class="toolbar-item">
-            <label>节点</label>
-            <select id="node-selector" onchange="switchNode(this)">
+            <label for="node-selector">节点</label>
+            <select id="node-selector" title="选择节点" onchange="switchNode(this); trackEvent('badge_node_switch', { node: this.value })">
                 {% for node in nodes %}
                 <option value="{{ node.id }}" {% if loop.first %}selected{% endif %}>{{ node.name }}</option>
                 {% endfor %}
@@ -50,8 +50,8 @@
         </div>
         
         <div class="toolbar-item">
-            <label>玩家</label>
-            <select id="player-selector" onchange="updatePlayerName(this.value)">
+            <label for="player-selector">玩家</label>
+            <select id="player-selector" title="选择玩家" onchange="updatePlayerName(this.value); trackEvent('badge_player_switch', { player: this.value })">
                 {% if players %}
                     {% for player in players %}
                     <option value="{{ player }}" {% if player == 'Steve' or (loop.first and 'Steve' not in players) %}selected{% endif %}>{{ player }}</option>
@@ -271,9 +271,17 @@
     </details>
 
 <!-- ARIA live region for screen reader announcements -->
-<div id="copy-announcement" aria-live="polite" aria-atomic="true" style="position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;"></div>
+<div id="copy-announcement" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
 <style>
+.sr-only {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
 .badge-compact-container {
     max-width: 1200px;
     margin: 0 auto;
@@ -452,6 +460,7 @@
     cursor: pointer;
     font-weight: 600;
     color: var(--text-primary);
+    -webkit-user-select: none;
     user-select: none;
     transition: background-color 0.2s;
 }
@@ -617,22 +626,27 @@ function copyBadgeUrl(button) {
     const codeElem = button.previousElementSibling;
     const text = codeElem.textContent;
     
+    // 获取 badge 类型用于事件跟踪
+    const row = button.closest('tr');
+    const badgeName = row ? row.querySelector('td:nth-child(2)')?.textContent?.trim() : 'unknown';
+    
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
             showCopyFeedback(button);
+            trackEvent('badge_copy', { badge: badgeName });
         }).catch(err => {
             console.error('复制失败:', err);
             // Fallback to execCommand
-            fallbackCopy(text, button);
+            fallbackCopy(text, button, badgeName);
         });
     } else {
         // Fallback for browsers without clipboard API
-        fallbackCopy(text, button);
+        fallbackCopy(text, button, badgeName);
     }
 }
 
 // Fallback copy method
-function fallbackCopy(text, button) {
+function fallbackCopy(text, button, badgeName) {
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.style.position = 'fixed';
@@ -642,6 +656,7 @@ function fallbackCopy(text, button) {
     try {
         document.execCommand('copy');
         showCopyFeedback(button);
+        if (badgeName) trackEvent('badge_copy', { badge: badgeName });
     } catch (err) {
         console.error('Fallback copy failed:', err);
         alert('复制失败，请手动复制');

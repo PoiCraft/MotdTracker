@@ -78,3 +78,15 @@ enable = true
 # host = "napcat-host:port"           # NapCat 服务地址
 # groups = ["123456789", "987654321"] # QQ 群号列表
 # delta_minutes = 30                  # 状态变化冷却时间（分钟）
+
+# =============================================================================
+# Umami 分析配置（可选）
+# =============================================================================
+# Umami 是一个开源、隐私友好的网站分析工具
+# 配置后将在所有页面自动加载 Umami 跟踪脚本
+#
+# [umami]
+# enabled = true                                    # 是否启用 Umami 跟踪
+# script_url = "https://analytics.example.com/script.js"  # Umami 脚本地址
+# website_id = "your-website-id"                    # 网站 ID（在 Umami 后台获取）
+# domains = "example.com,www.example.com"           # 可选：限定域名（逗号分隔）

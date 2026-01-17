@@ -124,6 +124,11 @@ h1 {
     font-weight: 600;
 }
 
+.nav-icon {
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
 .sidebar-version {
     padding: 8px 20px;
     margin-top: auto;

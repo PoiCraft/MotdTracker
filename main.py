@@ -26,6 +26,25 @@ app.config['SECRET_KEY'] = 'minecraft-tracker-secret-key'
 def inject_version():
     return {'app_version': get_version()}
 
+
+# 添加 Umami 分析配置上下文处理器
+@app.context_processor
+def inject_umami_config():
+    from utils.config_loader import load_config
+    try:
+        config = load_config()
+        umami = config.get('umami', {})
+        if umami.get('enabled', False):
+            return {
+                'umami_enabled': True,
+                'umami_script_url': umami.get('script_url', ''),
+                'umami_website_id': umami.get('website_id', ''),
+                'umami_domains': umami.get('domains', '')
+            }
+    except Exception:
+        pass
+    return {'umami_enabled': False}
+
 # 初始化SocketIO，调整路径到 /api/socket.io，便于与 API 前缀保持一致
 socketio = SocketIO(app, cors_allowed_origins="*", path="/api/socket.io")
 

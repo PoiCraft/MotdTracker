@@ -809,6 +809,7 @@ function bindRangeSelector(){
         chartHours = getSelectedHours();
         localStorage.setItem(RANGE_STORAGE_KEY, String(chartHours));
         updateRangeLabel();
+        trackEvent('chart_range_change', { page: 'nodes', hours: chartHours });
         servers.forEach(s => loadServer(s));
     });
 }
