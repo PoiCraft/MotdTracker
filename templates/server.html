@@ -196,9 +196,12 @@
             cachedData.statsById = stats_by_id;
             cachedData.history = history;
 
-            // 建立节点名称到颜色的映射
+            // 过滤禁用节点（用于后续计算）
+            const enabledNodes = nodes.filter(n => n.enabled !== false);
+
+            // 建立节点名称到颜色的映射（仅包含已启用的节点）
             window.nodeColorMap = {};
-            nodes.forEach(node => {
+            enabledNodes.forEach(node => {
                 if (node.color) {
                     window.nodeColorMap[node.name] = node.color;
                 }
@@ -222,7 +225,8 @@
                 ? head.players_max
                 : latestPlayersMax;
             
-            const activeEntrances = nodes.filter(n => n.latest_status?.online).length;
+            // 计算活跃节点数
+            const activeEntrances = enabledNodes.filter(n => n.latest_status?.online).length;
             
             updateServerCard({
                 uptime: uptime.uptime_percentage ?? 0,
@@ -230,7 +234,7 @@
                 players: playersOnline,
                 maxPlayers: playersMax,
                 active: activeEntrances,
-                total: nodes.length,
+                total: enabledNodes.length,
                 online: anyOnline
             });
 
@@ -280,7 +284,14 @@
             return;
         }
 
-        const rows = nodes.map(node => {
+        // 过滤禁用的节点
+        const enabledNodes = nodes.filter(node => node.enabled !== false);
+        if (!enabledNodes.length) {
+            container.innerHTML = '<div class="loading">暂无启用的节点</div>';
+            return;
+        }
+
+        const rows = enabledNodes.map(node => {
             const status = node.latest_status;
             const stats = (statsById && statsById[node.id]) || node.latency_stats || {};
             const currentLatency = status && status.online ? (status.latency || 'N/A') : '离线';
@@ -671,9 +682,33 @@
         const history = cachedData.history;
         const timestamp = latest_history_point.timestamp;
         
-        // 检查是否已存在该时间戳（避免重复）
-        if (history.timestamps && history.timestamps.includes(timestamp)) {
-            return;
+        // 如果该时间戳已存在，则用最新值替换而不是跳过（避免因部分轮询写入造成的错误离线点）
+        if (history.timestamps && history.timestamps.length) {
+            const existingIdx = history.timestamps.indexOf(timestamp);
+            if (existingIdx !== -1) {
+                // 安全更新现有索引的数据
+                const onlineVal = typeof latest_history_point.online === 'boolean'
+                    ? latest_history_point.online
+                    : Boolean(latest_history_point.online);
+                history.online[existingIdx] = onlineVal;
+                if (latest_history_point.players_online !== undefined && latest_history_point.players_online !== null) {
+                    history.players_online[existingIdx] = latest_history_point.players_online;
+                }
+                if (latest_history_point.players_max !== undefined && latest_history_point.players_max !== null) {
+                    history.players_max[existingIdx] = latest_history_point.players_max;
+                }
+                const latencies = latest_history_point.latencies || {};
+                // 确保所有已知节点名称都被更新到该索引
+                Object.keys(history.latencies || {}).forEach(nodeName => {
+                    const nodeLatency = latencies.hasOwnProperty(nodeName) ? latencies[nodeName] : null;
+                    history.latencies[nodeName][existingIdx] = nodeLatency;
+                });
+                // 重新渲染以反映替换后的最新值
+                renderLatencyChart(slug, history);
+                renderPlayersChart(slug, history);
+                renderStatusChart(slug, history);
+                return;
+            }
         }
         
         // 追加新数据到缓存的历史数据
@@ -684,18 +719,23 @@
         if (!history.latencies) history.latencies = {};
         
         history.timestamps.push(timestamp);
-        history.online.push(latest_history_point.online || false);
+        history.online.push(typeof latest_history_point.online === 'boolean'
+            ? latest_history_point.online
+            : Boolean(latest_history_point.online));
         history.players_online.push(latest_history_point.players_online || 0);
         history.players_max.push(latest_history_point.players_max || 0);
         
         // 更新每个节点的延迟数据
         const latencies = latest_history_point.latencies || {};
-        Object.keys(window.nodeColorMap || {}).forEach(nodeName => {
+        // 基于已有历史的节点集合进行更新，避免因颜色映射未包含全部节点导致数组错位
+        const knownNodeNames = new Set(Object.keys(history.latencies || {}));
+        // 同时合并最新点中出现的新节点
+        Object.keys(latencies).forEach(name => knownNodeNames.add(name));
+        knownNodeNames.forEach(nodeName => {
             if (!history.latencies[nodeName]) {
                 history.latencies[nodeName] = [];
             }
-            // 从 latest_history_point.latencies 获取该节点的延迟
-            const nodeLatency = latencies[nodeName] !== undefined ? latencies[nodeName] : null;
+            const nodeLatency = latencies.hasOwnProperty(nodeName) ? latencies[nodeName] : null;
             history.latencies[nodeName].push(nodeLatency);
         });
         
@@ -795,6 +835,9 @@
             const onlineNodes = head.nodes.filter(n => n.latest_status?.online);
             const anyOnline = onlineNodes.length > 0;
             
+            // 过滤禁用节点
+            const enabledNodes = head.nodes.filter(n => n.enabled !== false);
+            
             // 直接使用 API 返回的值
             const playersOnline = head.players_online || 0;
             const playersMax = head.players_max || 0;
@@ -814,7 +857,7 @@
                 players: playersOnline,
                 maxPlayers: playersMax,
                 active: onlineNodes.length,
-                total: head.nodes.length,
+                total: enabledNodes.length,
                 online: anyOnline
             });
             

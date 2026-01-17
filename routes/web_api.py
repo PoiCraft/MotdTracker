@@ -1,11 +1,14 @@
 from datetime import datetime
 from flask import request
 from flask_restx import Namespace, Resource
-from app_utils import clamp_hours_param, get_server_nodes_data, parse_dt
-from routes.route_utils import (
+from utils.app_utils import clamp_hours_param, get_server_nodes_data, parse_dt
+from utils.data_stats import calculate_latency_stats
+from utils.data_processing import (
     filter_history_by_time,
-    calculate_node_stats,
-    get_compact_history,
+    format_compact_history,
+    select_representative_record,
+)
+from utils.history_query import (
     get_aggregated_history,
     get_uptime_data,
     get_status_timeline,
@@ -172,7 +175,7 @@ def register_web_routes(api, poller):
                 )
                 history = filter_history_by_time(history, hours)
                 if history:
-                    stats = calculate_node_stats(history)
+                    stats = calculate_latency_stats(history)
                     stats["hours"] = hours  # 标记统计数据对应的时间范围
                     stats_by_id[node["id"]] = stats
 
@@ -230,7 +233,7 @@ def register_web_routes(api, poller):
                 )
                 history = filter_history_by_time(history, hours)
                 if history:
-                    stats = calculate_node_stats(history)
+                    stats = calculate_latency_stats(history)
                     stats["hours"] = hours
                     stats_by_id[node["id"]] = stats
 
@@ -257,6 +260,30 @@ def register_web_routes(api, poller):
                     if history_full.get("latencies")
                     else {},
                 }
+
+                # 完整性保护：如果最新时间戳尚未被所有具备状态的节点写入，且聚合为离线，则不返回该点，避免短暂“假离线”
+                try:
+                    latest_ts_dt = parse_dt(latest_history_point["timestamp"])
+                    total_nodes_with_status = sum(1 for n in nodes if n.get("latest_status"))
+                    present_count = 0
+                    if latest_ts_dt and total_nodes_with_status > 0:
+                        for n in nodes:
+                            ls = n.get("latest_status")
+                            if not ls:
+                                continue
+                            ls_dt = parse_dt(ls.get("timestamp"))
+                            if ls_dt == latest_ts_dt:
+                                present_count += 1
+                    # 当最新点为离线且尚未覆盖所有节点的最新状态时，视为未完成轮次，跳过该点
+                    if (
+                        latest_history_point.get("online") is False
+                        and total_nodes_with_status > 0
+                        and present_count < total_nodes_with_status
+                    ):
+                        latest_history_point = None
+                except Exception:
+                    # 保守处理：解析失败时不做过滤
+                    pass
 
             # 获取 24 小时 uptime（固定 24 小时）
             uptime_data = get_uptime_data(poller, 24)
@@ -308,15 +335,18 @@ def register_web_routes(api, poller):
             # 获取历史数据
             history = poller.db.get_server_history(node_id, limit=limit)
             history = filter_history_by_time(history, hours)
+            # 按时间戳升序排序（最旧在前，最新在后）
+            from utils.data_processing import sort_history_by_timestamp
+            history = sort_history_by_timestamp(history)
 
             # 获取统计数据（跟随用户请求的时间范围）
             stats = None
             if history:
-                stats = calculate_node_stats(history)
+                stats = calculate_latency_stats(history)
                 stats["hours"] = hours  # 标记统计数据对应的时间范围
 
             # 获取紧凑格式的历史数据
-            compact_history = get_compact_history(history)
+            compact_history = format_compact_history(history)
 
             # 获取状态时间线
             status_timeline = get_node_status_timeline(poller, node_id, 24)
@@ -357,7 +387,7 @@ def register_web_routes(api, poller):
             # 获取统计数据（跟随用户请求的时间范围）
             stats = None
             if history:
-                stats = calculate_node_stats(history)
+                stats = calculate_latency_stats(history)
                 stats["hours"] = hours
 
             # 获取最新历史数据点

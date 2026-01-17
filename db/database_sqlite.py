@@ -2,7 +2,7 @@ import sqlite3
 import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
-from database_base import DatabaseBase
+from db.database_base import DatabaseBase
 
 
 class Database(DatabaseBase):
@@ -216,7 +216,7 @@ class Database(DatabaseBase):
                    map_name: Optional[str] = None,
                    timestamp: Optional[datetime] = None):
         """记录服务器状态"""
-        from app_utils import utc8_now
+        from utils.app_utils import utc8_now
         conn = self.get_connection()
         try:
             cursor = conn.cursor()
@@ -407,7 +407,7 @@ class Database(DatabaseBase):
 
     def get_player_history(self, player_name: str, days: int = None) -> List[Dict]:
         """获取玩家历史会话，days=None 时获取全量数据"""
-        from app_utils import utc8_now
+        from utils.app_utils import utc8_now
         conn = self.get_connection()
         try:
             cursor = conn.cursor()

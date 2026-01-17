@@ -1,6 +1,7 @@
 from flask import Response
 from flask_restx import Namespace, Resource
-from routes.route_utils import filter_history_by_time
+from utils.data_processing import filter_history_by_time
+from utils.app_utils import get_server_nodes_data
 
 
 def register_exporter_routes(api, poller):
@@ -77,8 +78,10 @@ def register_exporter_routes(api, poller):
             metrics.append('# TYPE motd_server_sample_players_count gauge')
             metrics.append('')
 
-            # Get all servers and their stats
-            servers = poller.db.get_all_servers()
+            # Get all nodes including enabled status
+            all_nodes = get_server_nodes_data(poller)
+            # Only export enabled nodes
+            servers = [n for n in all_nodes if n.get('enabled', True)]
             online_servers_count = 0
             total_online_players = 0
 

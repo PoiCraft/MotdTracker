@@ -1,9 +1,9 @@
-from flask import Response, request
+from flask import Response
 from flask_restx import Namespace, Resource
-from app_utils import parse_dt, utc8_now
+from utils.app_utils import parse_dt, utc8_now
+from utils.data_processing import filter_history_by_time
 from datetime import timedelta
 import anybadge
-from routes.route_utils import filter_history_by_time
 
 
 def generate_badge(label, value, color='grey'):

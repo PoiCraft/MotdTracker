@@ -1,7 +1,7 @@
 """
-Badge生成器测试
+Badge生成器测试（复制版）
 """
-from badge_generator import generate_badge
+from utils.badge_generator import generate_badge
 
 # 测试不同样式
 styles = ['flat', 'flat-square', 'plastic', 'for-the-badge', 'social']

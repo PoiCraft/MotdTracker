@@ -105,7 +105,7 @@ def main():
         # 重新创建表结构
         logger.info("创建新表结构...")
         
-        from database_postgresql import PostgreSQLDatabase
+        from db.database_postgresql import PostgreSQLDatabase
         _ = PostgreSQLDatabase(
             host=pgsql_config['host'],
             port=pgsql_config['port'],

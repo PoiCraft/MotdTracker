@@ -15,7 +15,7 @@ _cached_version: Optional[str] = None
 def get_project_version() -> str:
     """从 pyproject.toml 读取项目版本号"""
     try:
-        pyproject_path = Path(__file__).parent / 'pyproject.toml'
+        pyproject_path = Path(__file__).parent.parent / 'pyproject.toml'
         with open(pyproject_path, 'rb') as f:
             data = tomllib.load(f)
             return data.get('project', {}).get('version', '0.0.0')
@@ -96,8 +96,19 @@ def clamp_hours_param(request: Request, default: int = 12, max_hours: int = 720)
 def get_server_nodes_data(poller) -> List[Dict[str, Any]]:
     """Build server nodes with their latest status attached."""
     servers = poller.db.get_all_servers()
+    
+    # 构建节点 ID 到配置的映射
+    node_config_map = {}
+    for node in poller.config.get("nodes", []):
+        node_id = node.get("id")
+        if node_id:
+            node_config_map[node_id] = node
+    
     nodes = []
     for server in servers:
         latest_status = poller.db.get_server_latest_status(server['id'])
-        nodes.append({**server, 'latest_status': latest_status})
+        # 从配置中获取 enabled 状态，默认为 True
+        node_config = node_config_map.get(server['id'], {})
+        enabled = node_config.get('enable', True)
+        nodes.append({**server, 'latest_status': latest_status, 'enabled': enabled})
     return nodes

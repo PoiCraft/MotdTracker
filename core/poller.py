@@ -1,13 +1,13 @@
 import json
 import logging
 import requests
-from app_utils import utc8_now
+from utils.app_utils import utc8_now
 from typing import Dict, List
 from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from apscheduler.schedulers.background import BackgroundScheduler
-from database_factory import create_database
-from monitor import MinecraftMonitor
+from db.database_factory import create_database
+from core.monitor import MinecraftMonitor
 
 
 class ServerPoller:
@@ -141,7 +141,14 @@ class ServerPoller:
         round_timestamp = utc8_now()
 
         nodes = self.config.get("nodes", [])
-        max_workers = min(8, len(nodes)) if nodes else 0
+        # 过滤已启用的节点（默认为启用）
+        enabled_nodes = [node for node in nodes if node.get("enable", True)]
+        disabled_count = len(nodes) - len(enabled_nodes)
+        
+        if disabled_count > 0:
+            self.logger.info(f"跳过 {disabled_count} 个已禁用节点")
+        
+        max_workers = min(8, len(enabled_nodes)) if enabled_nodes else 0
 
         if max_workers == 0:
             self.logger.info("无节点可轮询")
@@ -150,7 +157,7 @@ class ServerPoller:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_server = {
                 executor.submit(self.poll_server, node, timestamp=round_timestamp): node
-                for node in nodes
+                for node in enabled_nodes
             }
 
             for future in as_completed(future_to_server):
@@ -202,11 +209,22 @@ class ServerPoller:
     def get_all_servers_status(self) -> List[Dict]:
         """获取所有服务器的最新状态"""
         servers = self.db.get_all_servers()
+        
+        # 构建节点 ID 到配置的映射
+        node_config_map = {}
+        for node in self.config.get("nodes", []):
+            node_id = node.get("id")
+            if node_id:
+                node_config_map[node_id] = node
+        
         result = []
-
         for server in servers:
-            status = self.db.get_server_latest_status(server["id"])
-            result.append({**server, "status": status})
+            # 从配置中获取 enabled 状态，默认为 True
+            node_config = node_config_map.get(server['id'], {})
+            enabled = node_config.get('enable', True)
+            # 禁用节点的 status 直接返回 null
+            status = self.db.get_server_latest_status(server["id"]) if enabled else None
+            result.append({**server, "status": status, "enabled": enabled})
 
         return result
 

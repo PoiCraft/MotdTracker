@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from flask import request
 from flask_restx import Namespace, Resource
-from app_utils import utc8_now
-from app_utils import parse_dt
+from utils.app_utils import utc8_now
+from utils.app_utils import parse_dt
 
 
 def register_player_routes(api, poller):

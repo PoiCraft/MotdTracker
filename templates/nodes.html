@@ -34,7 +34,23 @@
 <div id="servers-container">
     {% for server in servers %}
     {% set status = server.latest_status %}
-    <div class="server-card" id="node-{{ server.id }}" data-server-id="{{ server.id }}" data-name="{{ server.name }}" data-host="{{ server.host }}" data-port="{{ server.port }}">
+    {% if not server.enabled %}
+    {# 禁用节点 - 折叠显示 #}
+    <div class="server-card server-card-disabled" id="node-{{ server.id }}" data-server-id="{{ server.id }}" data-name="{{ server.name }}" data-host="{{ server.host }}" data-port="{{ server.port }}" data-enabled="{{ server.enabled }}">
+        <div class="server-header">
+            <div>
+                <div class="server-name">
+                    {{ server.name }}
+                    <span class="disabled-tag">已停用</span>
+                </div>
+                <div class="server-address">{{ server.host }}:{{ server.port }}</div>
+            </div>
+            <div class="status-badge status-disabled" id="badge-{{ server.id }}">已停用</div>
+        </div>
+    </div>
+    {% else %}
+    {# 启用节点 - 完整显示 #}
+    <div class="server-card" id="node-{{ server.id }}" data-server-id="{{ server.id }}" data-name="{{ server.name }}" data-host="{{ server.host }}" data-port="{{ server.port }}" data-enabled="{{ server.enabled }}">
         <div class="server-header">
             <div>
                 <div class="server-name">
@@ -91,6 +107,7 @@
         <div class="chart-title">节点信息</div>
         <div class="group-servers info-list" id="info-{{ server.id }}">加载中...</div>
     </div>
+    {% endif %}
     {% endfor %}
 </div>
 {% endblock %}
@@ -105,7 +122,8 @@ const servers = Array.from(document.querySelectorAll('[data-server-id]')).map(el
     id: Number(el.dataset.serverId),
     name: el.dataset.name,
     host: el.dataset.host,
-    port: el.dataset.port
+    port: el.dataset.port,
+    enabled: el.dataset.enabled === 'True'
 }));
 
 function formatDuration(seconds){
@@ -141,6 +159,10 @@ const chartColors = {
 };
 
 function updateServerCard(id, {uptime, latency, players, maxPlayers, version, online}){
+    // 检查节点是否已禁用
+    const card = document.getElementById(`node-${id}`);
+    const isEnabled = card && card.getAttribute('data-enabled') === 'True';
+    
     const uptimeEl = document.getElementById(`uptime-${id}`);
     const latencyEl = document.getElementById(`latency-${id}`);
     const playersEl = document.getElementById(`players-${id}`);
@@ -157,8 +179,14 @@ function updateServerCard(id, {uptime, latency, players, maxPlayers, version, on
         fillEl.textContent = `${val}% 在线`;
     }
     if (badge) {
-        badge.textContent = online ? '在线' : '离线';
-        badge.className = online ? 'status-badge status-online' : 'status-badge status-offline';
+        // 如果节点已禁用，保持禁用状态显示
+        if (!isEnabled) {
+            badge.textContent = '已停用';
+            badge.className = 'status-badge status-disabled';
+        } else {
+            badge.textContent = online ? '在线' : '离线';
+            badge.className = online ? 'status-badge status-online' : 'status-badge status-offline';
+        }
     }
 }
 
@@ -428,6 +456,11 @@ function updateChartsWithNewData(id, latest_history_point) {
 async function loadServer(server){
     const id = server.id;
     
+    // 跳过禁用节点
+    if (!server.enabled) {
+        return;
+    }
+    
     // Show spinner when starting a load
     loadingCount++;
     const spinner = document.getElementById('loading-spinner');
@@ -672,6 +705,11 @@ async function loadIncremental(){
     document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
     
     for (const server of servers) {
+        // 跳过禁用节点
+        if (!server.enabled) {
+            continue;
+        }
+        
         try {
             // 使用 Web API 获取增量数据，传递当前时间范围参数
             const res = await fetch(`/api/web/node/${server.id}/head?hours=${chartHours}`);

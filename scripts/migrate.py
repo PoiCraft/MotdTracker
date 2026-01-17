@@ -6,7 +6,7 @@
 import json
 import sys
 import logging
-from database_factory import migrate_sqlite_to_pgsql
+from db.database_factory import migrate_sqlite_to_pgsql
 
 # 设置日志
 logging.basicConfig(
@@ -68,7 +68,7 @@ def main():
     # 创建 PostgreSQL 数据库实例
     try:
         logger.info("连接到 PostgreSQL...")
-        from database_postgresql import PostgreSQLDatabase
+        from db.database_postgresql import PostgreSQLDatabase
         pgsql_db = PostgreSQLDatabase(
             host=pgsql_config['host'],
             port=pgsql_config['port'],

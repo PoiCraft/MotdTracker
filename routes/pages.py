@@ -1,5 +1,5 @@
 from flask import render_template, redirect, url_for, request
-from app_utils import get_server_nodes_data
+from utils.app_utils import get_server_nodes_data
 
 
 def register_page_routes(app, poller):

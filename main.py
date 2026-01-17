@@ -1,8 +1,8 @@
 from flask import Flask
 from flask_socketio import SocketIO
 from flask_restx import Api
-from poller import ServerPoller
-from app_utils import get_version
+from core.poller import ServerPoller
+from utils.app_utils import get_version
 import atexit
 import signal
 import sys
