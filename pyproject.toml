@@ -1,9 +1,39 @@
 [project]
 name = "motdtracker"
 version = "1.3.0"
-description = "Minecraft服务器监控工具"
+description = "Minecraft 多节点服务器监控系统，提供实时状态追踪、玩家会话管理、延迟统计分析与 Prometheus 集成"
 readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.13"
+authors = [
+    {name = "PoiCraft", email = ""}
+]
+maintainers = [
+    {name = "PoiCraft"}
+]
+keywords = [
+    "minecraft",
+    "server",
+    "monitor",
+    "motd",
+    "tracker",
+    "prometheus",
+    "flask",
+    "websocket",
+    "real-time"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Games/Entertainment",
+    "Topic :: System :: Monitoring"
+]
 dependencies = [
     "flask>=3.0.0",
     "mcstatus>=11.0.0",
@@ -15,3 +45,12 @@ dependencies = [
     "anybadge>=1.14.0",
     "requests>=2.32.5",
 ]
+
+[project.urls]
+Homepage = "https://github.com/PoiCraft/MotdTracker"
+Repository = "https://github.com/PoiCraft/MotdTracker.git"
+Documentation = "https://github.com/PoiCraft/MotdTracker#readme"
+Issues = "https://github.com/PoiCraft/MotdTracker/issues"
+
+[project.scripts]
+motdtracker = "main:main"

@@ -1,6 +1,54 @@
+# Python
 .venv/
+venv/
+env/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# VS Code (保留项目配置，忽略个人设置)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# 数据库
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 *.migrated
+
+# 配置（保护敏感信息）
+config.toml
+
+# 日志
+*.log
+logs/
+
+# 操作系统
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# uv
+.uv/

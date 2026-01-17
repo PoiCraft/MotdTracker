@@ -12,7 +12,7 @@ MotdTracker 是一个基于 Flask 的 Minecraft 多节点服务器监控系统�
 - **DatabaseBase** (`database_base.py`): ABC 抽象基类定义所有数据库操作接口
 - **Database** (`database_sqlite.py`): SQLite 实现（默认）
 - **PostgreSQLDatabase** (`database_postgresql.py`): PostgreSQL 实现（可选高性能后端）
-- **工厂模式** (`database_factory.py`): 根据 `config.json` 自动选择数据库，首次启动 PostgreSQL 时自动从 SQLite 迁移数据（带进度条）
+- **工厂模式** (`database_factory.py`): 根据 `config.toml` 自动选择数据库，首次启动 PostgreSQL 时自动从 SQLite 迁移数据（带进度条）
 
 **关键约定**: 新增数据库方法必须在 `DatabaseBase` 声明，然后在两个实现类中同步添加。
 
@@ -34,7 +34,7 @@ MotdTracker 是一个基于 Flask 的 Minecraft 多节点服务器监控系统�
   - 时间戳同步: 同一轮次所有节点共享 `round_timestamp`（精确到秒）
   - 完成通知: 每轮结束后通过 `socketio.emit('poll_complete')` 推送前端
 - **MinecraftMonitor** (`monitor.py`): mcstatus 封装，执行 `status()` 和 `query()` 协议查询
-- **配置驱动**: `config.json` 的 `poll_interval` 决定轮询频率，24h 统计窗口自动计算为 `86400 / poll_interval`
+- **配置驱动**: `config.toml` 的 `poll_interval` 决定轮询频率，24h 统计窗口自动计算为 `86400 / poll_interval`
 
 ## 关键开发约定
 
@@ -120,14 +120,16 @@ return Response(badge.badge_svg_text, mimetype='image/svg+xml')
 ```
 
 ### 节点配置颜色
-`config.json` 的 `nodes[].color` 支持十六进制色值，用于图表和 UI 标识：
-```json
-{"name": "主线", "color": "#10b981"}
+`config.toml` 的 `[[nodes]]` 节点支持 `color` 十六进制色值，用于图表和 UI 标识：
+```toml
+[[nodes]]
+name = "主线"
+color = "#10b981"
 ```
 
 ## 重要文件索引
 
-- **配置**: `config.json` (服务器列表、轮询间隔、数据库)
+- **配置**: `config.toml` (服务器列表、轮询间隔、数据库)
 - **启动**: `main.py` (Flask + SocketIO + 路由注册)
 - **核心逻辑**: `poller.py` (轮询调度)、`monitor.py` (mcstatus 查询)
 - **数据库**: `database_base.py` (接口)、`database_sqlite.py` (SQLite)、`database_postgresql.py` (PostgreSQL)

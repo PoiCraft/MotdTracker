@@ -39,8 +39,8 @@ api = Api(
     prefix='/api'
 )
 
-# 初始化轮询器
-poller = ServerPoller('config.json', socketio=socketio)
+# 初始化轮询器（自动检测 config.toml 或 config.json）
+poller = ServerPoller(socketio=socketio)
 
 register_page_routes(app, poller)
 register_node_routes(api, poller)

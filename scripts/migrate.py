@@ -3,10 +3,10 @@
 手动数据库迁移工具
 用于将 SQLite 数据迁移到 PostgreSQL
 """
-import json
 import sys
 import logging
 from db.database_factory import migrate_sqlite_to_pgsql
+from utils.config_loader import load_config
 
 # 设置日志
 logging.basicConfig(
@@ -25,22 +25,20 @@ def main():
     print()
     
     # 加载配置
-    config_path = 'config.json'
     try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-    except FileNotFoundError:
-        logger.error(f"配置文件不存在: {config_path}")
+        config = load_config()
+    except FileNotFoundError as e:
+        logger.error(str(e))
         sys.exit(1)
-    except json.JSONDecodeError as e:
-        logger.error(f"配置文件格式错误: {e}")
+    except ValueError as e:
+        logger.error(str(e))
         sys.exit(1)
     
     # 检查 PostgreSQL 配置
     pgsql_config = config.get('postgresql')
     if not pgsql_config:
         logger.error("配置文件中未找到 PostgreSQL 配置")
-        logger.info("请在 config.json 中添加 postgresql 配置节")
+        logger.info("请在配置文件中添加 [postgresql] 配置节")
         sys.exit(1)
     
     required_keys = ['host', 'port', 'database', 'user', 'password']

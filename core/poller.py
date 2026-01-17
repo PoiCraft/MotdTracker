@@ -1,7 +1,7 @@
-import json
 import logging
 import requests
 from utils.app_utils import utc8_now
+from utils.config_loader import load_config
 from typing import Dict, List
 from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -13,17 +13,16 @@ from core.monitor import MinecraftMonitor
 class ServerPoller:
     """服务器轮询器"""
 
-    def __init__(self, config_path: str, socketio=None):
+    def __init__(self, config_path: str = None, socketio=None):
         """
         初始化轮询器
 
         Args:
-            config_path: 配置文件路径
+            config_path: 配置文件路径（可选，自动检测 config.toml 或 config.json）
             socketio: SocketIO 实例（可选）
         """
         # 加载配置
-        with open(config_path, "r", encoding="utf-8") as f:
-            self.config = json.load(f)
+        self.config = load_config(config_path)
 
         # 使用数据库工厂创建数据库实例（支持SQLite和PostgreSQL）
         self.db = create_database(self.config)

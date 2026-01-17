@@ -44,32 +44,44 @@ pip install -e .
 复制示例配置并修改：
 
 ```bash
-cp config.example.json config.json
+cp config.example.toml config.toml
 ```
 
-编辑 `config.json` 添加你的服务器节点：
+编辑 `config.toml` 添加你的服务器节点：
 
-```json
-{
-  "server_name": "PoiCraft",
-  "nodes": [
-    {
-      "name": "主线入口",
-      "host": "play.example.com",
-      "port": 25565,
-      "color": "#10b981"
-    },
-    {
-      "name": "电信优化",
-      "host": "ct.example.com",
-      "port": 25565,
-      "color": "#f59e0b"
-    }
-  ],
-  "database": "minecraft_stats.db",
-  "poll_interval": 15,
-  "port": 5011
-}
+```toml
+# 服务器显示名称
+server_name = "PoiCraft"
+
+# 数据库与轮询配置
+database = "minecraft_stats.db"
+poll_interval = 15
+port = 5011
+
+# 节点配置
+[[nodes]]
+id = 1
+name = "主线入口"
+host = "play.example.com"
+port = 25565
+color = "#10b981"
+enable = true
+
+[[nodes]]
+id = 2
+name = "电信优化"
+host = "ct.example.com"
+port = 25565
+color = "#f59e0b"
+enable = true
+
+# PostgreSQL（可选）
+# [postgresql]
+# host = "localhost"
+# port = 5432
+# database = "motdtracker"
+# user = "your_username"
+# password = "your_password"
 ```
 
 ### 3. 启动服务
@@ -179,8 +191,8 @@ scrape_configs:
 ```
 MotdTracker/
 ├── main.py                    # 应用入口（Flask + SocketIO + 路由注册）
-├── config.json                # 配置文件（节点、数据库、端口）
-├── config.example.json        # 配置模板
+├── config.toml                # 配置文件（节点、数据库、端口）
+├── config.example.toml        # 配置模板
 ├── pyproject.toml             # 项目元数据与依赖
 │
 ├── core/                      # 核心运行时逻辑
@@ -250,28 +262,36 @@ MotdTracker/
 
 ## 配置说明
 
-### 基础配置 (config.json)
+### 基础配置 (config.toml)
 
-```json
-{
-  "server_name": "PoiCraft",         // 服务器名称（显示在页面标题）
-  "nodes": [                          // 节点列表
-    {
-      "name": "主线入口",             // 节点名称
-      "host": "play.example.com",     // 服务器地址
-      "port": 25565,                  // 服务器端口
-      "color": "#10b981"              // 节点颜色（可选，十六进制）
-    }
-  ],
-  "database": "minecraft_stats.db",   // SQLite 数据库文件路径
-  "poll_interval": 15,                // 轮询间隔（秒）
-  "port": 5011                        // Web 服务端口
-}
+```toml
+# 服务器名称（显示在页面标题）
+server_name = "PoiCraft"
+
+# SQLite 数据库文件路径
+database = "minecraft_stats.db"
+
+# 轮询间隔（秒）
+poll_interval = 15
+
+# Web 服务端口
+port = 5011
+
+# 节点列表
+[[nodes]]
+id = 1
+name = "主线入口"           # 节点名称
+host = "play.example.com"  # 服务器地址
+port = 25565               # 服务器端口
+color = "#10b981"          # 节点颜色（可选，十六进制）
+enable = true              # 是否启用轮询
 ```
 
 **参数说明**
 
-- `nodes[].color` - 可选，用于图表与 UI 标识，支持十六进制色值
+- `[[nodes]]` - 节点列表，每个 `[[nodes]]` 块定义一个节点
+- `color` - 可选，用于图表与 UI 标识，支持十六进制色值
+- `enable` - 是否启用轮询，设为 `false` 时跳过该节点
 - `poll_interval` - 轮询间隔，单位秒
   - 24h 统计窗口自动计算为 `86400 / poll_interval` 条记录
   - 示例：15 秒间隔 = 5760 条/24h
@@ -307,22 +327,29 @@ CREATE DATABASE motdtracker;
 
 **2. 添加配置**
 
-在 `config.json` 中添加 `postgresql` 配置节：
+在 `config.toml` 中添加 `[postgresql]` 配置节：
 
-```json
-{
-  "server_name": "PoiCraft",
-  "nodes": [...],
-  "database": "minecraft_stats.db",
-  "poll_interval": 15,
-  "postgresql": {
-    "host": "localhost",
-    "port": 5432,
-    "database": "motdtracker",
-    "user": "postgres",
-    "password": "your_password"
-  }
-}
+```toml
+server_name = "PoiCraft"
+database = "minecraft_stats.db"
+poll_interval = 15
+port = 5011
+
+[[nodes]]
+id = 1
+name = "主线入口"
+host = "play.example.com"
+port = 25565
+color = "#10b981"
+enable = true
+
+# PostgreSQL 配置
+[postgresql]
+host = "localhost"
+port = 5432
+database = "motdtracker"
+user = "postgres"
+password = "your_password"
 ```
 
 **3. 启动应用**
@@ -387,7 +414,7 @@ uv run scripts/migrate.py
 
 **回退到 SQLite**
 
-1. 从 `config.json` 中删除 `postgresql` 配置节
+1. 从 `config.toml` 中删除或注释 `[postgresql]` 配置节
 2. 重启应用即可自动使用 SQLite
 
 #### 技术细节
@@ -680,7 +707,7 @@ CMD ["uv", "run", "main.py"]
 
 ```bash
 docker build -t motdtracker .
-docker run -d -p 5011:5011 -v ./config.json:/app/config.json motdtracker
+docker run -d -p 5011:5011 -v ./config.toml:/app/config.toml motdtracker
 ```
 
 ### 反向代理 (Nginx)

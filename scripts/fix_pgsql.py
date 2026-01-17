@@ -3,9 +3,9 @@
 PostgreSQL 表结构修复工具
 用于删除旧的错误表结构并重新创建
 """
-import json
 import sys
 import logging
+from utils.config_loader import load_config
 
 # 设置日志
 logging.basicConfig(
@@ -24,15 +24,13 @@ def main():
     print()
     
     # 加载配置
-    config_path = 'config.json'
     try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-    except FileNotFoundError:
-        logger.error(f"配置文件不存在: {config_path}")
+        config = load_config()
+    except FileNotFoundError as e:
+        logger.error(str(e))
         sys.exit(1)
-    except json.JSONDecodeError as e:
-        logger.error(f"配置文件格式错误: {e}")
+    except ValueError as e:
+        logger.error(str(e))
         sys.exit(1)
     
     # 检查 PostgreSQL 配置
