@@ -431,11 +431,20 @@
         }
         
         let yMax = undefined;
+        let yMin = 0;
         if (allLatencies.length > 0) {
             const sorted = [...allLatencies].sort((a, b) => a - b);
             const p95Index = Math.floor(sorted.length * 0.95);
             const p95 = sorted[p95Index] || sorted[sorted.length - 1];
-            yMax = Math.max(100, Math.ceil(p95 * 1.2));
+            const minLatency = sorted[0];
+            
+            // 上界基于 P95，添加适当间距
+            const upperPadding = Math.max((p95 - minLatency) * 0.15, 20);
+            yMax = Math.ceil((p95 + upperPadding) / 10) * 10;
+            
+            // 下界基于最小值，确保图表有合理的下边距
+            const lowerPadding = Math.max((p95 - minLatency) * 0.10, 10);
+            yMin = Math.max(0, Math.floor((minLatency - lowerPadding) / 10) * 10);
         }
         
         const key = `latency-${slug}`;
@@ -444,6 +453,7 @@
             charts[key].data.labels = labels;
             charts[key].data.datasets = datasets;
             charts[key].options.scales.y.max = yMax;
+            charts[key].options.scales.y.min = yMin;
             charts[key].update();
         } else {
             // Create new chart
@@ -477,7 +487,7 @@
                     },
                     scales: {
                         x: { display: true, ticks: { maxTicksLimit: 8, color: chartColors.text }, grid: { color: chartColors.grid } },
-                        y: { display: true, beginAtZero: true, max: yMax, ticks: { callback: (v) => v + 'ms', color: chartColors.text }, grid: { color: chartColors.grid } }
+                        y: { display: true, beginAtZero: false, min: yMin, max: yMax, ticks: { callback: (v) => v + 'ms', color: chartColors.text }, grid: { color: chartColors.grid } }
                     },
                     interaction: { mode: 'nearest', axis: 'x', intersect: false }
                 }
