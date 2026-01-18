@@ -1,9 +1,12 @@
 # MotdTracker API 文档
 
-> **快速访问**: 访问 <http://127.0.0.1:5011/api/docs> 查看交互式 Swagger UI
+> **快速访问**: 
+> - Swagger UI: <http://127.0.0.1:5011/api/docs>
+> - GraphiQL: <http://127.0.0.1:5011/api/graphiql>
 
 ## 目录
 
+- [GraphQL API](#graphql-api) ⭐ **新增**
 - [服务器 API](#服务器-api)
 - [节点 API](#节点-api)
 - [玩家 API](#玩家-api)
@@ -12,6 +15,240 @@
 - [Exporter API](#exporter-api)
 - [通用参数](#通用参数)
 - [响应格式](#响应格式)
+
+---
+
+## GraphQL API
+
+基础路径: `/api/graphql`
+
+GraphQL 提供灵活的查询接口，允许客户端精确指定需要的字段，减少数据传输量。
+
+### 端点
+
+| 路径 | 方法 | 描述 |
+|------|------|------|
+| `/api/graphql` | GET/POST | GraphQL 查询端点 |
+| `/api/graphiql` | GET | GraphiQL 交互式界面 |
+
+### 使用方式
+
+**POST 请求（推荐）**:
+```bash
+curl -X POST http://localhost:5011/api/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ nodes { id name online: latestStatus { online } } }"}'
+```
+
+**GET 请求**:
+```bash
+curl "http://localhost:5011/api/graphql?query=\{nodes\{id,name\}\}"
+```
+
+### Schema 概览
+
+#### 查询类型 (Query)
+
+| 字段 | 参数 | 返回类型 | 描述 |
+|------|------|----------|------|
+| `nodes` | `enabledOnly: Boolean = true` | `[Node]` | 获取节点列表 |
+| `node` | `id: Int!` | `Node` | 获取单个节点 |
+| `serverHead` | - | `ServerHead` | 服务器实时聚合状态 |
+| `serverHistory` | `hours: Int = 12` | `[ServerHistoryRecord]` | 服务器聚合历史 |
+| `serverStats` | `hours: Int = 24` | `ServerStats` | 服务器统计信息 |
+| `serverUptime` | `hours: Int = 24` | `UptimeInfo` | 服务器在线率 |
+| `players` | `onlineOnly: Boolean = false` | `[Player]` | 玩家列表 |
+| `player` | `name: String!, days: Int = 30` | `PlayerDetail` | 玩家详情 |
+| `onlinePlayers` | - | `[Player]` | 在线玩家列表 |
+
+#### 主要类型
+
+**Node** - 服务器节点
+```graphql
+type Node {
+  id: Int
+  name: String
+  host: String
+  port: Int
+  color: String
+  enabled: Boolean
+  latestStatus: NodeStatus
+  latencyStats: LatencyStats
+  history(hours: Int = 12): [NodeHistoryRecord]
+}
+```
+
+**NodeStatus** - 节点状态
+```graphql
+type NodeStatus {
+  id: Int
+  serverId: Int
+  timestamp: String
+  online: Boolean
+  latency: Float
+  playersOnline: Int
+  playersMax: Int
+  version: String
+  motd: String
+  samplePlayers: [String]
+  software: String
+  plugins: [String]
+  mapName: String
+}
+```
+
+**LatencyStats** - 延迟统计
+```graphql
+type LatencyStats {
+  uptimePercentage: Float
+  avgLatency: Float
+  stdDev: Float
+  minLatency: Float
+  maxLatency: Float
+  p95Latency: Float
+  cv: Float
+  totalChecks: Int
+  onlineChecks: Int
+}
+```
+
+**Player** - 玩家信息
+```graphql
+type Player {
+  playerName: String
+  online: Boolean
+  sessionStart: String
+  lastSeen: String
+  durationSeconds: Int
+  servers: [PlayerServerEntry]
+}
+```
+
+**PlayerDetail** - 玩家详情
+```graphql
+type PlayerDetail {
+  playerName: String
+  online: Boolean
+  firstSeen: String
+  lastSeen: String
+  totalPlaytimeSeconds: Int
+  sessions: [PlayerSession]
+}
+```
+
+### 查询示例
+
+**获取所有节点及状态**:
+```graphql
+{
+  nodes {
+    id
+    name
+    host
+    port
+    color
+    enabled
+    latestStatus {
+      online
+      latency
+      playersOnline
+      playersMax
+      version
+    }
+    latencyStats {
+      uptimePercentage
+      avgLatency
+      p95Latency
+      cv
+    }
+  }
+}
+```
+
+**获取服务器实时状态**:
+```graphql
+{
+  serverHead {
+    timestamp
+    online
+    playersOnline
+    playersMax
+    version
+    motd
+    latencies {
+      nodeName
+      latency
+    }
+  }
+}
+```
+
+**获取指定时间范围的历史数据**:
+```graphql
+{
+  serverHistory(hours: 24) {
+    timestamp
+    online
+    playersOnline
+    latencies {
+      nodeName
+      latency
+    }
+  }
+}
+```
+
+**获取在线玩家**:
+```graphql
+{
+  onlinePlayers {
+    playerName
+    sessionStart
+    durationSeconds
+    servers {
+      serverName
+      online
+    }
+  }
+}
+```
+
+**获取玩家详情及会话历史**:
+```graphql
+{
+  player(name: "Steve", days: 7) {
+    playerName
+    online
+    firstSeen
+    lastSeen
+    totalPlaytimeSeconds
+    sessions {
+      sessionStart
+      sessionEnd
+      durationSeconds
+      serverName
+    }
+  }
+}
+```
+
+**组合查询（一次请求获取多种数据）**:
+```graphql
+{
+  serverHead {
+    online
+    playersOnline
+  }
+  serverStats(hours: 24) {
+    uptimePercentage
+    avgLatency
+  }
+  onlinePlayers {
+    playerName
+    durationSeconds
+  }
+}
+```
 
 ---
 

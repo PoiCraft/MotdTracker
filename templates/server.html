@@ -172,6 +172,9 @@
         }
     }
 
+    // 标记是否为首次加载（首次加载不触发通知）
+    let isFirstLoad = true;
+
     async function loadServer() {
         const spinner = document.getElementById('loading-spinner');
         const cardSpinner = document.getElementById('card-spinner-server');
@@ -195,6 +198,18 @@
             cachedData.nodes = nodes;
             cachedData.statsById = stats_by_id;
             cachedData.history = history;
+            
+            // 初始化或更新通知系统的状态
+            if (window.MotdNotify) {
+                if (isFirstLoad) {
+                    // 首次加载只初始化状态，不触发通知
+                    window.MotdNotify.initState({ nodes, players });
+                    isFirstLoad = false;
+                } else {
+                    // 后续加载检测状态变化
+                    window.MotdNotify.updateState({ nodes, players });
+                }
+            }
 
             // 过滤禁用节点（用于后续计算）
             const enabledNodes = nodes.filter(n => n.enabled !== false);
@@ -839,6 +854,11 @@
             // 更新缓存的统计数据
             if (stats_by_id) {
                 cachedData.statsById = stats_by_id;
+            }
+            
+            // 检测状态变化并发送通知
+            if (window.MotdNotify && !isFirstLoad) {
+                window.MotdNotify.updateState({ nodes, players });
             }
             
             // 计算聚合状态

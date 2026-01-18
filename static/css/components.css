@@ -544,3 +544,107 @@
     color: var(--text-muted);
     text-align: right;
 }
+
+/* ==================== Toast 通知系统 ==================== */
+
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10001;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 360px;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: auto;
+    backdrop-filter: blur(10px);
+}
+
+.toast-show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast-hide {
+    opacity: 0;
+    transform: translateX(100%);
+}
+
+.toast-icon {
+    font-size: 1.25em;
+    flex-shrink: 0;
+}
+
+.toast-message {
+    flex: 1;
+    font-size: 0.9em;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.toast-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.25em;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 8px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+}
+
+.toast-close:hover {
+    opacity: 1;
+}
+
+/* Toast 类型样式 */
+.toast-info {
+    border-left: 4px solid var(--info);
+}
+
+.toast-success, .toast-player_online, .toast-node_online {
+    border-left: 4px solid var(--success);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, var(--card-bg) 100%);
+}
+
+.toast-warning {
+    border-left: 4px solid var(--warning);
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, var(--card-bg) 100%);
+}
+
+.toast-error, .toast-player_offline, .toast-node_offline {
+    border-left: 4px solid var(--danger);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, var(--card-bg) 100%);
+}
+
+/* 移动端适配 */
+@media (max-width: 480px) {
+    .toast-container {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        max-width: none;
+    }
+    
+    .toast {
+        padding: 12px 14px;
+    }
+}

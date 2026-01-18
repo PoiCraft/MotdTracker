@@ -126,6 +126,9 @@ const servers = Array.from(document.querySelectorAll('[data-server-id]')).map(el
     enabled: el.dataset.enabled === 'True'
 }));
 
+// 标记是否为首次加载（首次加载不触发通知）
+let isFirstLoad = true;
+
 function formatDuration(seconds){
     if (seconds === null || seconds === undefined) return '未知';
     const mins = Math.floor(seconds / 60);
@@ -713,6 +716,9 @@ function initWebSocket() {
 async function loadIncremental(){
     document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
     
+    // 收集所有节点状态用于通知检测
+    const nodesData = [];
+    
     for (const server of servers) {
         // 跳过禁用节点
         if (!server.enabled) {
@@ -731,6 +737,13 @@ async function loadIncremental(){
             
             const status = statusData.latest_status;
             const id = server.id;
+            
+            // 收集节点数据用于通知
+            nodesData.push({
+                id: id,
+                name: server.name,
+                online: status.online
+            });
             
             // 更新卡片显示（包含最新的 uptime）
             updateServerCard(id, {
@@ -762,6 +775,11 @@ async function loadIncremental(){
         } catch (e) {
             console.error(`增量更新失败 (节点 ${server.id}):`, e);
         }
+    }
+    
+    // 检测节点状态变化并通知
+    if (typeof MotdNotify !== 'undefined' && nodesData.length > 0) {
+        MotdNotify.checkNodeChanges(nodesData);
     }
 }
 
@@ -814,11 +832,34 @@ function bindRangeSelector(){
     });
 }
 
-function loadAll(){
+async function loadAll(){
     chartHours = getSelectedHours();
     document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
     updateRangeLabel();
-    servers.forEach(s => loadServer(s));
+    
+    // 等待所有节点加载完成
+    await Promise.all(servers.map(s => loadServer(s)));
+    
+    // 首次加载后初始化通知状态
+    if (isFirstLoad && typeof MotdNotify !== 'undefined') {
+        // 收集所有节点的当前状态
+        const nodesData = [];
+        for (const server of servers) {
+            if (!server.enabled) continue;
+            const cached = cachedNodeHistories[server.id];
+            if (cached && cached.online && cached.online.length > 0) {
+                const lastIdx = cached.online.length - 1;
+                nodesData.push({
+                    id: server.id,
+                    name: server.name,
+                    online: cached.online[lastIdx]
+                });
+            }
+        }
+        // 初始化状态（首次加载不触发通知）
+        MotdNotify.initState({ nodes: nodesData, players: [] });
+        isFirstLoad = false;
+    }
 }
 bindRangeSelector();
 initWebSocket();

@@ -20,6 +20,11 @@
 {% block inline_scripts %}
 let socket = null;
 
+// 标记是否为首次加载（首次加载不触发通知）
+let isFirstLoad = true;
+// 缓存玩家数据用于状态变化检测
+let cachedPlayersData = [];
+
 function formatDuration(seconds) {
     if (!seconds && seconds !== 0) return '0m';
     const mins = Math.floor(seconds / 60);
@@ -92,6 +97,9 @@ async function loadPlayers() {
         const res = await fetch('/api/player');
         const players = await res.json();
         
+        // 缓存玩家数据
+        cachedPlayersData = players;
+        
         // For each player, fetch past 24h calendar data
         const playersWithHeatmap = await Promise.all(
             players.map(async (p) => {
@@ -128,6 +136,16 @@ async function loadPlayers() {
         
         renderPlayersList(playersWithHeatmap);
         document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
+        
+        // 首次加载后初始化通知状态
+        if (isFirstLoad && typeof MotdNotify !== 'undefined') {
+            const playerNotifyData = players.map(p => ({
+                name: p.player_name,
+                online: p.online
+            }));
+            MotdNotify.initState({ nodes: [], players: playerNotifyData });
+            isFirstLoad = false;
+        }
     } catch (e) {
         console.error('加载玩家列表失败:', e);
         document.getElementById('players-container').innerHTML = '<div class="loading">加载失败</div>';
@@ -213,6 +231,18 @@ async function loadPlayersIncremental() {
     try {
         const res = await fetch('/api/player');
         const players = await res.json();
+        
+        // 检测玩家状态变化并通知
+        if (typeof MotdNotify !== 'undefined') {
+            const playerNotifyData = players.map(p => ({
+                name: p.player_name,
+                online: p.online
+            }));
+            MotdNotify.checkPlayerChanges(playerNotifyData);
+        }
+        
+        // 更新缓存
+        cachedPlayersData = players;
         
         // 更新玩家列表中的状态
         players.forEach(p => {

@@ -1,7 +1,7 @@
 from flask import Response
 from flask_restx import Namespace, Resource, fields
 from utils.data_processing import filter_history_by_time
-from utils.app_utils import get_server_nodes_data
+from utils.app_utils import get_server_nodes_data, get_version, get_project_version, utc8_now
 
 
 def register_exporter_routes(api, poller):
@@ -218,6 +218,32 @@ def register_exporter_routes(api, poller):
                     'status': 'error',
                     'error': str(e)
                 }, 500
+
+    # 定义版本信息响应模型
+    version_model = exporter_ns.model('VersionInfo', {
+        'version': fields.String(description='完整版本号（Go Mod 伪版本格式）', example='v1.5.0-20260118140000-abc1234'),
+        'base_version': fields.String(description='基础版本号', example='1.5.0'),
+        'cache_version': fields.String(description='缓存版本标识（用于 Service Worker）', example='v1.5.0'),
+        'timestamp': fields.String(description='服务器当前时间', example='2026-01-18T14:00:00+08:00'),
+        'poll_interval': fields.Integer(description='轮询间隔（秒）', example=15)
+    })
+
+    @exporter_ns.route('/version')
+    class VersionInfo(Resource):
+        @exporter_ns.doc('获取版本信息', description='获取应用版本信息，用于客户端判断是否需要更新缓存')
+        @exporter_ns.response(200, '成功', version_model)
+        def get(self):
+            """获取版本信息，用于 PWA 缓存更新判断"""
+            full_version = get_version()
+            base_version = get_project_version()
+            
+            return {
+                'version': full_version,
+                'base_version': base_version,
+                'cache_version': f'v{base_version}',
+                'timestamp': utc8_now().isoformat(),
+                'poll_interval': poller.config.get('poll_interval', 60)
+            }
 
     api.add_namespace(exporter_ns)
     return exporter_ns

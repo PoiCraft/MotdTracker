@@ -44,6 +44,7 @@ dependencies = [
     "psycopg2-binary>=2.9.0",
     "anybadge>=1.14.0",
     "requests>=2.32.5",
+    "graphene>=3.4.0",
 ]
 
 [project.urls]
@@ -54,3 +55,8 @@ Issues = "https://github.com/PoiCraft/MotdTracker/issues"
 
 [project.scripts]
 motdtracker = "main:main"
+
+[dependency-groups]
+dev = [
+    "pillow>=12.1.0",
+]
