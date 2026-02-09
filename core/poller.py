@@ -256,30 +256,56 @@ class ServerPoller:
 
     def check_alerts(self):
         """检查服务器状态变化并发送告警"""
-        # 聚合上一帧的情况，全部离线则记录离线
-        previous_all_offline = all(
-            not status for status in self.previous_status.values()
-        )
         # 聚合当前帧的情况，有在线则记录在线
         current_any_online = any(status for status in self.current_status.values())
 
-        # 如果上一帧全部离线且当前帧有在线，发送上线告警
-        if previous_all_offline and current_any_online:
-            msg = "✅【缓解】服务器已上线"
-            self.send_alert(msg)
-            self.logger.info("发送上线告警")
+        napcat_config = self.config.get("napcat_alert", {})
+        offline_frames = napcat_config.get("offline_confirm_frames", 3)
+        online_frames = napcat_config.get("online_confirm_frames", 3)
 
-        # 如果上一帧有在线且当前帧全部离线，发送离线告警
-        if not previous_all_offline and not current_any_online:
+        # 连续帧计数（默认按首次调用初始化）
+        if not hasattr(self, "offline_streak"):
+            self.offline_streak = 0
+        if not hasattr(self, "online_streak"):
+            self.online_streak = 0
+        if not hasattr(self, "alert_state"):
+            self.alert_state = "unknown"  # online/offline/unknown
+
+        if current_any_online:
+            self.online_streak += 1
+            self.offline_streak = 0
+        else:
+            self.offline_streak += 1
+            self.online_streak = 0
+
+        # 连续离线达到阈值才发送离线告警
+        if (
+            not current_any_online
+            and self.offline_streak >= offline_frames
+            and self.alert_state != "offline"
+        ):
             msg = "⚠️【警报】服务器已离线"
             self.send_alert(msg)
             self.logger.info("发送离线告警")
+            self.alert_state = "offline"
             self.next_alert_time = utc8_now() + timedelta(
-                minutes=self.config.get("napcat_alert", {}).get("delta_minutes", 30)
+                minutes=napcat_config.get("delta_minutes", 30)
             )
 
-        if current_any_online:
+        # 连续在线达到阈值才发送上线告警
+        if (
+            current_any_online
+            and self.online_streak >= online_frames
+            and self.alert_state != "online"
+        ):
+            msg = "✅【缓解】服务器已上线"
+            self.send_alert(msg)
+            self.logger.info("发送上线告警")
+            self.alert_state = "online"
             self.next_alert_time = None  # 重置下一次告警时间
+
+        if current_any_online:
+            self.next_alert_time = None  # 在线时不发送持续离线告警
 
         if next_alert_time := getattr(self, "next_alert_time", None):
             if utc8_now() >= next_alert_time:
@@ -287,5 +313,5 @@ class ServerPoller:
                 self.send_alert(msg)
                 self.logger.info("发送持续离线告警")
                 self.next_alert_time = utc8_now() + timedelta(
-                    minutes=self.config.get("napcat_alert", {}).get("delta_minutes", 30)
+                    minutes=napcat_config.get("delta_minutes", 30)
                 )

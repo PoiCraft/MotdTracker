@@ -78,6 +78,8 @@ enable = true
 # host = "napcat-host:port"           # NapCat 服务地址
 # groups = ["123456789", "987654321"] # QQ 群号列表
 # delta_minutes = 30                  # 状态变化冷却时间（分钟）
+# offline_confirm_frames = 3          # 离线确认帧数（连续离线多少次才发送告警）
+# online_confirm_frames = 3           # 在线确认帧数（连续在线多少次才发送恢复通知）
 
 # =============================================================================
 # Umami 分析配置（可选）
