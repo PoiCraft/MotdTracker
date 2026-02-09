@@ -143,10 +143,10 @@ class ServerPoller:
         # 过滤已启用的节点（默认为启用）
         enabled_nodes = [node for node in nodes if node.get("enable", True)]
         disabled_count = len(nodes) - len(enabled_nodes)
-        
+
         if disabled_count > 0:
             self.logger.info(f"跳过 {disabled_count} 个已禁用节点")
-        
+
         max_workers = min(8, len(enabled_nodes)) if enabled_nodes else 0
 
         if max_workers == 0:
@@ -208,19 +208,19 @@ class ServerPoller:
     def get_all_servers_status(self) -> List[Dict]:
         """获取所有服务器的最新状态"""
         servers = self.db.get_all_servers()
-        
+
         # 构建节点 ID 到配置的映射
         node_config_map = {}
         for node in self.config.get("nodes", []):
             node_id = node.get("id")
             if node_id:
                 node_config_map[node_id] = node
-        
+
         result = []
         for server in servers:
             # 从配置中获取 enabled 状态，默认为 True
-            node_config = node_config_map.get(server['id'], {})
-            enabled = node_config.get('enable', True)
+            node_config = node_config_map.get(server["id"], {})
+            enabled = node_config.get("enable", True)
             # 禁用节点的 status 直接返回 null
             status = self.db.get_server_latest_status(server["id"]) if enabled else None
             result.append({**server, "status": status, "enabled": enabled})
@@ -260,6 +260,12 @@ class ServerPoller:
         current_any_online = any(status for status in self.current_status.values())
 
         napcat_config = self.config.get("napcat_alert", {})
+        
+        enable_alerts = napcat_config.get("enable", False)
+        if not enable_alerts:
+            self.logger.info("Napcat 告警功能未启用，跳过告警检查")
+            return
+
         offline_frames = napcat_config.get("offline_confirm_frames", 3)
         online_frames = napcat_config.get("online_confirm_frames", 3)
 
@@ -269,7 +275,11 @@ class ServerPoller:
         if not hasattr(self, "online_streak"):
             self.online_streak = 0
         if not hasattr(self, "alert_state"):
-            self.alert_state = "unknown"  # online/offline/unknown
+            # self.alert_state = "unknown"  # online/offline
+            if current_any_online:
+                self.alert_state = "online"
+            else:
+                self.alert_state = "offline"
 
         if current_any_online:
             self.online_streak += 1
@@ -307,7 +317,10 @@ class ServerPoller:
         if current_any_online:
             self.next_alert_time = None  # 在线时不发送持续离线告警
 
-        if next_alert_time := getattr(self, "next_alert_time", None):
+        if (
+            next_alert_time := getattr(self, "next_alert_time", None)
+            and self.alert_state == "offline"
+        ):
             if utc8_now() >= next_alert_time:
                 msg = "⚠️【警报】服务器仍然离线"
                 self.send_alert(msg)
