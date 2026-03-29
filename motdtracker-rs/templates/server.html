@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>服务器 - MotdTracker</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MotdTracker">
+    <meta name="application-name" content="MotdTracker">
+    <meta name="description" content="Minecraft 多节点服务器监控面板">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    
+    <!-- Favicon & Apple Touch Icons -->
+    <link rel="icon" type="image/png" href="/static/poi.png">
+    <link rel="apple-touch-icon" href="/static/icons/icon-152x152.png">
+    
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/chart.min.js"></script>
+</head>
+<body>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">MotdTracker</div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/server" class="nav-link active">服务器</a>
+            <a href="/nodes" class="nav-link">节点</a>
+            <a href="/players" class="nav-link">玩家</a>
+            <a href="/badges" class="nav-link">Badges</a>
+            <a href="/api/docs" class="nav-link" target="_blank" rel="noopener">API 文档</a>
+            <a href="https://github.com/PoiCraft/MotdTracker" class="nav-link" target="_blank" rel="noopener">GitHub</a>
+        </nav>
+        <div class="sidebar-version">
+            <span class="version-text">{{ app_version }}</span>
+        </div>
+        <div class="sidebar-footer">
+            <span id="ws-status" class="ws-status ws-connecting" title="WebSocket连接状态">连接中</span>
+            <button id="manual-refresh-btn" class="manual-refresh-btn" title="手动全量刷新" onclick="if(window.manualRefresh) window.manualRefresh()">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <button class="mobile-menu-toggle" onclick="toggleSidebar()">☰</button>
+                <div class="header-title">服务器</div>
+            </div>
+            <div class="header-right">
+                <span class="toolbar-label" id="last-update">--</span>
+                <span class="range-badge" id="range-label">过去 12 小时</span>
+                <span class="loading-spinner hidden" id="loading-spinner"></span>
+            </div>
+        </div>
+
+        <div id="groups-container">
+            <div class="server-card" data-slug="server">
+                <div class="server-header">
+                    <div>
+                        <div class="server-name">
+                            {{ server_name }}
+                            <span class="card-spinner hidden" id="card-spinner-server"></span>
+                        </div>
+                        <div class="server-address" id="node-count">加载中...</div>
+                    </div>
+                    <div class="status-badge status-offline" id="badge-server">--</div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-label">24h在线率</div>
+                        <div class="stat-value" id="uptime-server">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">平均延迟</div>
+                        <div class="stat-value" id="latency-server">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">在线玩家</div>
+                        <div class="stat-value" id="players-server">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">活跃节点</div>
+                        <div class="stat-value" id="active-server">--</div>
+                    </div>
+                </div>
+
+                <div class="chart-title">24小时在线状态</div>
+                <div id="heatmap-24h-server" class="heatmap-24h-container"></div>
+
+                <div class="chart-title">节点延迟统计</div>
+                <div class="info-list" id="nodes-latency-stats">加载中...</div>
+
+                <div class="chart-title">节点延迟对比</div>
+                <div class="chart-container">
+                    <canvas id="chart-latency-server"></canvas>
+                </div>
+
+                <div class="chart-title">在线玩家趋势</div>
+                <div class="chart-container">
+                    <canvas id="chart-players-server"></canvas>
+                </div>
+
+                <div class="chart-title">在线状态</div>
+                <div class="chart-container chart-small">
+                    <canvas id="chart-status-server"></canvas>
+                </div>
+
+                <div class="chart-title">在线玩家</div>
+                <div class="group-servers player-list" id="players-list-server">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/socket.io.min.js"></script>
+    <script src="/static/js/notifications.js"></script>
+    
+    <script>
+        // @ts-nocheck
+        const charts = {};
+        let socket = null;
+        let chartHours = 12;
+        const slug = 'server';
+        
+        // 缓存数据，供增量更新使用
+        let cachedData = {
+            nodes: [],          // 节点列表
+            statsById: {},      // 节点统计
+            history: null,      // 历史图表数据
+            pollInterval: 60    // 轮询间隔（秒），从后端获取
+        };
+
+        // Chart.js color configuration for dark theme
+        const chartColors = {
+            text: '#cbd5e1',
+            grid: '#334155',
+            textSecondary: '#94a3b8'
+        };
+
+        function formatDuration(seconds) {
+            if (seconds === null || seconds === undefined) return '未知';
+            const mins = Math.floor(seconds / 60);
+            const hours = Math.floor(mins / 60);
+            const minutes = mins % 60;
+            return hours > 0 ? `${hours}小时${minutes}分` : `${minutes}分`;
+        }
+
+        function formatTime(value) {
+            if (!value) return '未知';
+            return new Date(value).toLocaleString('zh-CN');
+        }
+
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function updateServerCard({ uptime, latency, players, maxPlayers, active, total, online }) {
+            const uptimeEl = document.getElementById(`uptime-${slug}`);
+            const latencyEl = document.getElementById(`latency-${slug}`);
+            const playersEl = document.getElementById(`players-${slug}`);
+            const activeEl = document.getElementById(`active-${slug}`);
+            const badge = document.getElementById(`badge-${slug}`);
+            const nodeCountEl = document.getElementById('node-count');
+            
+            if (uptimeEl && uptime !== undefined) uptimeEl.textContent = `${uptime ?? 0}%`;
+            if (latencyEl && latency !== undefined) latencyEl.textContent = latency ? `${latency}ms` : 'N/A';
+            if (playersEl && players !== undefined) {
+                if (online) {
+                    const maxText = maxPlayers !== null && maxPlayers !== undefined ? maxPlayers : 'N/A';
+                    playersEl.textContent = `${players}/${maxText}`;
+                } else {
+                    playersEl.textContent = 'N/A';
+                }
+            }
+            if (activeEl && active !== undefined) activeEl.textContent = `${active}/${total}`;
+            if (badge) {
+                badge.textContent = online ? '在线' : '离线';
+                badge.className = online ? 'status-badge status-online' : 'status-badge status-offline';
+            }
+            if (nodeCountEl && total !== undefined) {
+                nodeCountEl.textContent = `${total} 个节点入口`;
+            }
+        }
+
+        // 标记是否为首次加载（首次加载不触发通知）
+        let isFirstLoad = true;
+
+        async function loadServer() {
+            const spinner = document.getElementById('loading-spinner');
+            const cardSpinner = document.getElementById('card-spinner-server');
+            if (spinner) spinner.classList.remove('hidden');
+            if (cardSpinner) cardSpinner.classList.remove('hidden');
+            
+            try {
+                // 使用 Web API 一次性获取所有数据
+                const res = await fetch(`/api/web/server?hours=${chartHours}`);
+                if (!res.ok) throw new Error('Failed to load server data');
+                
+                const data = await res.json();
+                const { nodes, stats_by_id, history, uptime, status_timeline, players, head, config } = data;
+                
+                // 保存配置
+                if (config && config.poll_interval) {
+                    cachedData.pollInterval = config.poll_interval;
+                }
+                
+                // 缓存数据供增量更新使用
+                cachedData.nodes = nodes;
+                cachedData.statsById = stats_by_id;
+                cachedData.history = history;
+                
+                // 初始化或更新通知系统的状态
+                if (window.MotdNotify) {
+                    if (isFirstLoad) {
+                        window.MotdNotify.initState({ nodes, players });
+                        isFirstLoad = false;
+                    } else {
+                        window.MotdNotify.updateState({ nodes, players });
+                    }
+                }
+
+                // 过滤禁用节点
+                const enabledNodes = nodes.filter(n => n.enabled !== false);
+
+                // 建立节点名称到颜色的映射
+                window.nodeColorMap = {};
+                enabledNodes.forEach(node => {
+                    if (node.color) {
+                        window.nodeColorMap[node.name] = node.color;
+                    }
+                });
+
+                let latestOnline = false, latestPlayersOnline = 0, latestPlayersMax = 0;
+                if (history.timestamps && history.timestamps.length > 0) {
+                    const idx = history.timestamps.length - 1;
+                    latestOnline = history.online ? history.online[idx] : false;
+                    latestPlayersOnline = history.players_online ? history.players_online[idx] : 0;
+                    latestPlayersMax = history.players_max ? history.players_max[idx] : 0;
+                }
+                
+                const anyOnline = head && head.online !== undefined ? head.online : latestOnline;
+                const playersOnline = head && head.players_online !== undefined && head.players_online !== null
+                    ? head.players_online
+                    : latestPlayersOnline;
+                const playersMax = head && head.players_max !== undefined && head.players_max !== null
+                    ? head.players_max
+                    : latestPlayersMax;
+                
+                // 计算活跃节点数
+                const activeEntrances = enabledNodes.filter(n => n.latest_status?.online).length;
+                
+                updateServerCard({
+                    uptime: uptime.uptime_percentage ?? 0,
+                    latency: head && head.latencies ? Object.values(head.latencies).find(l => l !== null) : null,
+                    players: playersOnline,
+                    maxPlayers: playersMax,
+                    active: activeEntrances,
+                    total: enabledNodes.length,
+                    online: anyOnline
+                });
+
+                renderPlayersList(slug, players);
+                updateLastUpdateTime();
+            } catch (err) {
+                console.error('加载服务器数据失败', err);
+            } finally {
+                const spinner = document.getElementById('loading-spinner');
+                const cardSpinner = document.getElementById('card-spinner-server');
+                if (spinner) spinner.classList.add('hidden');
+                if (cardSpinner) cardSpinner.classList.add('hidden');
+            }
+        }
+
+        function updateLastUpdateTime() {
+            const lastUpdateEl = document.getElementById('last-update');
+            if (lastUpdateEl) {
+                lastUpdateEl.textContent = new Date().toLocaleString('zh-CN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            }
+        }
+
+        function renderPlayersList(slug, players) {
+            const container = document.getElementById(`players-list-${slug}`);
+            if (!container) return;
+            if (!players || !players.length) {
+                container.innerHTML = '<div class="loading">暂无玩家</div>';
+                return;
+            }
+            container.innerHTML = players.map(p => {
+                return `
+                    <div class="player-row">
+                        <div>
+                            <div class="player-name"><a href="/player/${encodeURIComponent(p.player_name)}">${escapeHtml(p.player_name)}</a></div>
+                        </div>
+                        <div class="player-meta">
+                            <div style="color:${p.online ? 'var(--success)' : 'var(--text-muted)'};">${p.online ? `在线 ${formatDuration(p.duration_seconds || 0)}` : '离线'}</div>
+                            <div>${p.online ? formatTime(p.session_start) : formatTime(p.last_seen)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadServer();
+            // 每隔一段时间自动刷新
+            setInterval(loadServer, 30000); // 每 30 秒刷新一次
+        });
+    </script>
+</body>
+</html>
