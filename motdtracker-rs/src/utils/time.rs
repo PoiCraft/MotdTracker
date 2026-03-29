@@ -75,6 +75,7 @@ mod tests {
         let now = Utc::now();
         let two_hours_ago = hours_ago(2);
         let diff = now - two_hours_ago;
-        assert!(diff.num_hours() >= 2 && diff.num_hours() <= 3);
+        let seconds = diff.num_seconds();
+        assert!(seconds >= 7200 - 60 && seconds <= 7200 + 60);
     }
 }

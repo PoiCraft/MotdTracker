@@ -1,8 +1,8 @@
-//! 统计计算模块
+﻿//! 缁熻璁＄畻妯″潡
 
 use crate::models::{StatusLog, LatencyStats};
 
-/// 计算延迟统计
+/// 璁＄畻寤惰繜缁熻
 pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
     let total_checks = history.len() as u32;
     let online_checks = history.iter().filter(|h| h.online).count() as u32;
@@ -13,7 +13,7 @@ pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
         0.0
     };
     
-    // 收集有效延迟值
+    // 鏀堕泦鏈夋晥寤惰繜鍊?
     let latencies: Vec<f64> = history.iter()
         .filter(|h| h.online && h.latency.is_some())
         .map(|h| h.latency.unwrap())
@@ -33,11 +33,11 @@ pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
         };
     }
     
-    // 计算平均值
+    // 璁＄畻骞冲潎鍊?
     let sum: f64 = latencies.iter().sum();
     let avg = sum / latencies.len() as f64;
     
-    // 计算标准差
+    // 璁＄畻鏍囧噯宸?
     let std_dev = if latencies.len() > 1 {
         let variance: f64 = latencies.iter()
             .map(|x| (x - avg).powi(2))
@@ -47,17 +47,17 @@ pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
         Some(0.0)
     };
     
-    // 计算最小/最大值
+    // 璁＄畻鏈€灏?鏈€澶у€?
     let min = latencies.iter().cloned().fold(f64::INFINITY, f64::min);
     let max = latencies.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
     
-    // 计算 P95
+    // 璁＄畻 P95
     let mut sorted = latencies.clone();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let p95_index = ((sorted.len() as f64 * 0.95).ceil() as usize).saturating_sub(1);
     let p95 = sorted.get(p95_index).copied().unwrap_or(max);
     
-    // 计算变异系数
+    // 璁＄畻鍙樺紓绯绘暟
     let cv = if avg > 0.0 && std_dev.is_some() {
         Some((std_dev.unwrap() / avg) * 100.0)
     } else {
@@ -77,7 +77,7 @@ pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
     }
 }
 
-/// 根据在线率获取颜色
+/// 鏍规嵁鍦ㄧ嚎鐜囪幏鍙栭鑹?
 pub fn get_uptime_color(uptime: f64) -> &'static str {
     if uptime >= 99.0 {
         "green"
@@ -94,7 +94,7 @@ pub fn get_uptime_color(uptime: f64) -> &'static str {
     }
 }
 
-/// 根据延迟获取颜色
+/// 鏍规嵁寤惰繜鑾峰彇棰滆壊
 pub fn get_latency_color(latency: f64) -> &'static str {
     if latency <= 50.0 {
         "green"
@@ -114,7 +114,7 @@ pub fn get_latency_color(latency: f64) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{DateTime, Utc};
+    use chrono::Utc;
     
     fn create_status_log(online: bool, latency: Option<f64>) -> StatusLog {
         StatusLog {
