@@ -179,9 +179,18 @@ motdtracker-rs/
 
 - [ ] 性能优化和基准测试
 - [ ] PostgreSQL 数据库适配器实现
-- [ ] 前端 React 应用重构
+- [x] 前端 React 应用重构（第一阶段：前后端分离骨架）
 - [ ] API 文档（OpenAPI/Swagger）
 - [ ] Docker 支持
+
+### 前端分离重构（2026-03-30）
+
+- 新增独立前端工程：`frontend/`（Vite + React + React Router）
+- 完成页面路由：`/server`、`/nodes`、`/nodes/:id`、`/players`、`/players/:name`、`/badges`
+- 完成 API 对接：`/api/web/*`、`/api/player/*`、`/api/node`、`/api/badge/*`
+- 完成 WebSocket 实时更新：监听 `poll_complete` 并增量刷新
+- 后端新增 API-only 模式：`api_only = true` 时仅保留 API/WebSocket
+- 后端新增跨域配置：`frontend_origins` 同时作用于 REST 与 SocketIO
 
 ### 低优先级
 

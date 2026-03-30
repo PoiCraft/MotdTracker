@@ -81,6 +81,48 @@ uv run main.py
 
 ---
 
+## React 前端（前后端分离）
+
+项目已提供独立 React 前端目录：`frontend/`，可直接对接现有 API，也可无缝迁移到 Rust 后端。
+
+### 1. 后端开启 API-only（推荐）
+
+在 `config.toml` 中设置：
+
+```toml
+api_only = true
+frontend_origins = ["http://127.0.0.1:5173", "http://localhost:5173"]
+```
+
+### 2. 启动后端 API
+
+```bash
+uv sync
+uv run main.py
+```
+
+### 3. 启动 React 前端
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+```
+
+默认访问地址：<http://127.0.0.1:5173>
+
+### 4. 环境变量
+
+`frontend/.env`：
+
+```env
+VITE_API_BASE_URL=http://127.0.0.1:5011
+VITE_SOCKET_BASE_URL=http://127.0.0.1:5011
+```
+
+---
+
 ## PostgreSQL 配置（可选）
 
 MotdTracker 默认使用 SQLite，如需更好的并发性能，可配置 PostgreSQL。

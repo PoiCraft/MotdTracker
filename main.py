@@ -1,8 +1,10 @@
 from flask import Flask
 from flask_socketio import SocketIO
 from flask_restx import Api
+from flask_cors import CORS
 from core.poller import ServerPoller
 from utils.app_utils import get_version
+from utils.config_loader import load_config
 import atexit
 import signal
 import sys
@@ -21,6 +23,14 @@ from routes.graphql_api import register_graphql_routes
 # 创建Flask应用
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'minecraft-tracker-secret-key'
+
+try:
+    bootstrap_config = load_config()
+except Exception:
+    bootstrap_config = {}
+
+frontend_origins = bootstrap_config.get('frontend_origins', '*')
+CORS(app, resources={r"/api/*": {"origins": frontend_origins}})
 
 # 添加全局上下文处理器，使版本号对所有模板可用
 @app.context_processor
@@ -47,7 +57,11 @@ def inject_umami_config():
     return {'umami_enabled': False}
 
 # 初始化SocketIO，调整路径到 /api/socket.io，便于与 API 前缀保持一致
-socketio = SocketIO(app, cors_allowed_origins="*", path="/api/socket.io")
+socketio = SocketIO(
+    app,
+    cors_allowed_origins=frontend_origins,
+    path="/api/socket.io"
+)
 
 # 初始化 Swagger API（基础路径 /api）
 api = Api(
@@ -62,7 +76,8 @@ api = Api(
 # 初始化轮询器（自动检测 config.toml 或 config.json）
 poller = ServerPoller(socketio=socketio)
 
-register_page_routes(app, poller)
+if not poller.config.get('api_only', False):
+    register_page_routes(app, poller)
 register_node_routes(api, poller)
 register_server_routes(api, poller)
 register_player_routes(api, poller)

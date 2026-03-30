@@ -1,0 +1,60 @@
+@import url("https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300;8..144,400;8..144,500;8..144,700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap");
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Roboto Flex", "Noto Sans SC", sans-serif;
+  background-image: none;
+}
+
+.content {
+  padding: 6px;
+  animation: screen-enter 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.code-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge-url {
+  display: inline-block;
+  max-width: 460px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid;
+}
+
+@keyframes screen-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 680px) {
+  .content {
+    padding: 0;
+  }
+
+  .badge-url {
+    max-width: 240px;
+  }
+}
