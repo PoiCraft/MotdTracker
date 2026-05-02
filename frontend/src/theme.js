@@ -1,839 +1,590 @@
-import { alpha, createTheme, lighten, darken } from "@mui/material/styles";
+import { createTheme, alpha } from "@mui/material/styles";
 
-/**
- * Material You (Material Design 3) 主题配置
- * 
- * 设计原则:
- * 1. 动态色彩系统 - 使用 Tonal Palette 和颜色调和
- * 2. 圆角设计 - 更大的圆角半径 (8dp, 12dp, 16dp, 28dp)
- * 3. 表面色调 - 背景色带有主色调的微妙影响
- * 4. 状态层 - 交互状态使用透明度叠加
- * 5. 强调容器 - 使用 Container 颜色变体
- */
-
-// Material You 核心调色板
-const seedColor = {
-  primary: "#4b7f2a",
-  secondary: "#7a5a3a",
-  tertiary: "#6f7b69",
-  error: "#b3261e",
-  neutral: "#79747e",
-  neutralVariant: "#79747e"
+const MD3 = {
+  light: {
+    primary: "#0b57d0",
+    onPrimary: "#ffffff",
+    primaryContainer: "#d3e3fd",
+    onPrimaryContainer: "#041e49",
+    secondary: "#44474e",
+    onSecondary: "#ffffff",
+    secondaryContainer: "#e2e2e9",
+    onSecondaryContainer: "#41444a",
+    tertiary: "#75546f",
+    onTertiary: "#ffffff",
+    tertiaryContainer: "#ffd7f5",
+    onTertiaryContainer: "#2c1229",
+    error: "#b3261e",
+    onError: "#ffffff",
+    errorContainer: "#f9dedc",
+    onErrorContainer: "#410e0b",
+    surface: "#f8f9ff",
+    onSurface: "#191c20",
+    onSurfaceVariant: "#44474e",
+    surfaceContainerLowest: "#ffffff",
+    surfaceContainerLow: "#f2f3fa",
+    surfaceContainer: "#ecedf4",
+    surfaceContainerHigh: "#e6e8ef",
+    surfaceContainerHighest: "#e1e2e9",
+    outline: "#74777f",
+    outlineVariant: "#c4c6cf",
+    inverseSurface: "#2e3036",
+    inverseOnSurface: "#eff0f7",
+    inversePrimary: "#a8c7fa",
+    scrim: "#000000",
+    shadow: "#000000",
+    success: "#137333",
+    successContainer: "#ceead6",
+    onSuccessContainer: "#0d3d1c",
+    warning: "#b05d00",
+    warningContainer: "#fde3c0",
+    warningOnContainer: "#3a1d00",
+  },
+  dark: {
+    primary: "#a8c7fa",
+    onPrimary: "#062e6f",
+    primaryContainer: "#0842a0",
+    onPrimaryContainer: "#d3e3fd",
+    secondary: "#c6c6cd",
+    onSecondary: "#2c2f35",
+    secondaryContainer: "#41444a",
+    onSecondaryContainer: "#e2e2e9",
+    tertiary: "#e3bdda",
+    onTertiary: "#432741",
+    tertiaryContainer: "#5b3d57",
+    onTertiaryContainer: "#ffd7f5",
+    error: "#f2b8b5",
+    onError: "#601410",
+    errorContainer: "#8c1d18",
+    onErrorContainer: "#f9dedc",
+    surface: "#111318",
+    onSurface: "#c5c6d0",
+    onSurfaceVariant: "#c4c6cf",
+    surfaceContainerLowest: "#0c0e13",
+    surfaceContainerLow: "#191c20",
+    surfaceContainer: "#1d2024",
+    surfaceContainerHigh: "#282a2f",
+    surfaceContainerHighest: "#33353a",
+    outline: "#8e9099",
+    outlineVariant: "#44474e",
+    inverseSurface: "#e1e2e9",
+    inverseOnSurface: "#2e3036",
+    inversePrimary: "#0b57d0",
+    scrim: "#000000",
+    shadow: "#000000",
+    success: "#8ad492",
+    successContainer: "#0f5324",
+    onSuccessContainer: "#ceead6",
+    warning: "#f5c27a",
+    warningContainer: "#7a3d00",
+    warningOnContainer: "#fde3c0",
+  },
 };
 
-// Material You Light Theme
-const lightPalette = {
-  mode: "light",
-  // Primary 色彩系统
-  primary: {
-    main: "#4b7f2a",
-    light: "#c8e6a3",
-    dark: "#365e1e",
-    contrastText: "#ffffff"
-  },
-  // Primary Container - 用于填充容器
-  primaryContainer: {
-    main: "#c8e6a3",
-    on: "#1a3d0a"
-  },
-  // Secondary 色彩系统
-  secondary: {
-    main: "#7a5a3a",
-    light: "#e4d5bf",
-    dark: "#5a3f28",
-    contrastText: "#ffffff"
-  },
-  secondaryContainer: {
-    main: "#e4d5bf",
-    on: "#2d1f13"
-  },
-  // Tertiary 色彩系统
-  tertiary: {
-    main: "#6f7b69",
-    light: "#d8dfd2",
-    dark: "#515a4c",
-    contrastText: "#ffffff"
-  },
-  tertiaryContainer: {
-    main: "#d8dfd2",
-    on: "#252b22"
-  },
-  // Error 色彩系统
-  error: {
-    main: "#b3261e",
-    light: "#f2b8b5",
-    dark: "#8c1d18",
-    contrastText: "#ffffff"
-  },
-  errorContainer: {
-    main: "#f9dedc",
-    on: "#410e0b"
-  },
-  // Success 色彩系统
-  success: {
-    main: "#4f8a33",
-    light: "#c8f0b3",
-    dark: "#3a6626"
-  },
-  successContainer: {
-    main: "#c8f0b3",
-    on: "#0f2906"
-  },
-  // Warning 色彩系统
-  warning: {
-    main: "#b3842f",
-    light: "#fce4b0",
-    dark: "#8a6422"
-  },
-  warningContainer: {
-    main: "#fce4b0",
-    on: "#2a1d08"
-  },
-  // 背景与表面
-  background: {
-    default: "#f5f7f0", // 带有绿色调的浅色背景
-    paper: "#fdfdfb"    // 接近白色的卡片背景
-  },
-  // 表面变体 - Material You 的核心
-  surface: {
-    main: "#fdfdfb",
-    variant: "#e5e2db",
-    on: "#1c1b1a",
-    onVariant: "#454843"
-  },
-  // 文字颜色
-  text: {
-    primary: "#1a1c17",
-    secondary: "#43493d",
-    disabled: "#a8aba3"
-  },
-  // 分割线与边框
-  divider: "#d4d7cf",
-  outline: {
-    main: "#74776e",
-    variant: "#c4c7be"
-  },
-  // 反色表面 (用于顶部应用栏等)
-  inverseSurface: {
-    main: "#2d3128",
-    on: "#eff1ea"
-  },
-  // 阴影与叠加层
-  scrim: "#000000",
-  // 状态层透明度 - Material You 核心交互状态
-  state: {
-    hoverOpacity: 0.08,
-    focusOpacity: 0.12,
-    pressOpacity: 0.12,
-    dragOpacity: 0.16
-  }
-};
-
-// Material You Dark Theme
-const darkPalette = {
-  mode: "dark",
-  // Primary 色彩系统
-  primary: {
-    main: "#9ccf67",
-    light: "#b8de8d",
-    dark: "#79ab4f",
-    contrastText: "#0f140d"
-  },
-  primaryContainer: {
-    main: "#365e1e",
-    on: "#c8e6a3"
-  },
-  // Secondary 色彩系统
-  secondary: {
-    main: "#c7a784",
-    light: "#dcc1a3",
-    dark: "#a18464",
-    contrastText: "#1a1410"
-  },
-  secondaryContainer: {
-    main: "#5a3f28",
-    on: "#e4d5bf"
-  },
-  // Tertiary 色彩系统
-  tertiary: {
-    main: "#a7b79a",
-    light: "#bcc9b1",
-    dark: "#899a7d",
-    contrastText: "#131712"
-  },
-  tertiaryContainer: {
-    main: "#515a4c",
-    on: "#d8dfd2"
-  },
-  // Error 色彩系统
-  error: {
-    main: "#f2b8b5",
-    light: "#ffd9d8",
-    dark: "#cf8f8d",
-    contrastText: "#410e0b"
-  },
-  errorContainer: {
-    main: "#8c1d18",
-    on: "#f9dedc"
-  },
-  // Success 色彩系统
-  success: {
-    main: "#8eda6d",
-    light: "#aef090",
-    dark: "#6ab850"
-  },
-  successContainer: {
-    main: "#286412",
-    on: "#c8f0b3"
-  },
-  // Warning 色彩系统
-  warning: {
-    main: "#f0c070",
-    light: "#ffd99a",
-    dark: "#d4a040"
-  },
-  warningContainer: {
-    main: "#5a4010",
-    on: "#fce4b0"
-  },
-  // 背景与表面
-  background: {
-    default: "#171d14", // 深绿色调背景
-    paper: "#1f261b"    // 略亮的卡片背景
-  },
-  // 表面变体
-  surface: {
-    main: "#1f261b",
-    variant: "#3a4236",
-    on: "#e3e6dd",
-    onVariant: "#b3b8ac"
-  },
-  // 文字颜色
-  text: {
-    primary: "#e3e6dd",
-    secondary: "#b3b8ac",
-    disabled: "#4f534a"
-  },
-  // 分割线与边框
-  divider: "#3a4236",
-  outline: {
-    main: "#91988a",
-    variant: "#454843"
-  },
-  // 反色表面
-  inverseSurface: {
-    main: "#e5e2db",
-    on: "#1c1b1a"
-  },
-  // 阴影与叠加层
-  scrim: "#000000",
-  // 状态层透明度
-  state: {
-    hoverOpacity: 0.08,
-    focusOpacity: 0.12,
-    pressOpacity: 0.12,
-    dragOpacity: 0.16
-  }
-};
-
-/**
- * 创建 Material You 风格的主题
- */
-export function createAppTheme(mode = "light") {
-  const palette = mode === "dark" ? darkPalette : lightPalette;
+function buildTheme(mode) {
+  const c = mode === "dark" ? MD3.dark : MD3.light;
   const isDark = mode === "dark";
-  
-  const theme = createTheme({
-    palette,
-    // Material You 形状系统 - 大圆角设计
-    shape: {
-      borderRadius: 16,
-      borderRadiusSm: 8,
-      borderRadiusMd: 12,
-      borderRadiusLg: 16,
-      borderRadiusXl: 28
+
+  const base = createTheme({
+    palette: {
+      mode,
+      primary: { main: c.primary, contrastText: c.onPrimary },
+      secondary: { main: c.secondary, contrastText: c.onSecondary },
+      error: { main: c.error, contrastText: c.onError },
+      success: { main: c.success },
+      warning: { main: c.warning },
+      background: {
+        default: c.surface,
+        paper: c.surfaceContainerLowest,
+      },
+      text: {
+        primary: c.onSurface,
+        secondary: c.onSurfaceVariant,
+        disabled: c.outline,
+      },
+      divider: c.outlineVariant,
+      action: {
+        hover: alpha(c.primary, 0.08),
+        selected: alpha(c.primary, 0.12),
+        disabled: alpha(c.onSurface, 0.12),
+        disabledBackground: alpha(c.onSurface, 0.06),
+        focus: alpha(c.primary, 0.12),
+      },
     },
-    // 排版系统
+    shape: { borderRadius: 12 },
     typography: {
-      // 使用 Google 的 Roboto Flex 变量字体
-      fontFamily: [
-        '"Roboto Flex"',
-        '"Noto Sans SC"',
-        '"Segoe UI"',
-        "system-ui",
-        "sans-serif"
-      ].join(","),
-      // 标题样式 - Material Display/Headline 风格
+      fontFamily:
+        '"Google Sans", "Google Sans Text", "Roboto", "Noto Sans SC", system-ui, sans-serif',
       h1: {
-        fontSize: "3.5625rem",  // 57px
+        fontSize: "2.25rem",
         fontWeight: 400,
-        lineHeight: 1.12,
-        letterSpacing: "-0.25px"
+        lineHeight: "2.75rem",
+        letterSpacing: 0,
       },
       h2: {
-        fontSize: "2.8125rem",  // 45px
+        fontSize: "2rem",
         fontWeight: 400,
-        lineHeight: 1.16,
-        letterSpacing: 0
+        lineHeight: "2.5rem",
+        letterSpacing: 0,
       },
       h3: {
-        fontSize: "2.25rem",    // 36px
+        fontSize: "1.75rem",
         fontWeight: 400,
-        lineHeight: 1.22,
-        letterSpacing: 0
+        lineHeight: "2.25rem",
       },
       h4: {
-        fontSize: "2rem",       // 32px
-        fontWeight: 500,
-        lineHeight: 1.25,
-        letterSpacing: 0
+        fontSize: "1.5rem",
+        fontWeight: 400,
+        lineHeight: "2rem",
       },
       h5: {
-        fontSize: "1.5rem",     // 24px
-        fontWeight: 500,
-        lineHeight: 1.33,
-        letterSpacing: 0
+        fontSize: "1.375rem",
+        fontWeight: 400,
+        lineHeight: "1.75rem",
       },
       h6: {
-        fontSize: "1.25rem",    // 20px - Title Large
+        fontSize: "1.125rem",
         fontWeight: 500,
-        lineHeight: 1.4,
-        letterSpacing: "0.15px"
+        lineHeight: "1.5rem",
+        letterSpacing: "0.01em",
       },
-      // 副标题样式
       subtitle1: {
-        fontSize: "1rem",       // 16px - Body Large
+        fontSize: "1rem",
         fontWeight: 500,
-        lineHeight: 1.5,
-        letterSpacing: "0.5px"
+        lineHeight: "1.5rem",
+        letterSpacing: "0.006em",
       },
       subtitle2: {
-        fontSize: "0.875rem",   // 14px - Body Medium
+        fontSize: "0.875rem",
         fontWeight: 500,
-        lineHeight: 1.43,
-        letterSpacing: "0.25px"
+        lineHeight: "1.25rem",
+        letterSpacing: "0.006em",
       },
-      // 正文样式
       body1: {
-        fontSize: "1rem",       // 16px - Body Large
+        fontSize: "0.875rem",
         fontWeight: 400,
-        lineHeight: 1.5,
-        letterSpacing: "0.5px"
+        lineHeight: "1.25rem",
+        letterSpacing: "0.01em",
       },
       body2: {
-        fontSize: "0.875rem",   // 14px - Body Medium
+        fontSize: "0.75rem",
         fontWeight: 400,
-        lineHeight: 1.43,
-        letterSpacing: "0.25px"
+        lineHeight: "1rem",
+        letterSpacing: "0.02em",
       },
-      // 标签样式
       button: {
-        fontSize: "0.875rem",   // 14px - Label Large
+        fontSize: "0.875rem",
         fontWeight: 500,
-        lineHeight: 1.43,
-        letterSpacing: "0.1px",
-        textTransform: "none"
+        lineHeight: "1.25rem",
+        letterSpacing: "0.01em",
+        textTransform: "none",
       },
       caption: {
-        fontSize: "0.75rem",    // 12px - Body Small
-        fontWeight: 400,
-        lineHeight: 1.33,
-        letterSpacing: "0.4px"
+        fontSize: "0.6875rem",
+        fontWeight: 500,
+        lineHeight: "1rem",
+        letterSpacing: "0.03em",
       },
       overline: {
-        fontSize: "0.6875rem",  // 11px - Label Small
+        fontSize: "0.6875rem",
         fontWeight: 500,
-        lineHeight: 1.45,
-        letterSpacing: "0.5px",
-        textTransform: "uppercase"
-      }
+        lineHeight: "1rem",
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+      },
     },
-    // 阴影系统 - Material You 使用更柔和的阴影
     shadows: [
       "none",
-      "0px 1px 3px 1px rgba(0, 0, 0, 0.15), 0px 1px 2px rgba(0, 0, 0, 0.3)",
-      "0px 2px 6px 2px rgba(0, 0, 0, 0.15), 0px 1px 2px rgba(0, 0, 0, 0.3)",
-      "0px 4px 8px 3px rgba(0, 0, 0, 0.15), 0px 1px 3px rgba(0, 0, 0, 0.3)",
-      "0px 6px 10px 4px rgba(0, 0, 0, 0.15), 0px 2px 3px rgba(0, 0, 0, 0.3)",
-      "0px 8px 12px 6px rgba(0, 0, 0, 0.15), 0px 4px 4px rgba(0, 0, 0, 0.3)",
-      ...Array(19).fill("0px 8px 12px 6px rgba(0, 0, 0, 0.15), 0px 4px 4px rgba(0, 0, 0, 0.3)")
+      `0 1px 2px 0 ${alpha(c.shadow, 0.3)}, 0 1px 3px 1px ${alpha(c.shadow, 0.15)}`,
+      `0 1px 2px 0 ${alpha(c.shadow, 0.3)}, 0 2px 6px 2px ${alpha(c.shadow, 0.15)}`,
+      `0 4px 8px 3px ${alpha(c.shadow, 0.15)}, 0 1px 3px 0 ${alpha(c.shadow, 0.3)}`,
+      `0 6px 10px 4px ${alpha(c.shadow, 0.15)}, 0 2px 3px 0 ${alpha(c.shadow, 0.3)}`,
+      `0 8px 12px 6px ${alpha(c.shadow, 0.15)}, 0 4px 4px 0 ${alpha(c.shadow, 0.3)}`,
+      ...Array(19).fill(
+        `0 8px 12px 6px ${alpha(c.shadow, 0.15)}, 0 4px 4px 0 ${alpha(c.shadow, 0.3)}`
+      ),
     ],
-    // 组件样式覆盖
     components: {
-      // Paper 组件 - 表面基础
+      MuiCssBaseline: {
+        styleOverrides: {
+          body: {
+            scrollbarColor: `${c.outlineVariant} transparent`,
+            "&::-webkit-scrollbar-thumb": {
+              backgroundColor: c.outlineVariant,
+              borderRadius: 99,
+            },
+            "&::-webkit-scrollbar": { width: 8, height: 8 },
+          },
+        },
+      },
       MuiPaper: {
         styleOverrides: {
-          root: ({ theme: t }) => ({
-            // Material You 表面色调
-            backgroundImage: "none",
-            border: `1px solid ${t.palette.divider}`,
-            transition: t.transitions.create(["box-shadow", "border-color"], {
-              duration: t.transitions.duration.short
-            })
-          }),
-          rounded: {
-            borderRadius: 16
-          }
-        }
+          root: { backgroundImage: "none" },
+        },
       },
-      // Card 组件
       MuiCard: {
+        defaultProps: { variant: "outlined" },
         styleOverrides: {
           root: ({ theme: t }) => ({
-            border: `1px solid ${t.palette.divider}`,
-            boxShadow: "none",
-            transition: t.transitions.create([
-              "box-shadow",
-              "border-color",
-              "transform"
-            ], {
-              duration: t.transitions.duration.short
-            }),
+            borderRadius: 12,
+            borderColor: c.outlineVariant,
+            backgroundColor: c.surfaceContainerLowest,
+            backgroundImage: "none",
+            transition: t.transitions.create(
+              ["box-shadow", "border-color", "background-color"],
+              { duration: t.transitions.duration.short }
+            ),
             "&:hover": {
-              boxShadow: t.shadows[2],
-              borderColor: isDark 
-                ? alpha(t.palette.primary.main, 0.4)
-                : alpha(t.palette.primary.main, 0.25)
-            }
-          })
-        }
+              boxShadow: t.shadows[1],
+            },
+          }),
+        },
       },
       MuiCardContent: {
         styleOverrides: {
-          root: {
-            padding: 16,
-            "&:last-child": {
-              paddingBottom: 16
-            }
-          }
-        }
-      },
-      // Chip 组件 - Material You 状态标签
-      MuiChip: {
-        styleOverrides: {
-          root: ({ theme: t }) => ({
-            fontWeight: 500,
-            borderRadius: 8, // Material You small shape
-            fontSize: "0.8125rem",
-            height: 32,
-            transition: t.transitions.create(["background-color", "box-shadow"], {
-              duration: t.transitions.duration.short
-            })
-          }),
-          colorPrimary: ({ theme: t }) => ({
-            backgroundColor: isDark 
-              ? alpha(t.palette.primary.main, 0.18)
-              : t.palette.primaryContainer.main,
-            color: isDark 
-              ? t.palette.primary.light
-              : t.palette.primaryContainer.on,
-            "&:hover": {
-              backgroundColor: isDark
-                ? alpha(t.palette.primary.main, 0.24)
-                : darken(t.palette.primaryContainer.main, 0.08)
-            }
-          }),
-          colorSuccess: ({ theme: t }) => ({
-            backgroundColor: isDark
-              ? alpha(t.palette.success.main, 0.18)
-              : t.palette.successContainer.main,
-            color: isDark
-              ? t.palette.success.light
-              : t.palette.successContainer.on
-          }),
-          colorError: ({ theme: t }) => ({
-            backgroundColor: isDark
-              ? alpha(t.palette.error.main, 0.18)
-              : t.palette.errorContainer.main,
-            color: isDark
-              ? t.palette.error.light
-              : t.palette.errorContainer.on
-          }),
-          colorWarning: ({ theme: t }) => ({
-            backgroundColor: isDark
-              ? alpha(t.palette.warning.main, 0.18)
-              : t.palette.warningContainer.main,
-            color: isDark
-              ? t.palette.warning.light
-              : t.palette.warningContainer.on
-          }),
-          outlined: ({ theme: t }) => ({
-            borderColor: t.palette.outline.main
-          })
-        }
-      },
-      // Button 组件 - Material You 按钮样式
-      MuiButton: {
-        defaultProps: {
-          disableElevation: true
+          root: { padding: 16, "&:last-child": { paddingBottom: 16 } },
         },
+      },
+      MuiButton: {
+        defaultProps: { disableElevation: true, variant: "contained" },
         styleOverrides: {
           root: ({ theme: t }) => ({
-            borderRadius: 20, // Material You full radius
-            textTransform: "none",
-            fontWeight: 500,
+            borderRadius: 20,
             padding: "10px 24px",
             minHeight: 40,
-            transition: t.transitions.create([
-              "background-color",
-              "box-shadow",
-              "transform"
-            ], {
-              duration: t.transitions.duration.short
-            }),
-            "&:active": {
-              transform: "scale(0.98)"
-            }
+            fontWeight: 500,
+            transition: t.transitions.create(
+              ["background-color", "box-shadow", "color"],
+              { duration: 200 }
+            ),
           }),
           contained: ({ theme: t }) => ({
-            boxShadow: "none",
+            backgroundColor: c.primary,
+            color: c.onPrimary,
             "&:hover": {
-              boxShadow: t.shadows[1]
-            }
-          }),
-          containedPrimary: ({ theme: t }) => ({
-            backgroundColor: t.palette.primary.main,
-            color: t.palette.primary.contrastText,
-            "&:hover": {
-              backgroundColor: isDark
-                ? t.palette.primary.dark
-                : darken(t.palette.primary.main, 0.08)
-            }
+              backgroundColor: isDark ? "#1a6be6" : "#064dc4",
+              boxShadow: t.shadows[1],
+            },
+            "&:active": { boxShadow: "none" },
+            "&.Mui-disabled": {
+              backgroundColor: alpha(c.onSurface, 0.12),
+              color: alpha(c.onSurface, 0.38),
+            },
           }),
           outlined: ({ theme: t }) => ({
-            borderColor: t.palette.outline.main,
+            borderColor: c.outline,
+            color: c.primary,
+            backgroundColor: "transparent",
             "&:hover": {
-              backgroundColor: isDark
-                ? alpha(t.palette.surface.on, 0.08)
-                : alpha(t.palette.primary.main, 0.08),
-              borderColor: t.palette.primary.main
-            }
+              backgroundColor: alpha(c.primary, 0.08),
+              borderColor: c.primary,
+            },
+            "&:active": {
+              backgroundColor: alpha(c.primary, 0.12),
+            },
+            "&.Mui-disabled": {
+              borderColor: alpha(c.onSurface, 0.12),
+              color: alpha(c.onSurface, 0.38),
+            },
           }),
           text: ({ theme: t }) => ({
+            color: c.primary,
+            "&:hover": { backgroundColor: alpha(c.primary, 0.08) },
+            "&:active": { backgroundColor: alpha(c.primary, 0.12) },
+          }),
+          containedSecondary: ({ theme: t }) => ({
+            backgroundColor: c.secondaryContainer,
+            color: c.onSecondaryContainer,
             "&:hover": {
               backgroundColor: isDark
-                ? alpha(t.palette.surface.on, 0.08)
-                : alpha(t.palette.primary.main, 0.08)
-            }
-          })
-        }
+                ? "#4d5057"
+                : "#c8c8cf",
+            },
+          }),
+        },
       },
-      // IconButton 组件
       MuiIconButton: {
         styleOverrides: {
           root: ({ theme: t }) => ({
             borderRadius: 20,
-            transition: t.transitions.create(["background-color", "transform"], {
-              duration: t.transitions.duration.short
-            }),
+            color: c.onSurfaceVariant,
+            transition: t.transitions.create(
+              ["background-color", "color"],
+              { duration: 200 }
+            ),
             "&:hover": {
-              backgroundColor: isDark
-                ? alpha(t.palette.surface.on, 0.08)
-                : alpha(t.palette.primary.main, 0.08)
+              backgroundColor: alpha(c.onSurface, 0.08),
+              color: c.onSurface,
             },
             "&:active": {
-              transform: "scale(0.95)"
-            }
-          })
-        }
-      },
-      // FAB 组件
-      MuiFab: {
-        styleOverrides: {
-          root: ({ theme: t }) => ({
-            borderRadius: 16,
-            boxShadow: t.shadows[3],
-            textTransform: "none",
-            fontWeight: 500,
-            "&:hover": {
-              boxShadow: t.shadows[4]
+              backgroundColor: alpha(c.onSurface, 0.12),
             },
-            "&:active": {
-              transform: "scale(0.98)"
-            }
-          })
-        }
+          }),
+        },
       },
-      // Drawer 组件
-      MuiDrawer: {
-        styleOverrides: {
-          paper: ({ theme: t }) => ({
-            backgroundImage: "none",
-            backgroundColor: isDark
-              ? alpha(t.palette.background.paper, 0.95)
-              : alpha(t.palette.background.paper, 0.98),
-            borderRight: `1px solid ${t.palette.divider}`,
-            backdropFilter: "blur(10px)"
-          })
-        }
-      },
-      // AppBar 组件
-      MuiAppBar: {
-        styleOverrides: {
-          root: ({ theme: t }) => ({
-            backgroundImage: "none",
-            backgroundColor: isDark
-              ? alpha(t.palette.background.paper, 0.92)
-              : alpha(t.palette.background.paper, 0.85),
-            backdropFilter: "blur(12px)",
-            borderBottom: `1px solid ${t.palette.divider}`
-          })
-        }
-      },
-      // Toolbar 组件
-      MuiToolbar: {
-        styleOverrides: {
-          root: {
-            minHeight: 64,
-            "@media (min-width: 600px)": {
-              minHeight: 64
-            }
-          }
-        }
-      },
-      // ListItem 组件
-      MuiListItemButton: {
-        styleOverrides: {
-          root: ({ theme: t }) => ({
-            borderRadius: 28, // Material You Navigation Drawer item
-            margin: "2px 12px",
-            transition: t.transitions.create(["background-color", "color"], {
-              duration: t.transitions.duration.short
-            }),
-            "&.active": {
-              backgroundColor: isDark
-                ? alpha(t.palette.primary.main, 0.18)
-                : t.palette.primaryContainer.main,
-              color: isDark
-                ? t.palette.primary.light
-                : t.palette.primaryContainer.on,
-              "&:hover": {
-                backgroundColor: isDark
-                  ? alpha(t.palette.primary.main, 0.24)
-                  : darken(t.palette.primaryContainer.main, 0.08)
-              }
-            },
-            "&:hover": {
-              backgroundColor: isDark
-                ? alpha(t.palette.surface.on, 0.08)
-                : alpha(t.palette.primary.main, 0.08)
-            }
-          })
-        }
-      },
-      // TextField 组件
-      MuiTextField: {
-        styleOverrides: {
-          root: ({ theme: t }) => ({
-            "& .MuiOutlinedInput-root": {
-              borderRadius: 12,
-              transition: t.transitions.create(["border-color", "box-shadow"], {
-                duration: t.transitions.duration.short
-              }),
-              "&:hover": {
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderColor: t.palette.outline.main
-                }
-              },
-              "&.Mui-focused": {
-                "& .MuiOutlinedInput-notchedOutline": {
-                  borderWidth: 2,
-                  borderColor: t.palette.primary.main
-                }
-              }
-            }
-          })
-        }
-      },
-      // Select 组件
-      MuiSelect: {
-        styleOverrides: {
-          root: ({ theme: t }) => ({
-            borderRadius: 12
-          })
-        }
-      },
-      // MenuItem 组件
-      MuiMenuItem: {
+      MuiChip: {
         styleOverrides: {
           root: ({ theme: t }) => ({
             borderRadius: 8,
-            margin: "2px 8px",
-            transition: t.transitions.create("background-color", {
-              duration: t.transitions.duration.short
-            }),
+            fontWeight: 500,
+            fontSize: "0.8125rem",
+            height: 32,
+            transition: t.transitions.create(
+              ["background-color", "border-color"],
+              { duration: 200 }
+            ),
+          }),
+          outlined: {
+            borderColor: c.outlineVariant,
+            color: c.onSurface,
+            "&:hover": {
+              backgroundColor: alpha(c.onSurface, 0.08),
+            },
+          },
+          filled: ({ theme: t }) => ({
+            backgroundColor: c.secondaryContainer,
+            color: c.onSecondaryContainer,
             "&:hover": {
               backgroundColor: isDark
-                ? alpha(t.palette.surface.on, 0.08)
-                : alpha(t.palette.primary.main, 0.08)
-            }
-          })
-        }
+                ? alpha(c.secondary, 0.2)
+                : "#d0d0d7",
+            },
+          }),
+          filledPrimary: ({ theme: t }) => ({
+            backgroundColor: c.primaryContainer,
+            color: c.onPrimaryContainer,
+            "&:hover": {
+              backgroundColor: isDark
+                ? alpha(c.primary, 0.28)
+                : "#b8d3fa",
+            },
+          }),
+          filledSuccess: {
+            backgroundColor: c.successContainer,
+            color: c.onSuccessContainer,
+          },
+          filledWarning: {
+            backgroundColor: c.warningContainer,
+            color: c.warningOnContainer,
+          },
+          filledError: {
+            backgroundColor: c.errorContainer,
+            color: c.onErrorContainer,
+          },
+        },
       },
-      // Table 组件
-      MuiTable: {
+      MuiTableCell: {
         styleOverrides: {
-          root: ({ theme: t }) => ({
-            borderCollapse: "separate",
-            borderSpacing: "0 4px"
-          })
-        }
+          root: {
+            borderBottom: `1px solid ${c.outlineVariant}`,
+            padding: "12px 16px",
+            fontSize: "0.875rem",
+          },
+          head: {
+            fontWeight: 500,
+            fontSize: "0.75rem",
+            letterSpacing: "0.03em",
+            color: c.onSurfaceVariant,
+            textTransform: "none",
+          },
+        },
       },
       MuiTableRow: {
         styleOverrides: {
           root: ({ theme: t }) => ({
-            transition: t.transitions.create("background-color", {
-              duration: t.transitions.duration.short
-            }),
             "&:hover": {
-              backgroundColor: isDark
-                ? alpha(t.palette.surface.on, 0.04)
-                : alpha(t.palette.primary.main, 0.04)
-            }
-          })
-        }
-      },
-      MuiTableCell: {
-        styleOverrides: {
-          root: ({ theme: t }) => ({
-            borderBottom: "none",
-            padding: "12px 16px"
+              backgroundColor: alpha(c.onSurface, 0.04),
+            },
+            "&:last-child td": { borderBottom: 0 },
           }),
-          head: ({ theme: t }) => ({
-            fontWeight: 500,
-            color: t.palette.text.secondary,
-            fontSize: "0.75rem",
-            textTransform: "uppercase",
-            letterSpacing: "0.5px"
-          })
-        }
+        },
       },
-      // Alert 组件
+      MuiTable: {
+        styleOverrides: {
+          root: { borderCollapse: "collapse" },
+        },
+      },
       MuiAlert: {
         styleOverrides: {
-          root: ({ theme: t }) => ({
-            borderRadius: 16,
-            border: `1px solid`
-          }),
-          standardSuccess: ({ theme: t }) => ({
-            backgroundColor: isDark
-              ? alpha(t.palette.success.main, 0.12)
-              : t.palette.successContainer.main,
-            color: isDark
-              ? t.palette.success.light
-              : t.palette.successContainer.on,
-            borderColor: isDark
-              ? alpha(t.palette.success.main, 0.3)
-              : alpha(t.palette.success.main, 0.2)
-          }),
-          standardError: ({ theme: t }) => ({
-            backgroundColor: isDark
-              ? alpha(t.palette.error.main, 0.12)
-              : t.palette.errorContainer.main,
-            color: isDark
-              ? t.palette.error.light
-              : t.palette.errorContainer.on,
-            borderColor: isDark
-              ? alpha(t.palette.error.main, 0.3)
-              : alpha(t.palette.error.main, 0.2)
-          }),
-          standardWarning: ({ theme: t }) => ({
-            backgroundColor: isDark
-              ? alpha(t.palette.warning.main, 0.12)
-              : t.palette.warningContainer.main,
-            color: isDark
-              ? t.palette.warning.light
-              : t.palette.warningContainer.on,
-            borderColor: isDark
-              ? alpha(t.palette.warning.main, 0.3)
-              : alpha(t.palette.warning.main, 0.2)
-          }),
-          standardInfo: ({ theme: t }) => ({
-            backgroundColor: isDark
-              ? alpha(t.palette.primary.main, 0.12)
-              : t.palette.primaryContainer.main,
-            color: isDark
-              ? t.palette.primary.light
-              : t.palette.primaryContainer.on,
-            borderColor: isDark
-              ? alpha(t.palette.primary.main, 0.3)
-              : alpha(t.palette.primary.main, 0.2)
-          })
-        }
+          root: {
+            borderRadius: 12,
+            border: "1px solid",
+            fontSize: "0.875rem",
+          },
+          standardError: {
+            backgroundColor: c.errorContainer,
+            color: c.onErrorContainer,
+            borderColor: alpha(c.error, isDark ? 0.5 : 0.3),
+            "& .MuiAlert-icon": { color: c.error },
+          },
+          standardSuccess: {
+            backgroundColor: c.successContainer,
+            color: c.onSuccessContainer,
+            borderColor: alpha(c.success, isDark ? 0.5 : 0.3),
+            "& .MuiAlert-icon": { color: c.success },
+          },
+          standardWarning: {
+            backgroundColor: c.warningContainer,
+            color: c.warningOnContainer,
+            borderColor: alpha(c.warning, isDark ? 0.5 : 0.3),
+            "& .MuiAlert-icon": { color: c.warning },
+          },
+          standardInfo: {
+            backgroundColor: c.primaryContainer,
+            color: c.onPrimaryContainer,
+            borderColor: alpha(c.primary, isDark ? 0.5 : 0.3),
+            "& .MuiAlert-icon": { color: c.primary },
+          },
+        },
       },
-      // LinearProgress 组件
       MuiLinearProgress: {
         styleOverrides: {
-          root: ({ theme: t }) => ({
-            borderRadius: 4,
+          root: {
+            borderRadius: 99,
             height: 4,
-            overflow: "hidden"
-          })
-        }
+            backgroundColor: c.surfaceContainerHighest,
+          },
+          bar: { borderRadius: 99 },
+        },
       },
-      // Skeleton 组件
-      MuiSkeleton: {
+      MuiSelect: {
+        styleOverrides: {
+          root: { borderRadius: 12 },
+        },
+      },
+      MuiOutlinedInput: {
         styleOverrides: {
           root: ({ theme: t }) => ({
-            borderRadius: 12
-          })
-        }
+            borderRadius: 12,
+            "& .MuiOutlinedInput-notchedOutline": {
+              borderColor: c.outline,
+            },
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: c.onSurface,
+            },
+            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+              borderColor: c.primary,
+              borderWidth: 2,
+            },
+          }),
+        },
       },
-      // Tooltip 组件
+      MuiMenuItem: {
+        styleOverrides: {
+          root: {
+            borderRadius: 0,
+            fontSize: "0.875rem",
+            minHeight: 40,
+            "&:hover": { backgroundColor: alpha(c.onSurface, 0.08) },
+            "&.Mui-selected": {
+              backgroundColor: alpha(c.primary, 0.12),
+              "&:hover": { backgroundColor: alpha(c.primary, 0.16) },
+            },
+          },
+        },
+      },
+      MuiDrawer: {
+        styleOverrides: {
+          paper: {
+            backgroundImage: "none",
+            borderRight: `1px solid ${c.outlineVariant}`,
+          },
+        },
+      },
+      MuiAppBar: {
+        styleOverrides: {
+          root: {
+            backgroundImage: "none",
+            backgroundColor: c.surfaceContainer,
+            color: c.onSurface,
+            boxShadow: "none",
+            borderBottom: `1px solid ${c.outlineVariant}`,
+          },
+        },
+      },
       MuiTooltip: {
         styleOverrides: {
-          tooltip: ({ theme: t }) => ({
-            backgroundColor: isDark
-              ? t.palette.inverseSurface.main
-              : t.palette.surface.on,
-            color: isDark
-              ? t.palette.inverseSurface.on
-              : t.palette.background.paper,
-            borderRadius: 8,
+          tooltip: {
+            backgroundColor: c.inverseSurface,
+            color: c.inverseOnSurface,
+            borderRadius: 4,
             fontSize: "0.75rem",
-            padding: "8px 12px"
-          })
-        }
+            padding: "6px 12px",
+          },
+        },
       },
-      // Divider 组件
       MuiDivider: {
         styleOverrides: {
+          root: { borderColor: c.outlineVariant },
+        },
+      },
+      MuiListItemButton: {
+        styleOverrides: {
           root: ({ theme: t }) => ({
-            borderColor: t.palette.divider
-          })
-        }
-      }
-    }
+            borderRadius: 28,
+            transition: t.transitions.create(
+              ["background-color", "color"],
+              { duration: 200 }
+            ),
+            "&:hover": { backgroundColor: alpha(c.onSurface, 0.08) },
+            "&.active, &.Mui-selected": {
+              backgroundColor: c.secondaryContainer,
+              color: c.onSurface,
+              "&:hover": {
+                backgroundColor: isDark
+                  ? alpha(c.secondary, 0.2)
+                  : "#d0d0d7",
+              },
+            },
+          }),
+        },
+      },
+      MuiFab: {
+        styleOverrides: {
+          root: { borderRadius: 16, textTransform: "none", fontWeight: 500 },
+        },
+      },
+      MuiSkeleton: {
+        styleOverrides: {
+          root: { borderRadius: 8 },
+        },
+      },
+      MuiSnackbarContent: {
+        styleOverrides: {
+          root: {
+            backgroundColor: c.inverseSurface,
+            color: c.inverseOnSurface,
+            borderRadius: 4,
+            fontSize: "0.875rem",
+          },
+        },
+      },
+    },
   });
 
-  // 扩展主题 - 添加自定义属性
-  return createTheme(theme, {
-    // 自定义图表配色
+  return createTheme(base, {
+    md3: {
+      colors: c,
+      isDark,
+    },
     custom: {
       charts: {
         series: [
-          theme.palette.primary.main,
-          theme.palette.success.main,
-          theme.palette.secondary.main,
-          theme.palette.warning.main,
-          theme.palette.tertiary.main,
-          theme.palette.text.secondary
+          c.primary,
+          c.secondary,
+          c.tertiary,
+          c.error,
+          c.success,
+          c.warning,
         ],
-        grid: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"
+        grid: isDark
+          ? alpha(c.onSurface, 0.06)
+          : alpha(c.onSurface, 0.06),
       },
-      // 热力图配色
-      heatmap: {
-        high: isDark ? theme.palette.success.dark : theme.palette.success.main,
-        mid: isDark ? theme.palette.warning.dark : theme.palette.warning.main,
-        low: isDark ? theme.palette.error.dark : theme.palette.error.main,
-        none: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"
-      },
-      // 状态颜色
-      status: {
-        online: theme.palette.success.main,
-        offline: theme.palette.error.main,
-        pending: theme.palette.warning.main
-      }
-    }
+    },
   });
+}
+
+export function createAppTheme(mode = "light") {
+  return buildTheme(mode);
 }

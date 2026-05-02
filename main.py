@@ -18,6 +18,7 @@ from routes.badge_api import register_badge_routes
 from routes.web_api import register_web_routes
 from routes.query_api import register_query_routes
 from routes.graphql_api import register_graphql_routes
+from routes.spa import register_spa_routes
 
 
 # 创建Flask应用
@@ -78,6 +79,8 @@ poller = ServerPoller(socketio=socketio)
 
 if not poller.config.get('api_only', False):
     register_page_routes(app, poller)
+else:
+    register_spa_routes(app)
 register_node_routes(api, poller)
 register_server_routes(api, poller)
 register_player_routes(api, poller)

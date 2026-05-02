@@ -1,5 +1,5 @@
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:5011").replace(/\/$/, "");
-export const SOCKET_BASE = (import.meta.env.VITE_SOCKET_BASE_URL || API_BASE).replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+export const SOCKET_BASE = (import.meta.env.VITE_SOCKET_BASE_URL || window.location.origin).replace(/\/$/, "");
 
 async function request(path, init) {
   const response = await fetch(`${API_BASE}${path}`, init);

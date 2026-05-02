@@ -1,4 +1,5 @@
-import { NavLink } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   AppBar,
   Avatar,
@@ -15,7 +16,7 @@ import {
   Toolbar,
   Tooltip,
   Typography,
-  useMediaQuery
+  useMediaQuery,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
@@ -26,354 +27,258 @@ import BadgeRoundedIcon from "@mui/icons-material/BadgeRounded";
 import HubRoundedIcon from "@mui/icons-material/HubRounded";
 import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
 import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
-import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
-import { useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { useColorMode } from "../color-mode";
 
-/**
- * Material You 导航配置
- */
 const navItems = [
-  { 
-    to: "/server", 
-    label: "总览", 
-    icon: <HomeRoundedIcon />,
-    description: "服务器状态监控"
-  },
-  { 
-    to: "/nodes", 
-    label: "节点", 
-    icon: <DnsRoundedIcon />,
-    description: "节点管理与监控"
-  },
-  { 
-    to: "/players", 
-    label: "玩家", 
-    icon: <GroupsRoundedIcon />,
-    description: "玩家数据统计"
-  },
-  { 
-    to: "/badges", 
-    label: "徽章", 
-    icon: <BadgeRoundedIcon />,
-    description: "生成状态徽章"
-  }
+  { to: "/server", label: "总览", icon: <HomeRoundedIcon /> },
+  { to: "/nodes", label: "节点", icon: <DnsRoundedIcon /> },
+  { to: "/players", label: "玩家", icon: <GroupsRoundedIcon /> },
+  { to: "/badges", label: "徽章", icon: <BadgeRoundedIcon /> },
 ];
 
-const drawerWidth = 280;
+const DRAWER_WIDTH = 240;
+const RAIL_WIDTH = 72;
 
-/**
- * Material You 风格的布局组件
- * 
- * 特性:
- * 1. 响应式导航抽屉
- * 2. 顶部应用栏 (移动端)
- * 3. 主题切换功能
- * 4. 当前页面高亮指示
- */
-export default function Layout({ children }) {
-  const [open, setOpen] = useState(false);
-  const location = useLocation();
-  const { mode, toggleMode } = useColorMode();
+function NavItem({ item, onClick }) {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const isDark = mode === "dark";
+  const md3 = theme.md3?.colors;
+  const isDark = theme.md3?.isDark;
 
-  // 计算当前页面标题
-  const currentNav = useMemo(() => {
-    return navItems.find((item) => location.pathname.startsWith(item.to));
-  }, [location.pathname]);
+  return (
+    <ListItem disablePadding sx={{ mb: 0.25 }}>
+      <ListItemButton
+        component={NavLink}
+        to={item.to}
+        onClick={onClick}
+        sx={{
+          minHeight: 48,
+          px: 1.5,
+          mx: 1,
+          borderRadius: 28,
+          position: "relative",
+          gap: 1.5,
+          color: md3?.onSurfaceVariant,
+          "&.active": {
+            backgroundColor: md3?.secondaryContainer,
+            color: md3?.onSurface,
+            "& .MuiListItemIcon-root": { color: md3?.onSurface },
+            "& .MuiTypography-root": { fontWeight: 600 },
+          },
+          "&:hover": {
+            backgroundColor: alpha(
+              md3?.onSurface || "#000",
+              0.08
+            ),
+          },
+        }}
+      >
+        <ListItemIcon
+          sx={{
+            minWidth: 0,
+            color: "inherit",
+            justifyContent: "center",
+          }}
+        >
+          {item.icon}
+        </ListItemIcon>
+        <ListItemText
+          primary={item.label}
+          primaryTypographyProps={{
+            fontSize: "0.875rem",
+            fontWeight: 500,
+            letterSpacing: "0.01em",
+          }}
+        />
+      </ListItemButton>
+    </ListItem>
+  );
+}
 
-  const currentTitle = currentNav?.label || "MotdTracker";
+function RailNavItem({ item, onClick }) {
+  const theme = useTheme();
+  const md3 = theme.md3?.colors;
+  const isActive = useLocation().pathname.startsWith(item.to);
 
-  // 导航项点击处理
-  const handleNavClick = () => {
-    if (isMobile) {
-      setOpen(false);
-    }
-  };
+  return (
+    <Tooltip title={item.label} placement="right" arrow>
+      <Stack
+        component={NavLink}
+        to={item.to}
+        onClick={onClick}
+        alignItems="center"
+        spacing={0.5}
+        sx={{
+          textDecoration: "none",
+          color: isActive ? md3?.onSurface : md3?.onSurfaceVariant,
+          py: 1,
+        }}
+      >
+        <Box
+          sx={{
+            width: 56,
+            height: 32,
+            borderRadius: 16,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: isActive
+              ? md3?.secondaryContainer
+              : "transparent",
+            transition: "background-color 150ms cubic-bezier(0.2, 0, 0, 1)",
+            "&:hover": {
+              backgroundColor: isActive
+                ? md3?.secondaryContainer
+                : alpha(md3?.onSurface || "#000", 0.08),
+            },
+          }}
+        >
+          {item.icon}
+        </Box>
+        <Typography
+          sx={{
+            fontSize: "0.75rem",
+            fontWeight: isActive ? 600 : 500,
+            lineHeight: 1,
+            letterSpacing: "0.03em",
+          }}
+        >
+          {item.label}
+        </Typography>
+      </Stack>
+    </Tooltip>
+  );
+}
 
-  /**
-   * 抽屉内容组件
-   */
-  const drawerContent = (
+function DrawerContent({ onNavClick }) {
+  const theme = useTheme();
+  const md3 = theme.md3?.colors;
+  const isDark = theme.md3?.isDark;
+  const { mode, toggleMode } = useColorMode();
+
+  return (
     <Stack sx={{ height: "100%" }}>
-      {/* 应用头部 */}
-      <Box sx={{ px: 2.5, py: 2.5 }}>
+      <Box sx={{ px: 2.5, py: 2, mb: 0.5 }}>
         <Stack direction="row" alignItems="center" spacing={1.5}>
-          {/* 应用图标 */}
           <Avatar
             sx={{
-              width: 48,
-              height: 48,
-              bgcolor: isDark
-                ? alpha(theme.palette.primary.main, 0.18)
-                : theme.palette.primaryContainer?.main || alpha(theme.palette.primary.main, 0.12),
-              color: isDark
-                ? theme.palette.primary.light
-                : theme.palette.primary.dark
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              bgcolor: md3?.primaryContainer,
+              color: md3?.onPrimaryContainer,
             }}
           >
-            <HubRoundedIcon sx={{ fontSize: 28 }} />
+            <HubRoundedIcon sx={{ fontSize: 20 }} />
           </Avatar>
-          <Box sx={{ flex: 1 }}>
+          <Box>
             <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 600,
-                fontSize: "1.125rem",
-                lineHeight: 1.4,
-                color: "text.primary"
-              }}
+              variant="subtitle1"
+              sx={{ fontWeight: 600, lineHeight: 1.2, fontSize: "0.9375rem" }}
             >
               MotdTracker
             </Typography>
             <Typography
-              variant="body2"
-              sx={{
-                color: "text.secondary",
-                fontSize: "0.75rem"
-              }}
+              variant="caption"
+              sx={{ color: md3?.onSurfaceVariant }}
             >
-              Material You App
+              服务器监控
             </Typography>
           </Box>
         </Stack>
       </Box>
 
-      <Divider sx={{ mx: 2.5, mb: 1 }} />
+      <Divider sx={{ mx: 2, mb: 1 }} />
 
-      {/* 导航列表 */}
-      <List
-        component="nav"
-        sx={{
-          px: 1.5,
-          flex: 1,
-          "& .MuiListItemButton-root": {
-            py: 1.25,
-            px: 2,
-            mb: 0.5,
-            borderRadius: 28,
-            transition: theme.transitions.create([
-              "background-color",
-              "color",
-              "transform"
-            ], {
-              duration: theme.transitions.duration.short
-            }),
-            "&.active": {
-              bgcolor: isDark
-                ? alpha(theme.palette.primary.main, 0.18)
-                : theme.palette.primaryContainer?.main || alpha(theme.palette.primary.main, 0.12),
-              color: isDark
-                ? theme.palette.primary.light
-                : theme.palette.primary.dark,
-              "& .MuiListItemIcon-root": {
-                color: isDark
-                  ? theme.palette.primary.light
-                  : theme.palette.primary.dark
-              },
-              "& .MuiListItemText-primary": {
-                fontWeight: 600
-              },
-              "&::before": {
-                content: '""',
-                position: "absolute",
-                left: 0,
-                top: "50%",
-                transform: "translateY(-50%)",
-                width: 3,
-                height: 32,
-                borderRadius: "0 3px 3px 0",
-                bgcolor: theme.palette.primary.main
-              }
-            },
-            "&:hover": {
-              bgcolor: isDark
-                ? alpha(theme.palette.surface?.on || "#fff", 0.08)
-                : alpha(theme.palette.primary.main, 0.08),
-              transform: "scale(1.01)"
-            },
-            "&:active": {
-              transform: "scale(0.99)"
-            }
-          }
-        }}
-      >
+      <List sx={{ flex: 1, px: 0.5 }}>
         {navItems.map((item) => (
-          <ListItem key={item.to} disablePadding>
-            <ListItemButton
-              component={NavLink}
-              to={item.to}
-              onClick={handleNavClick}
-              sx={{
-                position: "relative"
-              }}
-            >
-              <ListItemIcon
-                sx={{
-                  minWidth: 40,
-                  color: "inherit"
-                }}
-              >
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText
-                primary={item.label}
-                secondary={item.description}
-                secondaryTypographyProps={{
-                  sx: {
-                    fontSize: "0.6875rem",
-                    color: "text.secondary",
-                    lineHeight: 1.3,
-                    mt: 0.25
-                  }
-                }}
-              />
-            </ListItemButton>
-          </ListItem>
+          <NavItem key={item.to} item={item} onClick={onNavClick} />
         ))}
       </List>
 
-      <Divider sx={{ mx: 2.5, my: 1 }} />
+      <Divider sx={{ mx: 2, mt: 1 }} />
 
-      {/* 底部操作区 */}
-      <Box sx={{ px: 2.5, pb: 2.5 }}>
-        {/* 主题切换按钮 */}
+      <Box sx={{ p: 1.5 }}>
         <ListItemButton
           onClick={toggleMode}
           sx={{
-            borderRadius: 16,
-            py: 1.5,
-            px: 2,
-            mb: 1
+            borderRadius: 28,
+            minHeight: 48,
+            px: 1.5,
+            gap: 1.5,
+            color: md3?.onSurfaceVariant,
+            "&:hover": {
+              backgroundColor: alpha(md3?.onSurface || "#000", 0.08),
+            },
           }}
         >
-          <ListItemIcon sx={{ minWidth: 40 }}>
+          <ListItemIcon sx={{ minWidth: 0, color: "inherit" }}>
             {isDark ? (
-              <LightModeRoundedIcon sx={{ color: "warning.main" }} />
+              <LightModeRoundedIcon />
             ) : (
               <DarkModeRoundedIcon />
             )}
           </ListItemIcon>
           <ListItemText
             primary={isDark ? "浅色模式" : "深色模式"}
-            secondary={isDark ? "切换到浅色主题" : "切换到深色主题"}
-            secondaryTypographyProps={{
-              sx: {
-                fontSize: "0.6875rem",
-                color: "text.secondary"
-              }
+            primaryTypographyProps={{
+              fontSize: "0.875rem",
+              fontWeight: 500,
             }}
           />
         </ListItemButton>
-
-        {/* 版本信息 */}
-        <Box
-          sx={{
-            mt: 2,
-            px: 1.5,
-            py: 1.5,
-            borderRadius: 2,
-            bgcolor: isDark
-              ? alpha(theme.palette.surface?.variant || "#333", 0.3)
-              : alpha(theme.palette.primary.main, 0.04)
-          }}
-        >
-          <Typography
-            variant="caption"
-            sx={{
-              display: "block",
-              color: "text.secondary",
-              fontSize: "0.6875rem",
-              lineHeight: 1.4
-            }}
-          >
-            前后端分离重构版
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{
-              display: "block",
-              color: "text.disabled",
-              fontSize: "0.625rem",
-              mt: 0.5
-            }}
-          >
-            Built with Material You
-          </Typography>
-        </Box>
       </Box>
     </Stack>
   );
+}
+
+export default function Layout({ children }) {
+  const [open, setOpen] = useState(false);
+  const theme = useTheme();
+  const md3 = theme.md3?.colors;
+  const isDark = theme.md3?.isDark;
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const location = useLocation();
+
+  const currentTitle = useMemo(() => {
+    const match = navItems.find((i) => location.pathname.startsWith(i.to));
+    return match?.label || "MotdTracker";
+  }, [location.pathname]);
+
+  const handleNavClick = () => {
+    if (isMobile) setOpen(false);
+  };
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
-      {/* 移动端顶部应用栏 */}
+    <Box
+      sx={{
+        display: "flex",
+        minHeight: "100vh",
+        bgcolor: md3?.surface,
+      }}
+    >
+      {/* Mobile top bar */}
       <AppBar
         position="fixed"
-        color="inherit"
-        elevation={0}
         sx={{
-          display: { xs: "block", md: "none" },
-          bgcolor: (theme) => alpha(theme.palette.background.paper, 0.85),
-          backdropFilter: "blur(12px)"
+          display: { xs: "flex", md: "none" },
+          bgcolor: md3?.surfaceContainer,
+          color: md3?.onSurface,
+          borderBottom: `1px solid ${md3?.outlineVariant}`,
+          boxShadow: "none",
         }}
       >
-        <Toolbar sx={{ gap: 1.5 }}>
-          <IconButton
-            edge="start"
-            onClick={() => setOpen(true)}
-            sx={{
-              bgcolor: isDark
-                ? alpha(theme.palette.surface?.on || "#fff", 0.05)
-                : alpha(theme.palette.primary.main, 0.05),
-              "&:hover": {
-                bgcolor: isDark
-                  ? alpha(theme.palette.surface?.on || "#fff", 0.1)
-                  : alpha(theme.palette.primary.main, 0.1)
-              }
-            }}
-          >
+        <Toolbar sx={{ gap: 1 }}>
+          <IconButton onClick={() => setOpen(true)} edge="start">
             <MenuRoundedIcon />
           </IconButton>
-          
-          <Typography
-            variant="h6"
-            sx={{
-              flex: 1,
-              fontWeight: 600,
-              fontSize: "1.125rem"
-            }}
-          >
+          <Typography variant="h6" sx={{ flex: 1, fontWeight: 500 }}>
             {currentTitle}
           </Typography>
-          
-          <Tooltip
-            title={isDark ? "切换到浅色" : "切换到深色"}
-            arrow
-          >
-            <IconButton
-              onClick={toggleMode}
-              sx={{
-                bgcolor: isDark
-                  ? alpha(theme.palette.surface?.on || "#fff", 0.05)
-                  : alpha(theme.palette.primary.main, 0.05),
-                "&:hover": {
-                  bgcolor: isDark
-                    ? alpha(theme.palette.surface?.on || "#fff", 0.1)
-                    : alpha(theme.palette.primary.main, 0.1)
-                }
-              }}
-            >
-              {isDark ? <LightModeRoundedIcon /> : <DarkModeRoundedIcon />}
-            </IconButton>
-          </Tooltip>
+          <ThemeToggle />
         </Toolbar>
       </AppBar>
 
-      {/* 移动端临时抽屉 */}
+      {/* Mobile drawer */}
       <Drawer
         variant="temporary"
         open={open}
@@ -382,38 +287,32 @@ export default function Layout({ children }) {
         sx={{
           display: { xs: "block", md: "none" },
           "& .MuiDrawer-paper": {
-            width: drawerWidth,
-            boxSizing: "border-box",
-            borderRight: "1px solid",
-            borderColor: "divider",
-            bgcolor: (theme) => alpha(theme.palette.background.paper, 0.95),
-            backdropFilter: "blur(10px)"
-          }
+            width: DRAWER_WIDTH,
+            bgcolor: md3?.surfaceContainerLow,
+          },
         }}
       >
-        {drawerContent}
+        <DrawerContent onNavClick={handleNavClick} />
       </Drawer>
 
-      {/* 桌面端永久抽屉 */}
+      {/* Desktop permanent drawer */}
       <Drawer
         variant="permanent"
         sx={{
           display: { xs: "none", md: "block" },
-          width: drawerWidth,
+          width: DRAWER_WIDTH,
           flexShrink: 0,
           "& .MuiDrawer-paper": {
-            width: drawerWidth,
-            boxSizing: "border-box",
-            borderRight: "1px solid",
-            borderColor: "divider",
-            bgcolor: "background.paper"
-          }
+            width: DRAWER_WIDTH,
+            bgcolor: md3?.surfaceContainerLow,
+            borderRight: `1px solid ${md3?.outlineVariant}`,
+          },
         }}
       >
-        {drawerContent}
+        <DrawerContent onNavClick={handleNavClick} />
       </Drawer>
 
-      {/* 主内容区域 */}
+      {/* Main content */}
       <Box
         component="main"
         sx={{
@@ -421,36 +320,56 @@ export default function Layout({ children }) {
           display: "flex",
           flexDirection: "column",
           minHeight: "100vh",
-          p: { xs: 2, md: 3 },
-          pt: { xs: 10, md: 3 },
-          bgcolor: "background.default"
+          bgcolor: md3?.surface,
         }}
       >
-        <main className="content" style={{ flex: 1 }}>
+        {/* Spacer for mobile AppBar */}
+        <Box sx={{ display: { xs: "block", md: "none" }, height: 64 }} />
+
+        <Box
+          className="page-content"
+          sx={{
+            flex: 1,
+            px: { xs: 2, sm: 3, md: 4 },
+            py: { xs: 2, md: 3 },
+            maxWidth: 1440,
+            width: "100%",
+            mx: "auto",
+          }}
+        >
           {children}
-        </main>
-        
-        {/* 页脚 */}
+        </Box>
+
         <Box
           component="footer"
           sx={{
-            mt: "auto",
-            pt: 3,
-            pb: 1,
-            textAlign: "center"
+            py: 2,
+            px: 3,
+            textAlign: "center",
+            borderTop: `1px solid ${md3?.outlineVariant}`,
           }}
         >
           <Typography
             variant="caption"
-            sx={{
-              color: "text.disabled",
-              fontSize: "0.6875rem"
-            }}
+            sx={{ color: md3?.outline }}
           >
-            © {new Date().getFullYear()} MotdTracker · Powered by Material You
+            © {new Date().getFullYear()} MotdTracker
           </Typography>
         </Box>
       </Box>
     </Box>
+  );
+}
+
+function ThemeToggle() {
+  const { mode, toggleMode } = useColorMode();
+  const isDark = mode === "dark";
+
+  return (
+    <Tooltip title={isDark ? "浅色模式" : "深色模式"} arrow>
+      <IconButton onClick={toggleMode}>
+        {isDark ? <LightModeRoundedIcon /> : <DarkModeRoundedIcon />}
+      </IconButton>
+    </Tooltip>
   );
 }
