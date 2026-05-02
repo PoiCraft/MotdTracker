@@ -11,6 +11,8 @@ pub mod utils;
 pub mod api;
 pub mod ws;
 pub mod alert;
+pub mod embedded;
+pub mod tui;
 
 pub use config::AppConfig;
 pub use config::ServerEdition;

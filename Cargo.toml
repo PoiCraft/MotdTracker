@@ -12,7 +12,7 @@ repository = "https://github.com/example/motdtracker-rs"
 axum = { version = "0.7", features = ["macros", "ws"] }
 axum-extra = { version = "0.9", features = ["typed-header", "query"] }
 tower = "0.4"
-tower-http = { version = "0.5", features = ["fs", "cors", "trace"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
@@ -57,6 +57,14 @@ uuid = { version = "1", features = ["v4"] }
 futures = "0.3"
 bytes = "1"
 byteorder = "1"
+
+# Embedded static assets
+rust-embed = "8"
+mime_guess = "2"
+
+# TUI
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["event-stream"] }
 
 # Template engine (for HTML rendering)
 askama = "0.12"

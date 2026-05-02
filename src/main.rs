@@ -4,12 +4,9 @@ use std::net::SocketAddr;
 use axum::{
     routing::get,
     Router,
-    response::IntoResponse,
-    http::{StatusCode, Uri},
 };
 use tower_http::{
     cors::{Any, CorsLayer},
-    services::ServeDir,
     trace::TraceLayer,
 };
 use tracing::{info, error};
@@ -40,9 +37,21 @@ async fn main() {
             info!("Config loaded successfully");
             cfg
         }
-        Err(e) => {
-            error!("Config load failed: {}", e);
-            return;
+        Err(_) => {
+            eprintln!("未找到 config.toml，启动配置向导...");
+            match motdtracker::tui::run_wizard() {
+                Ok(Some(cfg)) => {
+                    cfg
+                }
+                Ok(None) => {
+                    eprintln!("配置已取消");
+                    return;
+                }
+                Err(e) => {
+                    error!("TUI 配置向导失败: {}", e);
+                    return;
+                }
+            }
         }
     };
 
@@ -83,26 +92,6 @@ async fn main() {
         }
     });
 
-    let static_dir = std::path::Path::new(&config.static_dir);
-    let index_path = format!("{}/index.html", config.static_dir);
-    let static_service = if static_dir.exists() {
-        ServeDir::new(&config.static_dir).not_found_service(get(move |uri: Uri| {
-            let path = index_path.clone();
-            async move {
-                if std::path::Path::new(&path).exists() {
-                    match tokio::fs::read_to_string(&path).await {
-                        Ok(content) => axum::response::Html(content).into_response(),
-                        Err(_) => (StatusCode::NOT_FOUND, "Not Found").into_response(),
-                    }
-                } else {
-                    (StatusCode::NOT_FOUND, format!("Not Found: {}", uri)).into_response()
-                }
-            }
-        }))
-    } else {
-        ServeDir::new("static").not_found_service(get(spa_fallback))
-    };
-
     let app = Router::new()
         .nest("/api/server", api::server::create_router())
         .nest("/api/node", api::node::create_router())
@@ -111,14 +100,10 @@ async fn main() {
         .nest("/api/badge", api::badge::create_router())
         .nest("/api/exporter", api::exporter::create_router())
         .nest("/api/query", api::query::create_router())
-
         .route("/api/ws", get(api::ws_handler))
-
-        .fallback_service(static_service)
-
+        .fallback(motdtracker::embedded::embedded_static_handler)
         .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any))
         .layer(TraceLayer::new_for_http())
-
         .with_state(api::AppState {
             db,
             config: Arc::new(config.clone()),
@@ -136,14 +121,3 @@ async fn main() {
     }
 }
 
-async fn spa_fallback(uri: Uri) -> impl IntoResponse {
-    let path = "frontend/dist/index.html";
-    if std::path::Path::new(path).exists() {
-        match tokio::fs::read_to_string(path).await {
-            Ok(content) => axum::response::Html(content).into_response(),
-            Err(_) => (StatusCode::NOT_FOUND, "Not Found").into_response(),
-        }
-    } else {
-        (StatusCode::NOT_FOUND, format!("Not Found: {}", uri)).into_response()
-    }
-}

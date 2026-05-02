@@ -4,11 +4,12 @@
 
 **Minecraft 服务器多入口点监控面板**
 
-Rust 高性能后端 + React 前端
+Rust 高性能后端 + React 前端 · 单文件部署 · 前端内嵌
 
+[![CI](https://github.com/PoiCraft/motdtracker-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/PoiCraft/motdtracker-rs/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/PoiCraft/motdtracker-rs?label=Latest)](https://github.com/PoiCraft/motdtracker-rs/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
-[![React 18](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev/)
 
 </div>
 
@@ -16,109 +17,169 @@ Rust 高性能后端 + React 前端
 
 ## 简介
 
-MotdTracker 是一个专为 Minecraft 服务器设计的多入口点实时监控系统，采用 Rust + React 前后端分离架构。通过多个节点（连接入口）监控同一台服务器，提供状态追踪、延迟分析、玩家会话管理等功能。
+MotdTracker 是一个专为 Minecraft 服务器设计的多入口点实时监控系统，采用 Rust + React 前后端分离架构。前端资源已内嵌至可执行文件，**单文件即可运行**，无需额外部署前端。
 
 ### 功能特性
 
-- 🚀 **实时监控** - 原生 WebSocket 推送，轮询完成后自动增量刷新
-- 📊 **数据可视化** - Chart.js 趋势图 + 24h 热力图 + 周活跃热力图
-- 👥 **玩家追踪** - 会话管理、在线时长统计、每日/每周/每小时分析
-- 📈 **延迟分析** - 统计指标（平均/标准差/P95/CV）
-- 🔌 **Prometheus 集成** - 节点级指标导出
-- 🏷️ **Badge 生成** - SVG 状态徽章（服务器/节点/玩家）
-- 💾 **SQLite 存储** - 零配置，单文件嵌入式数据库
-- 📱 **NapCat 告警** - QQ 群机器人实时告警通知
+- **单文件部署** - 前端打包进二进制，无需 Nginx / 静态文件目录
+- **TUI 配置向导** - 首次启动自动弹出终端交互界面，无需手写配置文件
+- **实时监控** - 原生 WebSocket 推送，轮询完成后自动增量刷新
+- **数据可视化** - Chart.js 趋势图 + 24h 热力图 + 周活跃热力图
+- **玩家追踪** - 会话管理、在线时长统计、每日/每周/每小时分析
+- **延迟分析** - 统计指标（平均/标准差/P95/CV）
+- **Prometheus 集成** - 节点级指标导出
+- **Badge 生成** - SVG 状态徽章（服务器/节点/玩家）
+- **SQLite 存储** - 零配置，单文件嵌入式数据库
+- **NapCat 告警** - QQ 群机器人实时告警通知
 
 ---
 
-## 项目结构
+## 下载预编译版本
 
+前往 [GitHub Releases](https://github.com/PoiCraft/motdtracker-rs/releases/latest) 下载对应平台的预编译二进制：
+
+| 平台 | 文件 |
+|------|------|
+| Linux x86_64 | `motdtracker-x86_64-unknown-linux-gnu.tar.gz` |
+| Windows x86_64 | `motdtracker-x86_64-pc-windows-msvc.zip` |
+| macOS x86_64 | `motdtracker-x86_64-apple-darwin.tar.gz` |
+| macOS ARM64 | `motdtracker-aarch64-apple-darwin.tar.gz` |
+
+> 每次 push 到 main 分支会自动构建，可在 [Actions](https://github.com/PoiCraft/motdtracker-rs/actions/workflows/ci.yml) 页面下载最新开发版 artifact。
+
+下载解压后直接运行：
+
+```bash
+# Linux / macOS
+chmod +x motdtracker
+./motdtracker
+
+# Windows
+motdtracker.exe
 ```
-MotdTracker/
-├── src/                      # Rust 后端源码 (Axum)
-│   ├── main.rs               # 入口 + SPA fallback
-│   ├── lib.rs
-│   ├── api/                  # REST API + WebSocket + Badge + Prometheus
-│   ├── config/               # TOML 配置加载
-│   ├── core/                 # Minecraft 查询 + 轮询调度
-│   ├── db/                   # SQLite (sqlx)
-│   ├── models/               # 数据模型
-│   ├── utils/                # 统计计算、时间工具
-│   ├── ws/                   # 原生 WebSocket 广播
-│   └── alert/                # NapCat QQ 告警
-│
-├── tests/                    # 集成测试 + 工具测试
-│
-├── frontend/                 # React SPA
-│   ├── src/
-│   │   ├── pages/            # ServerPage, NodesPage, PlayersPage, BadgesPage
-│   │   ├── components/       # Layout, MetricCard, StatusPill
-│   │   ├── utils/            # charts, format, ws (原生 WebSocket hook)
-│   │   └── api.js            # Fetch 封装
-│   ├── vite.config.js
-│   └── package.json
-│
-├── Cargo.toml
-├── config.example.toml       # 配置示例
-├── .github/
-├── LICENSE
-├── README.md
-├── SECURITY.md
-└── CONTRIBUTING.md
-```
+
+**首次运行时如果没有 `config.toml`，会自动进入 TUI 配置向导。**
 
 ---
 
-## 快速开始
+## 配置
 
-### 1. 配置
+### 方式一：TUI 配置向导（推荐）
+
+直接运行程序，若检测不到 `config.toml` 会自动进入交互式配置向导：
+
+```
+┌──────────────────────────────────┐
+│   MotdTracker 配置向导           │
+├──────────────────────────────────┤
+│                                  │
+│   欢迎使用 MotdTracker!          │
+│                                  │
+│   此向导将引导你完成首次配置。    │
+│   配置完成后将自动生成            │
+│   config.toml 文件。             │
+│                                  │
+│   按 Enter 开始...               │
+│                                  │
+└──────────────────────────────────┘
+```
+
+向导步骤：
+1. **服务器名称** - 实例的显示名称
+2. **Web 端口** - 监听端口（默认 5011）
+3. **轮询间隔** - 状态查询频率（默认 60 秒）
+4. **数据库路径** - SQLite 文件路径
+5. **节点管理** - 添加/编辑/删除监控节点（可跳过）
+6. **确认保存** - 检查配置并写入 `config.toml`
+
+### 方式二：手动编写配置文件
+
+复制示例配置并编辑：
 
 ```bash
 cp config.example.toml config.toml
 ```
 
-编辑 `config.toml`：
+`config.toml` 示例：
 
 ```toml
 server_name = "我的服务器"
+port = 5011
+poll_interval = 60
 
 [database]
 path = "data/motdtracker.db"
 
-poll_interval = 15
-port = 5011
-
-# 节点是同一服务器的不同连接入口
 [[nodes]]
 id = 1
 name = "主入口"
 host = "play.example.com"
 port = 25565
+edition = "java"
 enable = true
 
 [[nodes]]
 id = 2
-name = "移动优化入口"
-host = "mobile.example.com"
-port = 25565
+name = "基岩版入口"
+host = "play.example.com"
+port = 19132
+edition = "bedrock"
 enable = true
 ```
 
-### 2. 构建前端
+### 可选配置
+
+<details>
+<summary>NapCat QQ 告警</summary>
+
+```toml
+[napcat_alert]
+enable = true
+host = "http://localhost:3001"
+groups = ["123456789"]
+delta_minutes = 30
+offline_confirm_frames = 3
+online_confirm_frames = 3
+```
+
+</details>
+
+<details>
+<summary>Umami 分析</summary>
+
+```toml
+[umami]
+enabled = true
+script_url = "https://analytics.example.com/script.js"
+website_id = "your-website-id"
+domains = "monitor.example.com"
+```
+
+</details>
+
+---
+
+## 从源码构建
+
+### 前置依赖
+
+- [Rust 1.75+](https://rustup.rs/)
+- [Node.js 18+](https://nodejs.org/)（仅构建前端时需要）
+
+### 构建步骤
 
 ```bash
+# 1. 构建前端（产物会自动嵌入 Rust 二进制）
 cd frontend
 npm install
 npm run build
+cd ..
+
+# 2. 构建 Rust 后端
+cargo build --release
+
+# 产物位于 target/release/motdtracker（或 .exe）
 ```
-
-### 3. 启动后端
-
-```bash
-cargo run --release
-```
-
-访问 <http://127.0.0.1:5011> 查看监控面板。
 
 ### 开发模式
 
@@ -132,6 +193,45 @@ npm run dev
 ```
 
 Vite 自动代理 `/api` 到 `http://127.0.0.1:5011`（含 WebSocket），访问 <http://127.0.0.1:5173>。
+
+---
+
+## 项目结构
+
+```
+MotdTracker/
+├── src/                      # Rust 后端源码 (Axum)
+│   ├── main.rs               # 入口 + 启动逻辑
+│   ├── lib.rs
+│   ├── embedded.rs           # rust-embed 静态资源内嵌
+│   ├── tui/                  # TUI 配置向导 (ratatui)
+│   ├── api/                  # REST API + WebSocket + Badge + Prometheus
+│   ├── config/               # TOML 配置加载
+│   ├── core/                 # Minecraft 查询 + 轮询调度
+│   ├── db/                   # SQLite (sqlx)
+│   ├── models/               # 数据模型
+│   ├── utils/                # 统计计算、时间工具
+│   ├── ws/                   # 原生 WebSocket 广播
+│   └── alert/                # NapCat QQ 告警
+│
+├── frontend/                 # React SPA (构建后嵌入二进制)
+│   ├── src/
+│   │   ├── pages/            # ServerPage, NodesPage, PlayersPage, BadgesPage
+│   │   ├── components/       # Layout, MetricCard, StatusPill
+│   │   ├── utils/            # charts, format, ws
+│   │   └── api.js            # Fetch 封装
+│   ├── vite.config.js
+│   └── package.json
+│
+├── tests/                    # 集成测试 + 工具测试
+├── .github/workflows/        # CI + Release 自动化
+├── Cargo.toml
+├── config.example.toml
+├── LICENSE
+├── README.md
+├── SECURITY.md
+└── CONTRIBUTING.md
+```
 
 ---
 
@@ -186,11 +286,27 @@ Vite 自动代理 `/api` 到 `http://127.0.0.1:5011`（含 WebSocket），访问
 | 异步运行时 | Tokio 1 |
 | 数据库 | sqlx 0.7 (SQLite) |
 | WebSocket | 原生 WebSocket |
-| 配置 | TOML |
+| 静态资源 | rust-embed（编译期嵌入） |
+| 配置向导 | ratatui + crossterm |
+| 配置格式 | TOML |
 | 日志 | tracing |
 | 前端框架 | React 18 + Vite 5 |
 | UI 组件库 | MUI 7 |
 | 图表 | Chart.js 4 |
+
+---
+
+## CI / CD
+
+- **push / PR** → 自动 check + test + 多平台构建，产物上传到 [Actions](https://github.com/PoiCraft/motdtracker-rs/actions)
+- **打 tag（`v*`）** → 自动构建 + 生成 GitHub Release + 上传预编译二进制 + SHA256 校验和
+
+```bash
+# 发布新版本
+git tag v0.1.0
+git push origin v0.1.0
+# → 自动触发 Release workflow
+```
 
 ---
 

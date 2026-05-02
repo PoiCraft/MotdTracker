@@ -74,10 +74,6 @@ pub struct AppConfig {
     #[serde(default)]
     pub nodes: Vec<NodeConfig>,
     
-    /// 前端静态文件目录
-    #[serde(default = "default_static_dir")]
-    pub static_dir: String,
-    
     /// NapCat 告警配置（可选）
     pub napcat_alert: Option<NapCatAlertConfig>,
     
@@ -163,7 +159,6 @@ fn default_database() -> String { "data/motdtracker.db".to_string() }
 fn default_poll_interval() -> u64 { 60 }
 fn default_port() -> u16 { 5011 }
 fn default_node_port() -> u16 { 25565 }
-fn default_static_dir() -> String { "frontend/dist".to_string() }
 fn default_enable() -> bool { true }
 fn default_delta_minutes() -> u64 { 30 }
 fn default_offline_confirm_frames() -> u32 { 3 }

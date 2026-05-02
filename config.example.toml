@@ -7,9 +7,6 @@ port = 8080
 server_name = "MotdTracker Rust"
 poll_interval = 60
 
-# 前端静态文件目录（默认: frontend/dist）
-# static_dir = "frontend/dist"
-
 # 数据库配置（SQLite）
 [database]
 path = "data/motdtracker.db"
