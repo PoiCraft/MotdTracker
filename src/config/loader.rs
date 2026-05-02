@@ -1,5 +1,6 @@
 ﻿//! 配置加载器
 
+use std::collections::HashSet;
 use std::path::Path;
 
 use super::AppConfig;
@@ -16,6 +17,9 @@ pub enum ConfigError {
     
     #[error("IO 错误: {0}")]
     IoError(#[from] std::io::Error),
+
+    #[error("节点 ID 重复: id={0} 被多个节点使用。不同节点必须使用不同的 ID，否则会导致数据混乱")]
+    DuplicateNodeId(i32),
 }
 
 pub fn load_config() -> Result<AppConfig, ConfigError> {
@@ -29,7 +33,18 @@ pub fn load_config_from_path<P: AsRef<Path>>(path: P) -> Result<AppConfig, Confi
     }
     let content = std::fs::read_to_string(path)?;
     let config: AppConfig = toml::from_str(&content)?;
+    validate_config(&config)?;
     Ok(config)
+}
+
+fn validate_config(config: &AppConfig) -> Result<(), ConfigError> {
+    let mut seen = HashSet::new();
+    for node in &config.nodes {
+        if !seen.insert(node.id) {
+            return Err(ConfigError::DuplicateNodeId(node.id));
+        }
+    }
+    Ok(())
 }
 
 pub fn load_config_with_fallback(custom_path: Option<&str>) -> Result<AppConfig, ConfigError> {
@@ -80,5 +95,34 @@ path = "data.db"
         assert_eq!(config.poll_interval, 60);
         assert_eq!(config.port, 5011);
         assert_eq!(config.database.path, "data.db");
+    }
+
+    #[test]
+    fn test_duplicate_node_ids_rejected() {
+        let toml_str = r#"
+server_name = "TestServer"
+poll_interval = 30
+port = 8080
+
+[database]
+path = "test.db"
+
+[[nodes]]
+id = 1
+name = "Node A"
+host = "a.example.com"
+
+[[nodes]]
+id = 1
+name = "Node B"
+host = "b.example.com"
+"#;
+        let config: AppConfig = toml::from_str(toml_str).unwrap();
+        let result = validate_config(&config);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ConfigError::DuplicateNodeId(id) => assert_eq!(id, 1),
+            _ => panic!("Expected DuplicateNodeId error"),
+        }
     }
 }

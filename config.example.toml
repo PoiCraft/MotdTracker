@@ -14,6 +14,12 @@ path = "data/motdtracker.db"
 # 节点配置（同一服务器的不同连接入口）
 # edition 可选值: java（默认）, bedrock
 # Java 版默认端口: 25565，基岩版默认端口: 19132
+# enable 字段用于临时禁用某个节点的监控，默认为 true
+#
+# ⚠ ID 是标识节点的唯一依据，不同节点必须使用不同的 ID！
+#   - ID 必须为正整数
+#   - 不同节点使用相同 ID 会导致历史数据混乱、统计错误，且无法恢复
+#   - ID 一旦分配请勿随意修改，否则将与已有的监控数据失去关联
 [[nodes]]
 id = 1
 name = "主入口"
@@ -52,8 +58,3 @@ enable = false
 # group_id = 123456789
 # offline_threshold = 3
 # recovery_threshold = 1
-
-# Umami 分析配置（可选）
-# [umami]
-# website_id = "your-website-id"
-# api_url = "https://analytics.example.com/api"

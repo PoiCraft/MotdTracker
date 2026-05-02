@@ -740,7 +740,7 @@ fn draw_nodes(f: &mut Frame, area: Rect, state: &mut WizardState) {
     }
 
     let tip = Paragraph::new(format!(
-        "已配置 {} 个节点  |  按 Tab 或 Enter 进入下一步（可跳过）",
+        "已配置 {} 个节点  |  ID 是节点的唯一标识，不同节点使用相同 ID 会导致数据混乱",
         state.nodes.len()
     ))
     .style(Style::default().fg(Color::DarkGray));
