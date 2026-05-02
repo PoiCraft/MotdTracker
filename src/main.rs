@@ -46,7 +46,7 @@ async fn main() {
         }
     };
 
-    let db = match SqliteDatabase::new(&config.database).await {
+    let db = match SqliteDatabase::new(&config.database.path).await {
         Ok(db) => {
             match db.init_database().await {
                 Ok(_) => info!("Database initialized"),
@@ -123,21 +123,13 @@ async fn health_check() -> &'static str {
 }
 
 async fn spa_fallback(uri: Uri) -> impl IntoResponse {
-    let path = format!("frontend/dist/index.html");
-    if std::path::Path::new(&path).exists() {
-        match tokio::fs::read_to_string(&path).await {
+    let path = "frontend/dist/index.html";
+    if std::path::Path::new(path).exists() {
+        match tokio::fs::read_to_string(path).await {
             Ok(content) => axum::response::Html(content).into_response(),
             Err(_) => (StatusCode::NOT_FOUND, "Not Found").into_response(),
         }
     } else {
-        let static_path = format!("static/index.html");
-        if std::path::Path::new(&static_path).exists() {
-            match tokio::fs::read_to_string(&static_path).await {
-                Ok(content) => axum::response::Html(content).into_response(),
-                Err(_) => (StatusCode::NOT_FOUND, "Not Found").into_response(),
-            }
-        } else {
-            (StatusCode::NOT_FOUND, format!("Not Found: {}", uri)).into_response()
-        }
+        (StatusCode::NOT_FOUND, format!("Not Found: {}", uri)).into_response()
     }
 }

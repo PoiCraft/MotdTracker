@@ -32,9 +32,9 @@ assignees: ''
 ## 环境信息
 
 - 操作系统: [例如 Windows 11, Ubuntu 22.04]
-- Python 版本: [例如 3.13.0]
-- MotdTracker 版本: [例如 1.3.0]
-- 数据库: [SQLite / PostgreSQL]
+- Rust 版本: [例如 1.75.0]
+- Node.js 版本: [例如 20.x]
+- MotdTracker 版本: [例如 0.1.0]
 
 ## 日志输出
 

@@ -6,6 +6,14 @@ pub use loader::*;
 
 use serde::{Deserialize, Serialize};
 
+/// 数据库配置
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct DatabaseConfig {
+    /// SQLite 数据库路径
+    #[serde(default = "default_database")]
+    pub path: String,
+}
+
 /// 应用程序配置
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AppConfig {
@@ -13,9 +21,9 @@ pub struct AppConfig {
     #[serde(default = "default_server_name")]
     pub server_name: String,
     
-    /// SQLite 数据库路径
-    #[serde(default = "default_database")]
-    pub database: String,
+    /// 数据库配置
+    #[serde(default)]
+    pub database: DatabaseConfig,
     
     /// 轮询间隔（秒）
     #[serde(default = "default_poll_interval")]
@@ -28,9 +36,6 @@ pub struct AppConfig {
     /// 节点配置列表
     #[serde(default)]
     pub nodes: Vec<NodeConfig>,
-    
-    /// PostgreSQL 配置（可选）
-    pub postgresql: Option<PostgreSQLConfig>,
     
     /// NapCat 告警配置（可选）
     pub napcat_alert: Option<NapCatAlertConfig>,
@@ -61,17 +66,6 @@ pub struct NodeConfig {
     /// 是否启用
     #[serde(default = "default_enable")]
     pub enable: bool,
-}
-
-/// PostgreSQL 配置
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct PostgreSQLConfig {
-    pub host: String,
-    #[serde(default = "default_pg_port")]
-    pub port: u16,
-    pub database: String,
-    pub user: String,
-    pub password: String,
 }
 
 /// NapCat 告警配置
@@ -120,27 +114,27 @@ pub struct UmamiConfig {
 
 // 默认值函数
 fn default_server_name() -> String { "MotdTracker".to_string() }
-fn default_database() -> String { "minecraft_stats.db".to_string() }
+fn default_database() -> String { "data/motdtracker.db".to_string() }
 fn default_poll_interval() -> u64 { 60 }
 fn default_port() -> u16 { 5011 }
 fn default_port_minecraft() -> u16 { 25565 }
-fn default_pg_port() -> u16 { 5432 }
 fn default_enable() -> bool { true }
 fn default_delta_minutes() -> u64 { 30 }
 fn default_offline_confirm_frames() -> u32 { 3 }
 fn default_online_confirm_frames() -> u32 { 3 }
 
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            path: default_database(),
+        }
+    }
+}
+
 impl AppConfig {
     /// 获取数据库连接字符串
     pub fn database_url(&self) -> String {
-        if let Some(ref pg) = self.postgresql {
-            format!(
-                "postgres://{}:{}@{}:{}/{}",
-                pg.user, pg.password, pg.host, pg.port, pg.database
-            )
-        } else {
-            format!("sqlite:{}", self.database)
-        }
+        format!("sqlite:{}", self.database.path)
     }
     
     /// 获取启用的节点

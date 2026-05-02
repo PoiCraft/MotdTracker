@@ -1,102 +1,46 @@
-# MotdTracker 配置文件
-# 复制此文件为 config.toml 并修改配置
+# MotdTracker 配置文件示例
+# 复制此文件为 config.toml 并修改相应配置
 
-# =============================================================================
-# 基础配置
-# =============================================================================
+# 服务器配置
+port = 8080
+server_name = "MotdTracker Rust"
+poll_interval = 60
 
-# 服务器显示名称（显示在页面标题）
-server_name = "MyMinecraftServer"
+# 数据库配置（SQLite）
+[database]
+path = "data/motdtracker.db"
 
-# SQLite 数据库文件路径
-database = "minecraft_stats.db"
-
-# 轮询间隔（秒）
-# 24h 统计窗口自动计算为 86400 / poll_interval 条记录
-# 示例：15 秒间隔 = 5760 条/24h
-poll_interval = 15
-
-# Web 服务端口
-port = 5011
-
-# API-only 模式（true 时不注册 Flask 页面路由，仅提供 API/WebSocket）
-api_only = false
-
-# 前端跨域来源（支持字符串 "*" 或字符串数组）
-# frontend_origins = "*"
-# frontend_origins = ["http://127.0.0.1:5173", "http://localhost:5173"]
-frontend_origins = "*"
-
-# =============================================================================
-# 节点配置
-# =============================================================================
-# 每个 [[nodes]] 块定义一个 Minecraft 服务器入口点
-# id: 节点唯一标识（整数，用于 API 访问）
-# name: 节点显示名称
-# host: 服务器地址（域名或 IP）
-# port: 服务器端口（默认 25565）
-# color: 图表颜色（十六进制，可选）
-# enable: 是否启用轮询（设为 false 时跳过该节点）
-
+# 监控节点配置
 [[nodes]]
 id = 1
-name = "主线入口"
-host = "play.example.com"
+name = "Hypixel"
+host = "mc.hypixel.net"
 port = 25565
-color = "#10b981"
 enable = true
 
 [[nodes]]
 id = 2
-name = "备用线路"
-host = "backup.example.com"
+name = "CubeCraft"
+host = "play.cubecraft.net"
 port = 25565
-color = "#667eea"
 enable = true
 
-# 更多节点示例（可根据需要添加）
-# [[nodes]]
-# id = 3
-# name = "电信优化"
-# host = "ct.example.com"
-# port = 25565
-# color = "#f59e0b"
+[[nodes]]
+id = 3
+name = "Mineplex"
+host = "us.mineplex.com"
+port = 25565
+enable = false
+
+# NapCat 告警配置（可选）
+# [alert.napcat]
 # enable = true
+# api_url = "http://localhost:3001"
+# group_id = 123456789
+# offline_threshold = 3
+# recovery_threshold = 1
 
-# =============================================================================
-# PostgreSQL 配置（可选）
-# =============================================================================
-# 如果配置了 PostgreSQL，将自动从 SQLite 迁移数据
-# 取消下方注释并填写正确的连接信息即可启用
-#
-# [postgresql]
-# host = "localhost"
-# port = 5432
-# database = "motdtracker"
-# user = "your_username"
-# password = "your_password"
-
-# =============================================================================
-# 告警配置（可选）
-# =============================================================================
-# NapCat 机器人告警通知
-# 当服务器状态发生变化时发送通知到 QQ 群
-#
-# [napcat_alert]
-# host = "napcat-host:port"           # NapCat 服务地址
-# groups = ["123456789", "987654321"] # QQ 群号列表
-# delta_minutes = 30                  # 状态变化冷却时间（分钟）
-# offline_confirm_frames = 3          # 离线确认帧数（连续离线多少次才发送告警）
-# online_confirm_frames = 3           # 在线确认帧数（连续在线多少次才发送恢复通知）
-
-# =============================================================================
 # Umami 分析配置（可选）
-# =============================================================================
-# Umami 是一个开源、隐私友好的网站分析工具
-# 配置后将在所有页面自动加载 Umami 跟踪脚本
-#
 # [umami]
-# enabled = true                                    # 是否启用 Umami 跟踪
-# script_url = "https://analytics.example.com/script.js"  # Umami 脚本地址
-# website_id = "your-website-id"                    # 网站 ID（在 Umami 后台获取）
-# domains = "example.com,www.example.com"           # 可选：限定域名（逗号分隔）
+# website_id = "your-website-id"
+# api_url = "https://analytics.example.com/api"

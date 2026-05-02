@@ -51,6 +51,7 @@ pub fn load_config_with_fallback(custom_path: Option<&str>) -> Result<AppConfig,
 #[cfg(feature = "interactive")]
 pub fn generate_config_interactive() -> Result<AppConfig, ConfigError> {
     use dialoguer::Input;
+    use super::DatabaseConfig;
     
     println!("\n=== MotdTracker 配置向导 ===\n");
     
@@ -83,9 +84,10 @@ pub fn generate_config_interactive() -> Result<AppConfig, ConfigError> {
         server_name,
         port,
         poll_interval,
-        database,
+        database: DatabaseConfig {
+            path: database,
+        },
         nodes: vec![],
-        postgresql: None,
         napcat_alert: None,
         umami: None,
     };
@@ -101,23 +103,29 @@ mod tests {
     fn test_default_config() {
         let toml_str = r#"
 server_name = "TestServer"
-database = "test.db"
 poll_interval = 30
 port = 8080
+
+[database]
+path = "test.db"
 "#;
         let config: AppConfig = toml::from_str(toml_str).unwrap();
         assert_eq!(config.server_name, "TestServer");
         assert_eq!(config.poll_interval, 30);
+        assert_eq!(config.database.path, "test.db");
     }
 
     #[test]
     fn test_config_with_defaults() {
         let toml_str = r#"
 server_name = "MyServer"
-database = "data.db"
+
+[database]
+path = "data.db"
 "#;
         let config: AppConfig = toml::from_str(toml_str).unwrap();
         assert_eq!(config.poll_interval, 60);
         assert_eq!(config.port, 5011);
+        assert_eq!(config.database.path, "data.db");
     }
 }
