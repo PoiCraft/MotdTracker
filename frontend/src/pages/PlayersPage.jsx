@@ -23,7 +23,7 @@ import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import StatusPill from "../components/StatusPill";
 import { api } from "../api";
-import { useWebSocket } from "../utils/ws";
+import { useWsEvent } from "../utils/ws";
 import { formatDuration, formatTime } from "../utils/format";
 
 function to24hBlocks(heatmap) {
@@ -195,7 +195,7 @@ export default function PlayersPage() {
 
   useEffect(() => { loadPlayers(); }, []);
 
-  const wsState = useWebSocket(() => loadPlayers());
+  const wsState = useWsEvent(() => loadPlayers());
 
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase();

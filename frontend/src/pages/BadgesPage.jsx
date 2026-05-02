@@ -14,7 +14,7 @@ import ImageRoundedIcon from "@mui/icons-material/ImageRounded";
 import CodeRoundedIcon from "@mui/icons-material/CodeRounded";
 import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
 import { api, getApiBase } from "../api";
-import { useWebSocket } from "../utils/ws";
+import { useWsEvent } from "../utils/ws";
 
 const TIME_OPTIONS = [
   { label: "24h(默认)", value: "" },
@@ -82,7 +82,7 @@ export default function BadgesPage() {
 
   useEffect(() => { loadData(); }, []);
 
-  const wsState = useWebSocket(() => setRefreshSalt(Date.now()));
+  const wsState = useWsEvent(() => setRefreshSalt(Date.now()));
 
   const rows = useMemo(() => {
     const n = nodeId || (nodes.length ? String(nodes[0].id) : "1");

@@ -112,15 +112,23 @@ impl MinecraftQuerier {
         // 构建握手包
         let mut packet: Vec<u8> = Vec::new();
         
+        // 协议版本 (-1 = 任意版本，VarInt 编码为 5 字节)
+        let protocol_version: i32 = -1;
+        
         // 数据包长度（变长整数）
-        let data_len = 1 + Self::var_int_len(host_len as i32) + host_bytes.len() + 2 + 1;
+        let data_len = 1
+            + Self::var_int_len(protocol_version)
+            + Self::var_int_len(host_len as i32)
+            + host_bytes.len()
+            + 2
+            + Self::var_int_len(state as i32);
         Self::write_var_int(&mut packet, data_len as i32);
         
         // 数据包 ID (0 = handshake)
         Self::write_var_int(&mut packet, 0);
         
-        // 协议版本 (通常使用 -1 表示不影响)
-        Self::write_var_int(&mut packet, -1);
+        // 协议版本
+        Self::write_var_int(&mut packet, protocol_version);
         
         // 地址长度和地址
         Self::write_var_int(&mut packet, host_len as i32);

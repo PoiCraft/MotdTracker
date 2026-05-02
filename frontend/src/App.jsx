@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
+import { WebSocketProvider } from "./utils/ws";
 import ServerPage from "./pages/ServerPage";
 import NodesPage from "./pages/NodesPage";
 import NodeDetailPage from "./pages/NodeDetailPage";
@@ -9,17 +10,19 @@ import BadgesPage from "./pages/BadgesPage";
 
 export default function App() {
   return (
-    <Layout>
-      <Routes>
-        <Route path="/" element={<Navigate to="/server" replace />} />
-        <Route path="/server" element={<ServerPage />} />
-        <Route path="/nodes" element={<NodesPage />} />
-        <Route path="/nodes/:nodeId" element={<NodeDetailPage />} />
-        <Route path="/players" element={<PlayersPage />} />
-        <Route path="/players/:playerName" element={<PlayerDetailPage />} />
-        <Route path="/player/:playerName" element={<PlayerDetailPage />} />
-        <Route path="/badges" element={<BadgesPage />} />
-      </Routes>
-    </Layout>
+    <WebSocketProvider>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Navigate to="/server" replace />} />
+          <Route path="/server" element={<ServerPage />} />
+          <Route path="/nodes" element={<NodesPage />} />
+          <Route path="/nodes/:nodeId" element={<NodeDetailPage />} />
+          <Route path="/players" element={<PlayersPage />} />
+          <Route path="/players/:playerName" element={<PlayerDetailPage />} />
+          <Route path="/player/:playerName" element={<PlayerDetailPage />} />
+          <Route path="/badges" element={<BadgesPage />} />
+        </Routes>
+      </Layout>
+    </WebSocketProvider>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
-  Alert, Box, Button, Card, CardContent, Chip, Grid, LinearProgress,
+  Alert, Box, Button, Card, CardContent, Chip, LinearProgress,
   Stack, Table, TableBody, TableCell, TableHead, TableRow,
   Tooltip, Typography,
 } from "@mui/material";
@@ -15,7 +15,7 @@ import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
 import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
 import MetricCard from "../components/MetricCard";
 import { api } from "../api";
-import { useWebSocket } from "../utils/ws";
+import { useWsEvent } from "../utils/ws";
 import { recreateChart, destroyChart } from "../utils/charts";
 import { formatDuration, formatTime } from "../utils/format";
 
@@ -140,7 +140,7 @@ export default function PlayerDetailPage() {
 
   useEffect(() => { loadFull(); }, [name]);
 
-  useWebSocket(async () => {
+  useWsEvent(async () => {
     try { setSummary(await api.player.detail(name)); } catch {}
   });
 
@@ -191,20 +191,18 @@ export default function PlayerDetailPage() {
       {error && <Alert severity="error">{error}</Alert>}
 
       {/* Metrics */}
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6} md={3}>
-          <MetricCard title="当前状态" value={summary?.online ? "在线" : "离线"} icon={<AccessTimeRoundedIcon />} color={summary?.online ? "success" : "error"} />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <MetricCard title="当前会话" value={summary?.online ? formatDuration(summary.duration_seconds || 0) : "—"} icon={<ScheduleRoundedIcon />} color="primary" hint={summary?.online ? "正在游戏" : undefined} />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <MetricCard title="最后在线" value={formatTime(summary?.last_seen)} icon={<HistoryRoundedIcon />} color="primary" />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <MetricCard title="样本天数" value={weekly?.total_sample_days ?? 0} icon={<CalendarMonthRoundedIcon />} color="primary" hint="统计数据范围" />
-        </Grid>
-      </Grid>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(min(220px, 100%), 1fr))",
+          gap: 2,
+        }}
+      >
+        <MetricCard title="当前状态" value={summary?.online ? "在线" : "离线"} icon={<AccessTimeRoundedIcon />} color={summary?.online ? "success" : "error"} />
+        <MetricCard title="当前会话" value={summary?.online ? formatDuration(summary.duration_seconds || 0) : "—"} icon={<ScheduleRoundedIcon />} color="primary" hint={summary?.online ? "正在游戏" : undefined} />
+        <MetricCard title="最后在线" value={formatTime(summary?.last_seen)} icon={<HistoryRoundedIcon />} color="primary" />
+        <MetricCard title="样本天数" value={weekly?.total_sample_days ?? 0} icon={<CalendarMonthRoundedIcon />} color="primary" hint="统计数据范围" />
+      </Box>
 
       {/* 24h heatmap */}
       <Card variant="outlined">
@@ -225,32 +223,39 @@ export default function PlayerDetailPage() {
       </Card>
 
       {/* Charts */}
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={6}>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+          gridTemplateRows: { md: "1fr 1fr" },
+          gap: 2,
+        }}
+      >
+        <Box>
           <Card variant="outlined" sx={{ height: "100%" }}>
             <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
               <SectionTitle>每小时平均在线</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: 240 }}><canvas ref={hourlyCanvas} /></Box>
+              <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={hourlyCanvas} /></Box>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12} md={6}>
+        </Box>
+        <Box>
           <Card variant="outlined" sx={{ height: "100%" }}>
             <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
               <SectionTitle>星期偏好</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: 240 }}><canvas ref={weekdayCanvas} /></Box>
+              <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={weekdayCanvas} /></Box>
             </CardContent>
           </Card>
-        </Grid>
-        <Grid item xs={12}>
-          <Card variant="outlined">
-            <CardContent>
+        </Box>
+        <Box sx={{ gridColumn: "1 / -1" }}>
+          <Card variant="outlined" sx={{ height: "100%" }}>
+            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
               <SectionTitle>30 天在线趋势</SectionTitle>
-              <Box sx={{ height: 240 }}><canvas ref={dailyCanvas} /></Box>
+              <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={dailyCanvas} /></Box>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Weekly heatmap */}
       <Card variant="outlined">

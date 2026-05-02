@@ -97,55 +97,38 @@ impl Default for WsBroadcaster {
 /// 处理 WebSocket 连接
 pub async fn handle_socket(socket: WebSocket, broadcaster: Arc<WsBroadcaster>) {
     broadcaster.add_client().await;
-    
+
     let (mut tx, mut rx) = socket.split();
     let mut receiver = broadcaster.subscribe();
-    
-    // 发送任务
-    let send_task = async move {
-        while let Ok(msg) = receiver.recv().await {
-            let json = serde_json::json!({
-                "event": msg.event,
-                "data": msg.data
-            });
-            
-            let text = json.to_string();
-            if tx.send(Message::Text(text)).await.is_err() {
-                break;
-            }
-        }
-    };
-    
-    // 接收任务
-    let recv_task = async move {
-        while let Some(msg) = rx.next().await {
-            match msg {
-                Ok(Message::Ping(_)) => {
-                    // 回复 Pong
-                }
-                Ok(Message::Pong(_)) => {}
-                Ok(Message::Close(_)) => {
-                    break;
-                }
-                Ok(Message::Text(text)) => {
-                    debug!("收到 WebSocket 消息: {}", text);
-                }
-                Ok(Message::Binary(data)) => {
-                    debug!("收到二进制消息: {} bytes", data.len());
-                }
-                Err(e) => {
-                    error!("WebSocket 错误: {}", e);
+
+    loop {
+        tokio::select! {
+            Ok(msg) = receiver.recv() => {
+                let json = serde_json::json!({
+                    "event": msg.event,
+                    "data": msg.data
+                });
+                if tx.send(Message::Text(json.to_string())).await.is_err() {
                     break;
                 }
             }
+            msg = rx.next() => {
+                match msg {
+                    Some(Ok(Message::Ping(data))) => {
+                        if tx.send(Message::Pong(data)).await.is_err() {
+                            break;
+                        }
+                    }
+                    Some(Ok(Message::Close(_))) | None => break,
+                    Some(Err(e)) => {
+                        error!("WebSocket 错误: {}", e);
+                        break;
+                    }
+                    _ => {}
+                }
+            }
         }
-    };
-    
-    // 并行运行发送和接收任务
-    tokio::select! {
-        _ = send_task => {}
-        _ = recv_task => {}
     }
-    
+
     broadcaster.remove_client().await;
 }

@@ -36,3 +36,6 @@ desktop.ini
 # Logs
 *.log
 logs/
+
+# MCP
+.playwright-mcp

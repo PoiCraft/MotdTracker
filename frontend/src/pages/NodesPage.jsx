@@ -20,7 +20,7 @@ import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
 import StatusPill, { StatusDot } from "../components/StatusPill";
 import { api } from "../api";
-import { useWebSocket } from "../utils/ws";
+import { useWsEvent } from "../utils/ws";
 import { formatTime } from "../utils/format";
 
 function NodeCard({ node }) {
@@ -191,7 +191,7 @@ export default function NodesPage() {
     loadNodes();
   }, []);
 
-  const wsState = useWebSocket(() => loadNodes());
+  const wsState = useWsEvent(() => loadNodes());
 
   const stats = useMemo(() => {
     const on = nodes.filter((n) => n.latest_status?.online);
