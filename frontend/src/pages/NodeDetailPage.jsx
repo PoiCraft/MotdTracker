@@ -33,7 +33,6 @@ import WifiOffRoundedIcon from "@mui/icons-material/WifiOffRounded";
 import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import PercentRoundedIcon from "@mui/icons-material/PercentRounded";
 import MetricCard from "../components/MetricCard";
-import StatusPill, { StatusDot } from "../components/StatusPill";
 import { api } from "../api";
 import { useWsEvent } from "../utils/ws";
 import { recreateChart, destroyChart } from "../utils/charts";
@@ -100,8 +99,8 @@ function SectionTitle({ children, action }) {
 
 export default function NodeDetailPage() {
   const theme = useTheme();
-  const md3 = theme.md3?.colors;
-  const isDark = theme.md3?.isDark;
+  const c = theme.gemini?.colors;
+  const isDark = theme.gemini?.isDark;
   const { nodeId } = useParams();
   const [hours, setHours] = useState(12);
   const [payload, setPayload] = useState(null);
@@ -126,7 +125,7 @@ export default function NodeDetailPage() {
     const legendLabels = {
       usePointStyle: true, pointStyle: "circle", padding: 16,
       font: { family: theme.typography.fontFamily, size: 11 },
-      color: md3?.onSurfaceVariant,
+      color: c?.onSurfaceVariant,
     };
 
     recreateChart(latencyChart, latencyCanvas.current, {
@@ -135,8 +134,8 @@ export default function NodeDetailPage() {
         labels,
         datasets: [{
           label: "延迟", data: h.latency || [],
-          borderColor: md3?.tertiary,
-          backgroundColor: alpha(md3?.tertiary || "#75546f", 0.12),
+          borderColor: "#E37400",
+          backgroundColor: alpha("#E37400", 0.12),
           fill: true, pointRadius: 0, tension: 0.4, borderWidth: 2,
         }],
       },
@@ -153,8 +152,8 @@ export default function NodeDetailPage() {
       data: {
         labels,
         datasets: [
-          { label: "在线玩家", data: h.players_online || [], borderColor: md3?.primary, backgroundColor: alpha(md3?.primary || "#0b57d0", 0.1), fill: true, pointRadius: 0, tension: 0.4, borderWidth: 2 },
-          { label: "最大玩家", data: h.players_max || [], borderColor: md3?.outline, borderDash: [4, 4], fill: false, pointRadius: 0, tension: 0.4, borderWidth: 1.5 },
+          { label: "在线玩家", data: h.players_online || [], borderColor: c?.primary, backgroundColor: alpha(c?.primary || "#1A73E8", 0.1), fill: true, pointRadius: 0, tension: 0.4, borderWidth: 2 },
+          { label: "最大玩家", data: h.players_max || [], borderColor: c?.outline, borderDash: [4, 4], fill: false, pointRadius: 0, tension: 0.4, borderWidth: 1.5 },
         ],
       },
       options: {
@@ -170,7 +169,7 @@ export default function NodeDetailPage() {
         labels,
         datasets: [{
           label: "在线状态", data: (h.online || []).map((v) => (v ? 1 : 0)),
-          borderColor: md3?.primary, backgroundColor: alpha(md3?.primary || "#0b57d0", 0.12),
+          borderColor: c?.primary, backgroundColor: alpha(c?.primary || "#1A73E8", 0.12),
           stepped: true, fill: true, pointRadius: 0, borderWidth: 1.5,
         }],
       },
@@ -215,7 +214,7 @@ export default function NodeDetailPage() {
   const heatmap = useMemo(() => buildHeatmap(payload?.status_timeline), [payload]);
 
   const heatColor = (level) => {
-    const m = { high: md3?.success, mid: md3?.warning, low: md3?.error, none: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)" };
+    const m = { high: "#188038", mid: c?.warning || "#B05D00", low: c?.error || "#B3261E", none: "#E0E2E0" };
     return m[level] || m.none;
   };
 
@@ -226,8 +225,8 @@ export default function NodeDetailPage() {
         <Stack direction="row" alignItems="center" spacing={1}>
           <Button component={Link} to="/nodes" startIcon={<ArrowBackRoundedIcon />} variant="text" sx={{ minWidth: "auto", px: 1 }}>返回</Button>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 500 }}>节点详情</Typography>
-            <Typography variant="body2" sx={{ color: md3?.onSurfaceVariant }}>
+            <Typography variant="h5" sx={{ fontWeight: 600 }}>节点详情</Typography>
+            <Typography variant="body2" sx={{ color: c?.onSurfaceVariant }}>
               #{nodeId} · {node?.name || "未知"} · {node?.host}:{node?.port}
             </Typography>
           </Box>
@@ -250,7 +249,10 @@ export default function NodeDetailPage() {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(min(220px, 100%), 1fr))",
+          gridTemplateColumns: {
+            xs: "repeat(auto-fill, minmax(min(160px, 100%), 1fr))",
+            sm: "repeat(auto-fill, minmax(min(220px, 100%), 1fr))",
+          },
           gap: 2,
         }}
       >
@@ -260,16 +262,18 @@ export default function NodeDetailPage() {
         <MetricCard title="最近采样" value={formatTime(status?.timestamp)} icon={<ScheduleRoundedIcon />} color="primary" />
       </Box>
 
-      {/* Heatmap */}
-      <Card variant="outlined">
+      {/* Heatmap - pill nodes */}
+      <Card elevation={0}>
         <CardContent>
           <SectionTitle>24 小时可用性</SectionTitle>
-          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(24, 1fr)", gap: 0.5 }}>
-            {heatmap.map((cell) => (
-              <Tooltip key={cell.key} title={`${cell.hour}:00 - ${cell.level === "high" ? "在线" : cell.level === "mid" ? "部分在线" : cell.level === "low" ? "离线" : "无数据"}`} arrow>
-                <Box sx={{ height: 20, borderRadius: 1, bgcolor: heatColor(cell.level), cursor: "pointer", transition: "transform 150ms cubic-bezier(0.2,0,0,1)", "&:hover": { transform: "scaleY(1.3)" } }} />
-              </Tooltip>
-            ))}
+          <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <Stack direction="row" spacing={0.5} sx={{ minWidth: { xs: 480, sm: "auto" } }}>
+              {heatmap.map((cell) => (
+                <Tooltip key={cell.key} title={`${cell.hour}:00 - ${cell.level === "high" ? "在线" : cell.level === "mid" ? "部分在线" : cell.level === "low" ? "离线" : "无数据"}`} arrow>
+                  <Box sx={{ flex: 1, height: 16, borderRadius: 100, bgcolor: heatColor(cell.level), cursor: "pointer", transition: "transform 150ms cubic-bezier(0.2,0,0,1)", "&:hover": { transform: "scaleY(1.5)" } }} />
+                </Tooltip>
+              ))}
+            </Stack>
           </Box>
         </CardContent>
       </Card>
@@ -279,54 +283,54 @@ export default function NodeDetailPage() {
         sx={{
           display: "grid",
           gridTemplateColumns: { xs: "1fr", md: "repeat(12, 1fr)" },
-          gridTemplateRows: { md: "1fr 1fr" },
           gap: 2,
+          minWidth: 0,
         }}
       >
-        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 8" } }}>
-          <Card variant="outlined" sx={{ height: "100%" }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 8" }, minWidth: 0 }}>
+          <Card elevation={0} sx={{ height: "100%" }}>
+            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <SectionTitle>延迟趋势</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={latencyCanvas} /></Box>
+              <Box sx={{ flex: 1, minHeight: { xs: 200, md: 280 }, position: "relative", width: "100%" }}><canvas ref={latencyCanvas} style={{ width: "100%", height: "100%" }} /></Box>
             </CardContent>
           </Card>
         </Box>
-        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 4" } }}>
-          <Card variant="outlined" sx={{ height: "100%" }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 4" }, minWidth: 0 }}>
+          <Card elevation={0} sx={{ height: "100%" }}>
+            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <SectionTitle>在线状态</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={statusCanvas} /></Box>
+              <Box sx={{ flex: 1, minHeight: { xs: 200, md: 280 }, position: "relative", width: "100%" }}><canvas ref={statusCanvas} style={{ width: "100%", height: "100%" }} /></Box>
             </CardContent>
           </Card>
         </Box>
-        <Box sx={{ gridColumn: "1 / -1" }}>
-          <Card variant="outlined" sx={{ height: "100%" }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
+          <Card elevation={0} sx={{ height: "100%" }}>
+            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <SectionTitle>玩家数量趋势</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={playersCanvas} /></Box>
+              <Box sx={{ flex: 1, minHeight: { xs: 200, md: 280 }, position: "relative", width: "100%" }}><canvas ref={playersCanvas} style={{ width: "100%", height: "100%" }} /></Box>
             </CardContent>
           </Card>
         </Box>
       </Box>
 
       {/* Stats summary */}
-      <Card variant="outlined">
+      <Card elevation={0}>
         <CardContent>
           <SectionTitle>统计摘要</SectionTitle>
           <Grid container spacing={2}>
             {[
-              { label: "在线率", value: stats.uptime_percentage != null ? `${Number(stats.uptime_percentage).toFixed(1)}%` : "—", icon: <PercentRoundedIcon sx={{ fontSize: 16 }} />, color: md3?.primary },
-              { label: "平均延迟", value: stats.avg_latency ? `${Math.round(stats.avg_latency)}ms` : "—", icon: <TrendingUpRoundedIcon sx={{ fontSize: 16 }} />, color: md3?.success },
-              { label: "P95 延迟", value: stats.p95_latency ? `${Math.round(stats.p95_latency)}ms` : "—", icon: <SpeedRoundedIcon sx={{ fontSize: 16 }} />, color: md3?.warning },
-              { label: "波动系数 CV", value: stats.cv != null ? `${Number(stats.cv).toFixed(1)}%` : "—", icon: <TrendingUpRoundedIcon sx={{ fontSize: 16 }} />, color: md3?.tertiary },
+              { label: "在线率", value: stats.uptime_percentage != null ? `${Number(stats.uptime_percentage).toFixed(1)}%` : "—", icon: <PercentRoundedIcon sx={{ fontSize: 16 }} />, color: c?.primary },
+              { label: "平均延迟", value: stats.avg_latency ? `${Math.round(stats.avg_latency)}ms` : "—", icon: <TrendingUpRoundedIcon sx={{ fontSize: 16 }} />, color: c?.success },
+              { label: "P95 延迟", value: stats.p95_latency ? `${Math.round(stats.p95_latency)}ms` : "—", icon: <SpeedRoundedIcon sx={{ fontSize: 16 }} />, color: c?.warning },
+              { label: "波动系数 CV", value: stats.cv != null ? `${Number(stats.cv).toFixed(1)}%` : "—", icon: <TrendingUpRoundedIcon sx={{ fontSize: 16 }} />, color: "#7B61FF" },
             ].map((item) => (
               <Grid key={item.label} item xs={12} sm={6} md={3}>
-                <Box sx={{ p: 2, borderRadius: 2, bgcolor: md3?.surfaceContainerHighest }}>
+                <Box sx={{ p: 2, borderRadius: 3, bgcolor: alpha(c?.onSurface || "#000", 0.04) }}>
                   <Stack direction="row" alignItems="center" spacing={0.75} mb={0.5}>
                     <Box sx={{ color: item.color }}>{item.icon}</Box>
-                    <Typography variant="caption" sx={{ color: md3?.onSurfaceVariant }}>{item.label}</Typography>
+                    <Typography variant="caption" sx={{ color: c?.onSurfaceVariant }}>{item.label}</Typography>
                   </Stack>
-                  <Typography variant="h6" sx={{ fontWeight: 500 }}>{item.value}</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>{item.value}</Typography>
                 </Box>
               </Grid>
             ))}

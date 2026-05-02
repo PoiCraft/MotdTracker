@@ -18,61 +18,56 @@ import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
-import StatusPill from "../components/StatusPill";
+import M3StatusTag from "../components/M3StatusTag";
 import { api } from "../api";
 import { useWsEvent } from "../utils/ws";
 import { formatTime } from "../utils/format";
 
 function NodeCard({ node }) {
   const theme = useTheme();
-  const md3 = theme.md3?.colors;
-  const isDark = theme.md3?.isDark;
+  const c = theme.gemini?.colors;
+  const isDark = theme.gemini?.isDark;
   const status = node.latest_status;
   const online = Boolean(status?.online);
 
   return (
     <Card
-      variant="outlined"
+      elevation={0}
       sx={{
         height: "100%",
-        borderColor: md3?.outlineVariant,
-        backgroundColor: md3?.surfaceContainerLow,
-        transition: "box-shadow 200ms cubic-bezier(0.2,0,0,1), border-color 200ms",
-        "&:hover": {
-          boxShadow: theme.shadows[1],
-          borderColor: online ? md3?.primary : md3?.error,
-        },
+        position: "relative",
+        backgroundColor: online ? c?.successContainer : c?.errorContainer,
       }}
     >
-      <CardContent sx={{ p: 2.5, "&:last-child": { pb: 2.5 } }}>
+      <Box sx={{ position: "absolute", top: 16, right: 16, zIndex: 1 }}>
+        <M3StatusTag online={online} size="small" />
+      </Box>
+      <CardContent sx={{ p: 3, "&:last-child": { pb: 3 } }}>
         <Stack spacing={2}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Box>
-                <Typography
-                  variant="subtitle1"
-                  sx={{
-                    fontWeight: 500,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    maxWidth: 160,
-                  }}
-                >
-                  {node.name}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: md3?.onSurfaceVariant,
-                    fontFamily: '"JetBrains Mono", monospace',
-                  }}
-                >
-                  {node.host}:{node.port}
-                </Typography>
-              </Box>
-            </Stack>
-            <StatusPill online={online} size="small" />
+          <Stack direction="row" alignItems="center">
+            <Box>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 500,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: 160,
+                }}
+              >
+                {node.name}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: c?.onSurfaceVariant,
+                  fontFamily: '"JetBrains Mono", monospace',
+                }}
+              >
+                {node.host}:{node.port}
+              </Typography>
+            </Box>
           </Stack>
 
           <Grid container spacing={1}>
@@ -80,17 +75,17 @@ function NodeCard({ node }) {
               <Box
                 sx={{
                   p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: md3?.surfaceContainerHighest,
+                  borderRadius: 3,
+                  bgcolor: alpha(c?.onSurface || "#000", 0.04),
                 }}
               >
                 <Stack direction="row" alignItems="center" spacing={0.5} mb={0.5}>
                   <SpeedRoundedIcon
-                    sx={{ fontSize: 14, color: md3?.onSurfaceVariant }}
+                    sx={{ fontSize: 14, color: c?.onSurfaceVariant }}
                   />
                   <Typography
                     variant="caption"
-                    sx={{ color: md3?.onSurfaceVariant }}
+                    sx={{ color: c?.onSurfaceVariant }}
                   >
                     延迟
                   </Typography>
@@ -110,17 +105,17 @@ function NodeCard({ node }) {
               <Box
                 sx={{
                   p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: md3?.surfaceContainerHighest,
+                  borderRadius: 3,
+                  bgcolor: alpha(c?.onSurface || "#000", 0.04),
                 }}
               >
                 <Stack direction="row" alignItems="center" spacing={0.5} mb={0.5}>
                   <PeopleRoundedIcon
-                    sx={{ fontSize: 14, color: md3?.onSurfaceVariant }}
+                    sx={{ fontSize: 14, color: c?.onSurfaceVariant }}
                   />
                   <Typography
                     variant="caption"
-                    sx={{ color: md3?.onSurfaceVariant }}
+                    sx={{ color: c?.onSurfaceVariant }}
                   >
                     玩家
                   </Typography>
@@ -141,13 +136,13 @@ function NodeCard({ node }) {
           <Stack spacing={0.5}>
             <Stack direction="row" alignItems="center" spacing={0.75}>
               <AccessTimeRoundedIcon
-                sx={{ fontSize: 14, color: md3?.outline }}
+                sx={{ fontSize: 14, color: c?.outline }}
               />
-              <Typography variant="body2" sx={{ color: md3?.onSurfaceVariant }}>
+              <Typography variant="body2" sx={{ color: c?.onSurfaceVariant }}>
                 版本: {status?.version || "—"}
               </Typography>
             </Stack>
-            <Typography variant="body2" sx={{ color: md3?.outline, pl: 2.75 }}>
+            <Typography variant="body2" sx={{ color: c?.outline, pl: 2.75 }}>
               {formatTime(status?.timestamp)}
             </Typography>
           </Stack>
@@ -168,7 +163,7 @@ function NodeCard({ node }) {
 
 export default function NodesPage() {
   const theme = useTheme();
-  const md3 = theme.md3?.colors;
+  const c = theme.gemini?.colors;
   const [nodes, setNodes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -219,10 +214,10 @@ export default function NodesPage() {
         spacing={2}
       >
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 500, mb: 0.25 }}>
+          <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.25 }}>
             节点总览
           </Typography>
-          <Typography variant="body2" sx={{ color: md3?.onSurfaceVariant }}>
+          <Typography variant="body2" sx={{ color: c?.onSurfaceVariant }}>
             {nodes.length} 个节点 · 在线 {stats.onlineCount}
           </Typography>
         </Box>
@@ -254,24 +249,24 @@ export default function NodesPage() {
       {loading && <LinearProgress />}
       {error && <Alert severity="error">{error}</Alert>}
 
-      <Grid container spacing={2}>
+      <Grid container spacing={3}>
         {nodes.map((node) => (
-          <Grid key={node.id} item xs={12} sm={6} lg={4} xl={3}>
+          <Grid key={node.id} item xs={12} sm={6} lg={3}>
             <NodeCard node={node} />
           </Grid>
         ))}
       </Grid>
 
       {!loading && nodes.length === 0 && (
-        <Card variant="outlined" sx={{ borderColor: md3?.outlineVariant }}>
+        <Card elevation={0}>
           <CardContent sx={{ py: 8, textAlign: "center" }}>
             <DnsRoundedIcon
-              sx={{ fontSize: 48, color: md3?.outline, mb: 2 }}
+              sx={{ fontSize: 48, color: c?.outline, mb: 2 }}
             />
-            <Typography variant="subtitle1" sx={{ color: md3?.onSurfaceVariant }}>
+            <Typography variant="subtitle1" sx={{ color: c?.onSurfaceVariant }}>
               暂无节点数据
             </Typography>
-            <Typography variant="body2" sx={{ color: md3?.outline }}>
+            <Typography variant="body2" sx={{ color: c?.outline }}>
               请检查后端配置或添加新的监控节点
             </Typography>
           </CardContent>

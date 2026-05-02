@@ -2,21 +2,20 @@ import { Box } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import FiberManualRecordRoundedIcon from "@mui/icons-material/FiberManualRecordRounded";
 
-export default function StatusPill({ online, size = "small", hideText = false }) {
+export default function M3StatusTag({
+  online,
+  size = "small",
+  hideText = false,
+}) {
   const theme = useTheme();
-  const c = theme.gemini?.colors;
-  const isDark = theme.gemini?.isDark;
-  const sm = size === "small";
+  const palette = theme.palette;
 
-  const bg = online
-    ? c?.successContainer || "#E8F5E9"
-    : c?.errorContainer || "#FDEDED";
-
-  const fg = online
-    ? c?.onSuccessContainer || "#0D3D1C"
-    : c?.onErrorContainer || "#410E0B";
-
-  const dot = online ? c?.success : c?.error;
+  const dotColor = online ? palette.success.main : palette.error.main;
+  const bgColor = alpha(dotColor, 0.12);
+  const textColor = online
+    ? palette.success.dark || palette.success.main
+    : palette.error.dark || palette.error.main;
+  const isLarge = size === "large";
 
   return (
     <Box
@@ -24,13 +23,13 @@ export default function StatusPill({ online, size = "small", hideText = false })
         display: "inline-flex",
         alignItems: "center",
         gap: hideText ? 0 : 0.5,
-        px: hideText ? (sm ? 0.5 : 0.75) : sm ? 1 : 1.5,
-        py: sm ? 0.25 : 0.5,
-        borderRadius: 99,
-        bgcolor: bg,
-        color: fg,
-        fontSize: sm ? "0.6875rem" : "0.75rem",
-        fontWeight: 500,
+        px: hideText ? 0.5 : isLarge ? 1.5 : 1,
+        py: hideText ? 0.25 : isLarge ? 0.5 : 0.2,
+        borderRadius: 100,
+        bgcolor: bgColor,
+        color: textColor,
+        fontSize: "0.75rem",
+        fontWeight: 700,
         lineHeight: 1.4,
         letterSpacing: "0.02em",
         width: hideText ? "fit-content" : undefined,
@@ -38,7 +37,7 @@ export default function StatusPill({ online, size = "small", hideText = false })
     >
       <Box sx={{ position: "relative", display: "flex" }}>
         <FiberManualRecordRoundedIcon
-          sx={{ fontSize: sm ? 8 : 10, color: dot }}
+          sx={{ fontSize: isLarge ? 10 : 8, color: dotColor }}
         />
         {online && (
           <Box
@@ -46,7 +45,7 @@ export default function StatusPill({ online, size = "small", hideText = false })
               position: "absolute",
               inset: 0,
               borderRadius: "50%",
-              bgcolor: dot,
+              bgcolor: dotColor,
               animation: "pulse-ring 2s ease-in-out infinite",
               "@keyframes pulse-ring": {
                 "0%, 100%": { transform: "scale(1)", opacity: 1 },
@@ -63,9 +62,9 @@ export default function StatusPill({ online, size = "small", hideText = false })
 
 export function StatusDot({ online, size = 8 }) {
   const theme = useTheme();
-  const c = theme.gemini?.colors;
-
-  const color = online ? c?.success : c?.error;
+  const color = online
+    ? theme.palette.success.main
+    : theme.palette.error.main;
 
   return (
     <Box

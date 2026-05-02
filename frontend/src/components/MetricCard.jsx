@@ -3,6 +3,7 @@ import { alpha, useTheme } from "@mui/material/styles";
 import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import TrendingDownRoundedIcon from "@mui/icons-material/TrendingDownRounded";
 import TrendingFlatRoundedIcon from "@mui/icons-material/TrendingFlatRounded";
+import M3StatusTag from "./M3StatusTag";
 
 export default function MetricCard({
   title,
@@ -11,31 +12,32 @@ export default function MetricCard({
   trend,
   color = "primary",
   icon,
+  status,
 }) {
   const theme = useTheme();
-  const md3 = theme.md3?.colors;
-  const isDark = theme.md3?.isDark;
+  const c = theme.gemini?.colors;
+  const isDark = theme.gemini?.isDark;
 
   const palette = {
     primary: {
-      container: md3?.primaryContainer,
-      onContainer: md3?.onPrimaryContainer,
+      container: c?.primaryContainer,
+      onContainer: c?.onPrimaryContainer,
     },
     success: {
-      container: md3?.successContainer,
-      onContainer: md3?.onSuccessContainer,
+      container: c?.successContainer,
+      onContainer: c?.onSuccessContainer,
     },
     warning: {
-      container: md3?.warningContainer,
-      onContainer: md3?.warningOnContainer,
+      container: c?.warningContainer,
+      onContainer: c?.onWarningContainer,
     },
     error: {
-      container: md3?.errorContainer,
-      onContainer: md3?.onErrorContainer,
+      container: c?.errorContainer,
+      onContainer: c?.onErrorContainer,
     },
   };
 
-  const c = palette[color] || palette.primary;
+  const p = palette[color] || palette.primary;
 
   const TrendIcon = {
     up: TrendingUpRoundedIcon,
@@ -45,22 +47,29 @@ export default function MetricCard({
 
   return (
     <Card
-      variant="outlined"
+      elevation={0}
       sx={{
         height: "100%",
-        borderColor: md3?.outlineVariant,
-        backgroundColor: md3?.surfaceContainerLow,
-        transition: "box-shadow 200ms cubic-bezier(0.2, 0, 0, 1)",
-        "&:hover": { boxShadow: theme.shadows[1] },
+        position: "relative",
+        backgroundColor: color === "success"
+          ? c?.successContainer
+          : color === "error"
+          ? c?.errorContainer
+          : c?.surface,
       }}
     >
-      <CardContent sx={{ p: 2.5, "&:last-child": { pb: 2.5 } }}>
-        <Stack spacing={1.5}>
+      {status !== undefined && (
+        <Box sx={{ position: "absolute", top: 16, right: 16, zIndex: 1 }}>
+          <M3StatusTag online={status} size="small" />
+        </Box>
+      )}
+      <CardContent sx={{ p: 3, "&:last-child": { pb: 3 } }}>
+        <Stack spacing={2}>
           <Stack direction="row" alignItems="center" justifyContent="space-between">
             <Typography
-              variant="caption"
+              variant="body2"
               sx={{
-                color: md3?.onSurfaceVariant,
+                color: c?.onSurfaceVariant,
                 fontSize: "0.6875rem",
                 letterSpacing: "0.06em",
                 textTransform: "uppercase",
@@ -78,8 +87,10 @@ export default function MetricCard({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  bgcolor: c.container,
-                  color: c.onContainer,
+                  bgcolor: color === "success" || color === "error"
+                    ? alpha(p.onContainer, 0.12)
+                    : p.container,
+                  color: p.onContainer,
                   "& svg": { fontSize: 16 },
                 }}
               >
@@ -89,13 +100,14 @@ export default function MetricCard({
           </Stack>
 
           <Typography
-            variant="h5"
+            variant="h4"
             sx={{
-              fontWeight: 500,
+              fontWeight: 600,
               fontFeatureSettings: '"tnum"',
               fontVariantNumeric: "tabular-nums",
-              color: md3?.onSurface,
+              color: c?.onSurface,
               lineHeight: 1.2,
+              fontSize: { xs: "1.375rem", sm: "1.5rem" },
             }}
           >
             {value}
@@ -109,10 +121,10 @@ export default function MetricCard({
                     fontSize: 14,
                     color:
                       trend === "up"
-                        ? md3?.success
+                        ? c?.success
                         : trend === "down"
-                        ? md3?.error
-                        : md3?.outline,
+                        ? c?.error
+                        : c?.outline,
                   }}
                 />
               )}
@@ -121,7 +133,7 @@ export default function MetricCard({
                   variant="body2"
                   sx={{
                     fontSize: "0.75rem",
-                    color: md3?.onSurfaceVariant,
+                    color: c?.onSurfaceVariant,
                     lineHeight: 1.3,
                   }}
                 >

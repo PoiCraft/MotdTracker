@@ -39,8 +39,8 @@ function SectionTitle({ children }) {
 
 export default function PlayerDetailPage() {
   const theme = useTheme();
-  const md3 = theme.md3?.colors;
-  const isDark = theme.md3?.isDark;
+  const c = theme.gemini?.colors;
+  const isDark = theme.gemini?.isDark;
   const { playerName } = useParams();
   const name = decodeURIComponent(playerName);
 
@@ -65,7 +65,7 @@ export default function PlayerDetailPage() {
     const legendLabels = {
       usePointStyle: true, pointStyle: "circle", padding: 16,
       font: { family: theme.typography.fontFamily, size: 11 },
-      color: md3?.onSurfaceVariant,
+      color: c?.onSurfaceVariant,
     };
 
     recreateChart(hourlyChart, hourlyCanvas.current, {
@@ -74,8 +74,8 @@ export default function PlayerDetailPage() {
         labels: hourly.map((h) => `${String(h.hour).padStart(2, "0")}:00`),
         datasets: [{
           label: "每小时平均(分钟)", data: hourly.map((h) => Number(h.avg_seconds || 0) / 60),
-          backgroundColor: alpha(md3?.tertiary || "#75546f", 0.7),
-          borderColor: md3?.tertiary, borderWidth: 1, borderRadius: 4,
+          backgroundColor: alpha("#E37400", 0.7),
+          borderColor: "#E37400", borderWidth: 1, borderRadius: 4,
         }],
       },
       options: {
@@ -91,8 +91,8 @@ export default function PlayerDetailPage() {
         labels: daily.map((d) => new Date(d.date).toLocaleDateString("zh-CN", { month: "short", day: "numeric" })),
         datasets: [{
           label: "每日在线", data: daily.map((d) => Number(d.total_seconds || 0)),
-          backgroundColor: alpha(md3?.primary || "#0b57d0", 0.7),
-          borderColor: md3?.primary, borderWidth: 1, borderRadius: 4,
+          backgroundColor: alpha(c?.primary || "#1A73E8", 0.7),
+          borderColor: c?.primary, borderWidth: 1, borderRadius: 4,
         }],
       },
       options: {
@@ -111,8 +111,8 @@ export default function PlayerDetailPage() {
         labels: weekday.map((w) => w.day_name),
         datasets: [{
           label: "星期偏好", data: weekday.map((w) => Number(w.avg_seconds || 0)),
-          backgroundColor: alpha(md3?.secondary || "#44474e", 0.7),
-          borderColor: md3?.secondary, borderWidth: 1, borderRadius: 4,
+          backgroundColor: alpha("#7B61FF", 0.7),
+          borderColor: "#7B61FF", borderWidth: 1, borderRadius: 4,
         }],
       },
       options: {
@@ -167,10 +167,10 @@ export default function PlayerDetailPage() {
 
   const heatColor = (v, max) => {
     const r = max > 0 ? v / max : 0;
-    if (r > 0.7) return md3?.success;
-    if (r > 0.35) return alpha(md3?.success || "#137333", 0.55);
-    if (r > 0) return alpha(md3?.success || "#137333", 0.2);
-    return isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)";
+    if (r > 0.7) return "#188038";
+    if (r > 0.35) return alpha("#188038", 0.55);
+    if (r > 0) return alpha("#188038", 0.2);
+    return "#E0E2E0";
   };
 
   return (
@@ -180,8 +180,8 @@ export default function PlayerDetailPage() {
         <Stack direction="row" alignItems="center" spacing={1}>
           <Button component={Link} to="/players" startIcon={<ArrowBackRoundedIcon />} variant="text" sx={{ minWidth: "auto", px: 1 }}>返回</Button>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 500 }}>玩家详情</Typography>
-            <Typography variant="body2" sx={{ color: md3?.onSurfaceVariant }}>{name}</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 600 }}>玩家详情</Typography>
+            <Typography variant="body2" sx={{ color: c?.onSurfaceVariant }}>{name}</Typography>
           </Box>
         </Stack>
         <Button variant="outlined" startIcon={<RefreshRoundedIcon />} onClick={loadFull} disabled={loading}>刷新</Button>
@@ -204,20 +204,20 @@ export default function PlayerDetailPage() {
         <MetricCard title="样本天数" value={weekly?.total_sample_days ?? 0} icon={<CalendarMonthRoundedIcon />} color="primary" hint="统计数据范围" />
       </Box>
 
-      {/* 24h heatmap */}
-      <Card variant="outlined">
+      {/* 24h heatmap - pill nodes */}
+      <Card elevation={0}>
         <CardContent>
           <SectionTitle>过去 24 小时活跃</SectionTitle>
-          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(24, 1fr)", gap: 0.5 }}>
+          <Stack direction="row" spacing={0.5}>
             {blocks24h.map((sec, i) => (
               <Tooltip key={i} title={sec > 0 ? formatDuration(sec) : "离线"} arrow>
-                <Box sx={{ height: 18, borderRadius: 1, bgcolor: heatColor(sec, max24h), cursor: "pointer", transition: "transform 150ms cubic-bezier(0.2,0,0,1)", "&:hover": { transform: "scaleY(1.4)" } }} />
+                <Box sx={{ flex: 1, height: 16, borderRadius: 100, bgcolor: heatColor(sec, max24h), cursor: "pointer", transition: "transform 150ms cubic-bezier(0.2,0,0,1)", "&:hover": { transform: "scaleY(1.5)" } }} />
               </Tooltip>
             ))}
-          </Box>
+          </Stack>
           <Stack direction="row" justifyContent="space-between" mt={0.5}>
-            <Typography variant="caption" sx={{ color: md3?.outline, fontSize: "0.625rem" }}>24h前</Typography>
-            <Typography variant="caption" sx={{ color: md3?.outline, fontSize: "0.625rem" }}>现在</Typography>
+            <Typography variant="caption" sx={{ color: c?.outline, fontSize: "0.625rem" }}>24h前</Typography>
+            <Typography variant="caption" sx={{ color: c?.outline, fontSize: "0.625rem" }}>现在</Typography>
           </Stack>
         </CardContent>
       </Card>
@@ -232,7 +232,7 @@ export default function PlayerDetailPage() {
         }}
       >
         <Box>
-          <Card variant="outlined" sx={{ height: "100%" }}>
+          <Card elevation={0} sx={{ height: "100%" }}>
             <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
               <SectionTitle>每小时平均在线</SectionTitle>
               <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={hourlyCanvas} /></Box>
@@ -240,7 +240,7 @@ export default function PlayerDetailPage() {
           </Card>
         </Box>
         <Box>
-          <Card variant="outlined" sx={{ height: "100%" }}>
+          <Card elevation={0} sx={{ height: "100%" }}>
             <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
               <SectionTitle>星期偏好</SectionTitle>
               <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={weekdayCanvas} /></Box>
@@ -248,7 +248,7 @@ export default function PlayerDetailPage() {
           </Card>
         </Box>
         <Box sx={{ gridColumn: "1 / -1" }}>
-          <Card variant="outlined" sx={{ height: "100%" }}>
+          <Card elevation={0} sx={{ height: "100%" }}>
             <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
               <SectionTitle>30 天在线趋势</SectionTitle>
               <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={dailyCanvas} /></Box>
@@ -258,18 +258,18 @@ export default function PlayerDetailPage() {
       </Box>
 
       {/* Weekly heatmap */}
-      <Card variant="outlined">
+      <Card elevation={0}>
         <CardContent>
           <SectionTitle>周活跃热力图</SectionTitle>
           <Box sx={{ overflowX: "auto" }}>
             <Box sx={{ minWidth: 700, display: "grid", gridTemplateColumns: "48px repeat(24, 1fr)", gap: 0.5 }}>
               <Box />
               {Array.from({ length: 24 }).map((_, h) => (
-                <Typography key={h} variant="caption" sx={{ color: md3?.outline, textAlign: "center", fontSize: "0.625rem" }}>{h}</Typography>
+                <Typography key={h} variant="caption" sx={{ color: c?.outline, textAlign: "center", fontSize: "0.625rem" }}>{h}</Typography>
               ))}
               {[{ label: "周一", day: 0 }, { label: "周二", day: 1 }, { label: "周三", day: 2 }, { label: "周四", day: 3 }, { label: "周五", day: 4 }, { label: "周六", day: 5 }, { label: "周日", day: 6 }].map((row) => (
                 <Box key={row.day} sx={{ display: "contents" }}>
-                  <Typography variant="caption" sx={{ fontSize: "0.75rem", lineHeight: "18px", display: "flex", alignItems: "center", color: md3?.onSurfaceVariant, fontWeight: 500 }}>{row.label}</Typography>
+                  <Typography variant="caption" sx={{ fontSize: "0.75rem", lineHeight: "18px", display: "flex", alignItems: "center", color: c?.onSurfaceVariant, fontWeight: 500 }}>{row.label}</Typography>
                   {Array.from({ length: 24 }).map((_, hour) => {
                     const val = weeklyMap?.[row.day]?.[hour] || 0;
                     return (
@@ -286,7 +286,7 @@ export default function PlayerDetailPage() {
       </Card>
 
       {/* Recent sessions */}
-      <Card variant="outlined">
+      <Card elevation={0}>
         <CardContent>
           <SectionTitle>最近会话（20 条）</SectionTitle>
           <Table size="small">
@@ -306,7 +306,7 @@ export default function PlayerDetailPage() {
                     <TableCell>{formatTime(s.start)}</TableCell>
                     <TableCell>{formatTime(s.end)}</TableCell>
                     <TableCell><Chip label={formatDuration(sec)} size="small" sx={{ borderRadius: 1, height: 24 }} /></TableCell>
-                    <TableCell><Typography variant="body2" sx={{ color: md3?.onSurfaceVariant }}>{s.server_name}</Typography></TableCell>
+                    <TableCell><Typography variant="body2" sx={{ color: c?.onSurfaceVariant }}>{s.server_name}</Typography></TableCell>
                   </TableRow>
                 );
               })}

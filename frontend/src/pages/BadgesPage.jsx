@@ -37,10 +37,10 @@ function formatOutput(url, type) {
 
 function SectionHeader({ children, icon }) {
   const theme = useTheme();
-  const md3 = theme.md3?.colors;
+  const c = theme.gemini?.colors;
   return (
-    <Stack direction="row" alignItems="center" spacing={1} sx={{ py: 1, px: 1.5, bgcolor: md3?.surfaceContainerHighest, borderRadius: 1 }}>
-      <Box sx={{ color: md3?.onSurfaceVariant }}>{icon}</Box>
+    <Stack direction="row" alignItems="center" spacing={1} sx={{ py: 1, px: 1.5, bgcolor: alpha(c?.onSurface || "#000", 0.04), borderRadius: 2 }}>
+      <Box sx={{ color: c?.onSurfaceVariant }}>{icon}</Box>
       <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>{children}</Typography>
     </Stack>
   );
@@ -48,8 +48,8 @@ function SectionHeader({ children, icon }) {
 
 export default function BadgesPage() {
   const theme = useTheme();
-  const md3 = theme.md3?.colors;
-  const isDark = theme.md3?.isDark;
+  const c = theme.gemini?.colors;
+  const isDark = theme.gemini?.isDark;
 
   const [nodes, setNodes] = useState([]);
   const [players, setPlayers] = useState([]);
@@ -124,8 +124,8 @@ export default function BadgesPage() {
     <Stack spacing={3}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }} spacing={2}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 500, mb: 0.25 }}>Badge 生成器</Typography>
-          <Typography variant="body2" sx={{ color: md3?.onSurfaceVariant }}>生成状态徽章，可在任何地方嵌入使用</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.25 }}>Badge 生成器</Typography>
+          <Typography variant="body2" sx={{ color: c?.onSurfaceVariant }}>生成状态徽章，可在任何地方嵌入使用</Typography>
         </Box>
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Button variant="outlined" startIcon={<RefreshRoundedIcon />} onClick={loadData} disabled={loading}>刷新</Button>
@@ -136,11 +136,11 @@ export default function BadgesPage() {
       {error && <Alert severity="error">{error}</Alert>}
 
       {/* Config */}
-      <Card variant="outlined">
+      <Card elevation={0}>
         <CardContent>
           <Typography variant="subtitle2" sx={{ fontWeight: 500, mb: 2 }}>配置选项</Typography>
           <Grid container spacing={2}>
-            <Grid item xs={6} sm={3} md={2}>
+            <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel>输出格式</InputLabel>
                 <Select value={formatType} label="输出格式" onChange={(e) => setFormatType(e.target.value)}>
@@ -150,7 +150,7 @@ export default function BadgesPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={6} sm={3} md={4}>
+            <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth size="small">
                 <InputLabel>统计时间</InputLabel>
                 <Select value={hours} label="统计时间" onChange={(e) => setHours(e.target.value)}>
@@ -179,15 +179,15 @@ export default function BadgesPage() {
       </Card>
 
       {/* Table */}
-      <Card variant="outlined">
+      <Card elevation={0}>
         <CardContent sx={{ overflowX: "auto" }}>
-          <Table size="small" sx={{ minWidth: 860 }}>
+          <Table size="small" sx={{ minWidth: { xs: "auto", md: 860 } }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ width: 72 }}>类型</TableCell>
+                <TableCell sx={{ width: 72, display: { xs: "none", sm: "table-cell" } }}>类型</TableCell>
                 <TableCell sx={{ width: 140 }}>名称</TableCell>
                 <TableCell sx={{ width: 180 }}>预览</TableCell>
-                <TableCell>输出</TableCell>
+                <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>输出</TableCell>
                 <TableCell sx={{ width: 64 }} align="center">复制</TableCell>
               </TableRow>
             </TableHead>
@@ -207,21 +207,21 @@ export default function BadgesPage() {
                 const output = formatOutput(rawUrl, formatType);
 
                 return (
-                  <TableRow key={`${row.path}-${idx}`} sx={{ "&:hover": { bgcolor: alpha(md3?.onSurface || "#000", 0.04) } }}>
-                    <TableCell>
+                  <TableRow key={`${row.path}-${idx}`} sx={{ "&:hover": { bgcolor: alpha(c?.onSurface || "#000", 0.04) } }}>
+                    <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
                       <Chip label={row.type} size="small" variant="outlined" sx={{ height: 24, fontSize: "0.6875rem" }} />
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>{row.name}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ p: 0.75, borderRadius: 1, bgcolor: md3?.surfaceContainerHigh, display: "inline-flex" }}>
+                      <Box sx={{ p: 0.75, borderRadius: 2, bgcolor: alpha(c?.onSurface || "#000", 0.04), display: "inline-flex" }}>
                         <img src={previewUrl} alt={row.name} style={{ display: "block", height: 18 }} />
                       </Box>
                     </TableCell>
-                    <TableCell>
-                      <Box sx={{ p: 1, borderRadius: 1, bgcolor: md3?.surfaceContainerHighest, border: `1px solid ${md3?.outlineVariant}` }}>
-                        <Typography variant="body2" sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: "0.6875rem", wordBreak: "break-all", color: md3?.onSurfaceVariant }}>
+                    <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>
+                      <Box sx={{ p: 1, borderRadius: 2, bgcolor: alpha(c?.onSurface || "#000", 0.04) }}>
+                        <Typography variant="body2" sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: "0.6875rem", wordBreak: "break-all", color: c?.onSurfaceVariant }}>
                           {output}
                         </Typography>
                       </Box>
@@ -232,8 +232,8 @@ export default function BadgesPage() {
                           size="small"
                           onClick={() => copyText(output, idx)}
                           sx={{
-                            color: copied === idx ? md3?.primary : md3?.onSurfaceVariant,
-                            bgcolor: copied === idx ? alpha(md3?.primary || "#0b57d0", 0.12) : "transparent",
+                            color: copied === idx ? c?.primary : c?.onSurfaceVariant,
+                            bgcolor: copied === idx ? alpha(c?.primary || "#1A73E8", 0.12) : "transparent",
                           }}
                         >
                           {copied === idx ? <CheckRoundedIcon sx={{ fontSize: 16 }} /> : <ContentCopyRoundedIcon sx={{ fontSize: 16 }} />}

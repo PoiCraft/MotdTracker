@@ -21,7 +21,7 @@ import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
-import StatusPill from "../components/StatusPill";
+import M3StatusTag from "../components/M3StatusTag";
 import { api } from "../api";
 import { useWsEvent } from "../utils/ws";
 import { formatDuration, formatTime } from "../utils/format";
@@ -44,107 +44,105 @@ function to24hBlocks(heatmap) {
 
 function HeatStrip({ blocks }) {
   const theme = useTheme();
-  const md3 = theme.md3?.colors;
-  const isDark = theme.md3?.isDark;
+  const c = theme.gemini?.colors;
   const max = Math.max(...blocks, 1);
 
   return (
-    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(24, 1fr)", gap: 0.5 }}>
-      {blocks.map((sec, i) => {
-        const ratio = sec / max;
-        const bg =
-          ratio > 0.7
-            ? md3?.success
-            : ratio > 0.35
-            ? alpha(md3?.success || "#137333", 0.5)
-            : ratio > 0
-            ? alpha(md3?.success || "#137333", 0.2)
-            : isDark
-            ? "rgba(255,255,255,0.04)"
-            : "rgba(0,0,0,0.04)";
-        return (
-          <Tooltip key={i} title={sec > 0 ? formatDuration(sec) : "无数据"} arrow>
-            <Box
-              sx={{
-                height: 6,
-                borderRadius: 99,
-                bgcolor: bg,
-                cursor: "pointer",
-                transition: "transform 150ms cubic-bezier(0.2,0,0,1)",
-                "&:hover": { transform: "scaleY(2)" },
-              }}
-            />
-          </Tooltip>
-        );
-      })}
+    <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+      <Stack direction="row" spacing={0.5} sx={{ minWidth: { xs: 200, sm: "auto" } }}>
+        {blocks.map((sec, i) => {
+          const ratio = sec / max;
+          const bg =
+            ratio > 0.7
+              ? "#188038"
+              : ratio > 0.35
+              ? alpha("#188038", 0.5)
+              : ratio > 0
+              ? alpha("#188038", 0.2)
+              : "#E0E2E0";
+          return (
+            <Tooltip key={i} title={sec > 0 ? formatDuration(sec) : "无数据"} arrow>
+              <Box
+                sx={{
+                  flex: 1,
+                  height: 8,
+                  borderRadius: 100,
+                  bgcolor: bg,
+                  cursor: "pointer",
+                  transition: "transform 150ms cubic-bezier(0.2,0,0,1)",
+                  "&:hover": { transform: "scaleY(2)" },
+                }}
+              />
+            </Tooltip>
+          );
+        })}
+      </Stack>
     </Box>
   );
 }
 
 function PlayerCard({ player }) {
   const theme = useTheme();
-  const md3 = theme.md3?.colors;
+  const c = theme.gemini?.colors;
 
   return (
     <Card
-      variant="outlined"
+      elevation={0}
       sx={{
         height: "100%",
-        borderColor: md3?.outlineVariant,
-        backgroundColor: md3?.surfaceContainerLow,
-        transition: "box-shadow 200ms cubic-bezier(0.2,0,0,1)",
-        "&:hover": { boxShadow: theme.shadows[1] },
+        position: "relative",
+        backgroundColor: player.online ? c?.successContainer : c?.surface,
       }}
     >
-      <CardContent sx={{ p: 2.5, "&:last-child": { pb: 2.5 } }}>
-        <Stack spacing={1.5}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Box
-                sx={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  bgcolor: player.online
-                    ? md3?.successContainer
-                    : md3?.surfaceContainerHighest,
-                  color: player.online
-                    ? md3?.onSuccessContainer
-                    : md3?.outline,
-                }}
-              >
-                <PersonRoundedIcon sx={{ fontSize: 18 }} />
-              </Box>
-              <Typography
-                component={Link}
-                to={`/players/${encodeURIComponent(player.player_name)}`}
-                variant="subtitle2"
-                sx={{
-                  fontWeight: 500,
-                  color: md3?.onSurface,
-                  textDecoration: "none",
-                  "&:hover": { color: md3?.primary },
-                }}
-              >
-                {player.player_name}
-              </Typography>
-            </Stack>
-            <StatusPill online={player.online} size="small" />
+      <Box sx={{ position: "absolute", top: 16, right: 16, zIndex: 1 }}>
+        <M3StatusTag online={player.online} size="small" />
+      </Box>
+      <CardContent sx={{ p: 3, "&:last-child": { pb: 3 } }}>
+        <Stack spacing={2}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Box
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                bgcolor: player.online
+                  ? alpha(c?.success || "#188038", 0.12)
+                  : alpha(c?.onSurface || "#000", 0.06),
+                color: player.online
+                  ? c?.success
+                  : c?.outline,
+              }}
+            >
+              <PersonRoundedIcon sx={{ fontSize: 18 }} />
+            </Box>
+            <Typography
+              component={Link}
+              to={`/players/${encodeURIComponent(player.player_name)}`}
+              variant="subtitle2"
+              sx={{
+                fontWeight: 500,
+                color: c?.onSurface,
+                textDecoration: "none",
+                "&:hover": { color: c?.primary },
+              }}
+            >
+              {player.player_name}
+            </Typography>
           </Stack>
 
           <Stack spacing={0.5}>
             <Stack direction="row" alignItems="center" spacing={0.75}>
-              <AccessTimeRoundedIcon sx={{ fontSize: 14, color: md3?.outline }} />
-              <Typography variant="body2" sx={{ color: md3?.onSurfaceVariant }}>
+              <AccessTimeRoundedIcon sx={{ fontSize: 14, color: c?.outline }} />
+              <Typography variant="body2" sx={{ color: c?.onSurfaceVariant }}>
                 {player.online
                   ? `在线 ${formatDuration(player.duration_seconds || 0)}`
                   : `最后在线 ${formatTime(player.last_seen)}`}
               </Typography>
             </Stack>
-            <Typography variant="body2" sx={{ color: md3?.outline, pl: 2.5 }}>
+            <Typography variant="body2" sx={{ color: c?.outline, pl: 2.5 }}>
               24h: {formatDuration(player.duration24h || 0)}
             </Typography>
           </Stack>
@@ -152,8 +150,8 @@ function PlayerCard({ player }) {
           <HeatStrip blocks={player.heatBlocks || Array(24).fill(0)} />
 
           <Stack direction="row" justifyContent="space-between">
-            <Typography variant="caption" sx={{ color: md3?.outline, fontSize: "0.625rem" }}>24h前</Typography>
-            <Typography variant="caption" sx={{ color: md3?.outline, fontSize: "0.625rem" }}>现在</Typography>
+            <Typography variant="caption" sx={{ color: c?.outline, fontSize: "0.625rem" }}>24h前</Typography>
+            <Typography variant="caption" sx={{ color: c?.outline, fontSize: "0.625rem" }}>现在</Typography>
           </Stack>
 
           <Button
@@ -172,7 +170,7 @@ function PlayerCard({ player }) {
 
 export default function PlayersPage() {
   const theme = useTheme();
-  const md3 = theme.md3?.colors;
+  const c = theme.gemini?.colors;
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -217,8 +215,8 @@ export default function PlayersPage() {
     <Stack spacing={3}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }} spacing={2}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 500, mb: 0.25 }}>玩家面板</Typography>
-          <Typography variant="body2" sx={{ color: md3?.onSurfaceVariant }}>
+          <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.25 }}>玩家面板</Typography>
+          <Typography variant="body2" sx={{ color: c?.onSurfaceVariant }}>
             在线 {onlineCount}/{players.length}
           </Typography>
         </Box>
@@ -231,7 +229,7 @@ export default function PlayersPage() {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchRoundedIcon sx={{ fontSize: 18, color: md3?.outline }} />
+                  <SearchRoundedIcon sx={{ fontSize: 18, color: c?.outline }} />
                 </InputAdornment>
               ),
             }}
@@ -244,22 +242,22 @@ export default function PlayersPage() {
       {loading && <LinearProgress />}
       {error && <Alert severity="error">{error}</Alert>}
 
-      <Grid container spacing={2}>
+      <Grid container spacing={3}>
         {filtered.map((player) => (
-          <Grid item xs={12} sm={6} lg={4} xl={3} key={player.player_name}>
+          <Grid item xs={12} sm={6} lg={3} key={player.player_name}>
             <PlayerCard player={player} />
           </Grid>
         ))}
       </Grid>
 
       {!loading && filtered.length === 0 && (
-        <Card variant="outlined" sx={{ borderColor: md3?.outlineVariant }}>
+        <Card elevation={0}>
           <CardContent sx={{ py: 8, textAlign: "center" }}>
-            <GroupsRoundedIcon sx={{ fontSize: 48, color: md3?.outline, mb: 2 }} />
-            <Typography variant="subtitle1" sx={{ color: md3?.onSurfaceVariant }}>
+            <GroupsRoundedIcon sx={{ fontSize: 48, color: c?.outline, mb: 2 }} />
+            <Typography variant="subtitle1" sx={{ color: c?.onSurfaceVariant }}>
               {keyword ? "没有匹配的玩家" : "暂无玩家数据"}
             </Typography>
-            <Typography variant="body2" sx={{ color: md3?.outline }}>
+            <Typography variant="body2" sx={{ color: c?.outline }}>
               {keyword ? "请尝试其他搜索关键词" : "服务器上暂无玩家数据记录"}
             </Typography>
           </CardContent>

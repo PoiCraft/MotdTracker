@@ -14,6 +14,7 @@ import {
   FormControl,
   InputLabel,
   Stack,
+  Grid,
   Table,
   TableBody,
   TableCell,
@@ -30,7 +31,7 @@ import DnsRoundedIcon from "@mui/icons-material/DnsRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import ScheduleRoundedIcon from "@mui/icons-material/ScheduleRounded";
 import MetricCard from "../components/MetricCard";
-import StatusPill, { StatusDot } from "../components/StatusPill";
+import M3StatusTag, { StatusDot } from "../components/M3StatusTag";
 import { api } from "../api";
 import { useWsEvent } from "../utils/ws";
 import { recreateChart, destroyChart } from "../utils/charts";
@@ -119,8 +120,8 @@ function SectionTitle({ children, action }) {
 
 export default function ServerPage() {
   const theme = useTheme();
-  const md3 = theme.md3?.colors;
-  const isDark = theme.md3?.isDark;
+  const c = theme.gemini?.colors;
+  const isDark = theme.gemini?.isDark;
   const [hours, setHours] = useState(12);
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -148,12 +149,12 @@ export default function ServerPage() {
       : "rgba(0,0,0,0.06)";
 
     const seriesColors = [
-      md3?.primary,
-      md3?.tertiary,
-      md3?.secondary,
-      md3?.error,
-      md3?.success,
-      md3?.warning,
+      c?.primary,
+      "#E37400",
+      "#7B61FF",
+      c?.error,
+      c?.success,
+      c?.warning,
     ];
 
     const latencyDatasets = Object.entries(h.latencies || {}).map(
@@ -173,7 +174,7 @@ export default function ServerPage() {
       pointStyle: "circle",
       padding: 16,
       font: { family: theme.typography.fontFamily, size: 11 },
-      color: md3?.onSurfaceVariant,
+      color: c?.onSurfaceVariant,
     };
 
     recreateChart(latencyChart, latencyCanvas.current, {
@@ -201,8 +202,8 @@ export default function ServerPage() {
           {
             label: "在线玩家",
             data: h.players_online || [],
-            borderColor: md3?.primary,
-            backgroundColor: alpha(md3?.primary || "#0b57d0", 0.1),
+            borderColor: c?.primary,
+            backgroundColor: alpha(c?.primary || "#1A73E8", 0.1),
             fill: true,
             tension: 0.4,
             pointRadius: 0,
@@ -211,7 +212,7 @@ export default function ServerPage() {
           {
             label: "最大玩家",
             data: h.players_max || [],
-            borderColor: md3?.outline,
+            borderColor: c?.outline,
             borderDash: [4, 4],
             fill: false,
             tension: 0.4,
@@ -245,8 +246,8 @@ export default function ServerPage() {
           {
             label: "在线状态",
             data: online,
-            borderColor: md3?.primary,
-            backgroundColor: alpha(md3?.primary || "#0b57d0", 0.12),
+            borderColor: c?.primary,
+            backgroundColor: alpha(c?.primary || "#1A73E8", 0.12),
             stepped: true,
             fill: true,
             pointRadius: 0,
@@ -329,12 +330,10 @@ export default function ServerPage() {
 
   const heatColor = (level) => {
     const map = {
-      high: md3?.success,
-      mid: md3?.warning,
-      low: md3?.error,
-      none: isDark
-        ? "rgba(255,255,255,0.04)"
-        : "rgba(0,0,0,0.04)",
+      high: "#188038",
+      mid: c?.warning || "#B05D00",
+      low: c?.error || "#B3261E",
+      none: "#E0E2E0",
     };
     return map[level] || map.none;
   };
@@ -349,10 +348,10 @@ export default function ServerPage() {
         spacing={2}
       >
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 500, mb: 0.25 }}>
+          <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.25 }}>
             服务器总览
           </Typography>
-          <Typography variant="body2" sx={{ color: md3?.onSurfaceVariant }}>
+          <Typography variant="body2" sx={{ color: c?.onSurfaceVariant }}>
             实时监控服务器状态与性能指标
           </Typography>
         </Box>
@@ -387,69 +386,72 @@ export default function ServerPage() {
       {error && <Alert severity="error">{error}</Alert>}
 
       {/* Metric cards */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(min(220px, 100%), 1fr))",
-          gap: 2,
-        }}
-      >
-        <MetricCard
-          title="服务状态"
-          value={head.online ? "在线" : "离线"}
-          hint={`WebSocket: ${wsStatus}`}
-          icon={head.online ? <WifiRoundedIcon /> : <WifiOffRoundedIcon />}
-          color={head.online ? "success" : "error"}
-        />
-        <MetricCard
-          title="在线节点"
-          value={`${onlineNodes}/${nodes.length}`}
-          icon={<DnsRoundedIcon />}
-          color="primary"
-        />
-        <MetricCard
-          title="在线玩家"
-          value={head.players_online ?? 0}
-          hint={`玩家池: ${players.length}`}
-          icon={<GroupsRoundedIcon />}
-          color="success"
-        />
-        <MetricCard
-          title="最后更新"
-          value={formatTime(head.timestamp)}
-          icon={<ScheduleRoundedIcon />}
-          color="primary"
-        />
-      </Box>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <MetricCard
+            title="服务状态"
+            value={head.online ? "在线" : "离线"}
+            hint={`WebSocket: ${wsStatus}`}
+            icon={head.online ? <WifiRoundedIcon /> : <WifiOffRoundedIcon />}
+            color={head.online ? "success" : "error"}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <MetricCard
+            title="在线节点"
+            value={`${onlineNodes}/${nodes.length}`}
+            icon={<DnsRoundedIcon />}
+            color="primary"
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <MetricCard
+            title="在线玩家"
+            value={head.players_online ?? 0}
+            hint={`玩家池: ${players.length}`}
+            icon={<GroupsRoundedIcon />}
+            color="success"
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <MetricCard
+            title="最后更新"
+            value={formatTime(head.timestamp)}
+            icon={<ScheduleRoundedIcon />}
+            color="primary"
+          />
+        </Grid>
+      </Grid>
 
-      {/* Heatmap */}
-      <Card variant="outlined">
+      {/* Uptime Timeline - pill-shaped nodes */}
+      <Card elevation={0}>
         <CardContent>
           <SectionTitle
             action={
-              <Stack direction="row" spacing={1.5} alignItems="center">
+              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ display: { xs: "none", sm: "flex" } }}>
                 {[
-                  { level: "high", label: "在线" },
-                  { level: "mid", label: "部分" },
-                  { level: "low", label: "离线" },
+                  { color: "#188038", label: "在线" },
+                  { color: c?.warning || "#B05D00", label: "部分" },
+                  { color: c?.error || "#B3261E", label: "离线" },
+                  { color: "#E0E2E0", label: "无数据" },
                 ].map((i) => (
                   <Stack
-                    key={i.level}
+                    key={i.label}
                     direction="row"
                     spacing={0.5}
                     alignItems="center"
                   >
                     <Box
                       sx={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: 2,
-                        bgcolor: heatColor(i.level),
+                        width: 16,
+                        height: 8,
+                        borderRadius: 100,
+                        bgcolor: i.color,
                       }}
                     />
                     <Typography
                       variant="caption"
-                      sx={{ color: md3?.onSurfaceVariant }}
+                      sx={{ color: c?.onSurfaceVariant }}
                     >
                       {i.label}
                     </Typography>
@@ -460,56 +462,52 @@ export default function ServerPage() {
           >
             24 小时可用性
           </SectionTitle>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "repeat(24, 1fr)",
-              gap: 0.5,
-            }}
-          >
-            {heatmap.map((cell) => (
-              <Tooltip
-                key={cell.key}
-                title={`${cell.hour}:00 - ${
-                  cell.level === "high"
-                    ? "全部在线"
-                    : cell.level === "mid"
-                    ? "部分在线"
-                    : cell.level === "low"
-                    ? "全部离线"
-                    : "无数据"
-                }`}
-                arrow
-              >
-                <Box
-                  sx={{
-                    height: 20,
-                    borderRadius: 1,
-                    bgcolor: heatColor(cell.level),
-                    cursor: "pointer",
-                    transition:
-                      "transform 150ms cubic-bezier(0.2,0,0,1)",
-                    "&:hover": { transform: "scaleY(1.3)" },
-                  }}
-                />
-              </Tooltip>
-            ))}
+          <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <Stack direction="row" spacing={0.5} sx={{ minWidth: { xs: 480, sm: "auto" } }}>
+              {heatmap.map((cell) => (
+                <Tooltip
+                  key={cell.key}
+                  title={`${cell.hour}:00 - ${
+                    cell.level === "high"
+                      ? "全部在线"
+                      : cell.level === "mid"
+                      ? "部分在线"
+                      : cell.level === "low"
+                      ? "全部离线"
+                      : "无数据"
+                  }`}
+                  arrow
+                >
+                  <Box
+                    sx={{
+                      flex: 1,
+                      height: 16,
+                      borderRadius: 100,
+                      bgcolor: heatColor(cell.level),
+                      cursor: "pointer",
+                      transition: "transform 150ms cubic-bezier(0.2,0,0,1)",
+                      "&:hover": { transform: "scaleY(1.5)" },
+                    }}
+                  />
+                </Tooltip>
+              ))}
+            </Stack>
           </Box>
         </CardContent>
       </Card>
 
-      {/* Node status table */}
-      <Card variant="outlined">
-        <CardContent>
+      {/* Node status table - borderless */}
+      <Card elevation={0}>
+        <CardContent sx={{ overflowX: "auto" }}>
           <SectionTitle>节点实时状态</SectionTitle>
           <Table size="small">
             <TableHead>
               <TableRow>
                 <TableCell>节点名称</TableCell>
                 <TableCell>状态</TableCell>
-                <TableCell>延迟</TableCell>
+                <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>延迟</TableCell>
                 <TableCell>玩家</TableCell>
-                <TableCell align="right">操作</TableCell>
+                <TableCell sx={{ display: { xs: "none", md: "table-cell" } }} align="right">操作</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -524,12 +522,12 @@ export default function ServerPage() {
                     </Stack>
                   </TableCell>
                   <TableCell>
-                    <StatusPill
+                    <M3StatusTag
                       online={node.latest_status?.online}
                       size="small"
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>
                     <Typography variant="body2">
                       {node.latest_status?.latency
                         ? `${Math.round(node.latest_status.latency)}ms`
@@ -542,7 +540,7 @@ export default function ServerPage() {
                       {node.latest_status?.players_max ?? 0}
                     </Typography>
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell sx={{ display: { xs: "none", md: "table-cell" } }} align="right">
                     <Button
                       component={Link}
                       to={`/nodes/${node.id}`}
@@ -564,38 +562,38 @@ export default function ServerPage() {
         sx={{
           display: "grid",
           gridTemplateColumns: { xs: "1fr", md: "repeat(12, 1fr)" },
-          gridTemplateRows: { md: "1fr 1fr" },
           gap: 2,
+          minWidth: 0,
         }}
       >
-        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 8" } }}>
-          <Card variant="outlined" sx={{ height: "100%" }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 8" }, minWidth: 0 }}>
+          <Card elevation={0} sx={{ height: "100%" }}>
+            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <SectionTitle>节点延迟趋势</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={latencyCanvas} /></Box>
+              <Box sx={{ flex: 1, minHeight: { xs: 200, md: 280 }, position: "relative", width: "100%" }}><canvas ref={latencyCanvas} style={{ width: "100%", height: "100%" }} /></Box>
             </CardContent>
           </Card>
         </Box>
-        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 4" } }}>
-          <Card variant="outlined" sx={{ height: "100%" }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 4" }, minWidth: 0 }}>
+          <Card elevation={0} sx={{ height: "100%" }}>
+            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <SectionTitle>在线状态趋势</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={statusCanvas} /></Box>
+              <Box sx={{ flex: 1, minHeight: { xs: 200, md: 280 }, position: "relative", width: "100%" }}><canvas ref={statusCanvas} style={{ width: "100%", height: "100%" }} /></Box>
             </CardContent>
           </Card>
         </Box>
-        <Box sx={{ gridColumn: "1 / -1" }}>
-          <Card variant="outlined" sx={{ height: "100%" }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
+          <Card elevation={0} sx={{ height: "100%" }}>
+            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <SectionTitle>玩家数量趋势</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={playersCanvas} /></Box>
+              <Box sx={{ flex: 1, minHeight: { xs: 200, md: 280 }, position: "relative", width: "100%" }}><canvas ref={playersCanvas} style={{ width: "100%", height: "100%" }} /></Box>
             </CardContent>
           </Card>
         </Box>
       </Box>
 
       {/* Online players */}
-      <Card variant="outlined">
+      <Card elevation={0}>
         <CardContent>
           <SectionTitle>当前在线玩家</SectionTitle>
           {players.length > 0 ? (
@@ -619,7 +617,7 @@ export default function ServerPage() {
           ) : (
             <Typography
               variant="body2"
-              sx={{ color: md3?.onSurfaceVariant, py: 2 }}
+              sx={{ color: c?.onSurfaceVariant, py: 2 }}
             >
               暂无在线玩家
             </Typography>
