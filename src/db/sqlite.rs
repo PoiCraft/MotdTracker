@@ -803,4 +803,15 @@ impl Database for SqliteDatabase {
         
         Ok(())
     }
+    
+    async fn close(&self) {
+        if let Err(e) = sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
+            .execute(&self.pool)
+            .await
+        {
+            tracing::warn!("WAL checkpoint failed: {}", e);
+        }
+        self.pool.close().await;
+        tracing::info!("数据库连接已关闭");
+    }
 }

@@ -151,4 +151,7 @@ pub trait Database: Send + Sync {
         observations: &[(i32, bool, Option<Vec<String>>)],
         timestamp: DateTime<Utc>,
     ) -> Result<(), DbError>;
+    
+    /// 关闭数据库连接（WAL checkpoint + 释放连接池）
+    async fn close(&self) {}
 }

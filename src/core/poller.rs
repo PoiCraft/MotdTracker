@@ -3,6 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 use chrono::{DateTime, Utc};
+use tokio::sync::watch;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info, warn};
 
@@ -19,6 +20,7 @@ pub struct ServerPoller {
     db: Arc<dyn Database>,
     broadcaster: Arc<WsBroadcaster>,
     alert_manager: Option<Arc<AlertManager>>,
+    shutdown_rx: watch::Receiver<bool>,
 }
 
 impl ServerPoller {
@@ -27,6 +29,7 @@ impl ServerPoller {
         config: Arc<AppConfig>,
         db: Arc<dyn Database>,
         broadcaster: Arc<WsBroadcaster>,
+        shutdown_rx: watch::Receiver<bool>,
     ) -> Self {
         let alert_manager = config.napcat_alert.as_ref()
             .filter(|a| a.enable)
@@ -39,6 +42,7 @@ impl ServerPoller {
             db,
             broadcaster,
             alert_manager,
+            shutdown_rx,
         }
     }
     
@@ -49,15 +53,25 @@ impl ServerPoller {
         // 首次立即执行
         self.poll_all_servers().await;
         
-        // 定时轮询
+        // 定时轮询（支持优雅关闭）
         let poll_interval = self.config.poll_interval;
-        let poller = self.clone_ref();
+        let mut poller = self.clone_ref();
         
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(poll_interval));
+            interval.tick().await;
             loop {
-                interval.tick().await;
-                poller.poll_all_servers().await;
+                tokio::select! {
+                    _ = interval.tick() => {
+                        poller.poll_all_servers().await;
+                    }
+                    result = poller.shutdown_rx.changed() => {
+                        if result.is_ok() || result.is_err() {
+                            info!("轮询器收到关闭信号，停止轮询");
+                            break;
+                        }
+                    }
+                }
             }
         });
         
@@ -71,6 +85,7 @@ impl ServerPoller {
             db: self.db.clone(),
             broadcaster: self.broadcaster.clone(),
             alert_manager: self.alert_manager.clone(),
+            shutdown_rx: self.shutdown_rx.clone(),
         }
     }
     

@@ -5,6 +5,7 @@ use axum::{
     routing::get,
     Router,
 };
+use tokio::sync::watch;
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
@@ -81,10 +82,13 @@ async fn main() {
 
     let broadcaster = Arc::new(WsBroadcaster::new());
 
+    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+
     let poller = ServerPoller::new(
         Arc::new(config.clone()),
         db.clone(),
         broadcaster.clone(),
+        shutdown_rx.clone(),
     );
     tokio::spawn(async move {
         if let Err(e) = poller.start().await {
@@ -105,9 +109,10 @@ async fn main() {
         .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any))
         .layer(TraceLayer::new_for_http())
         .with_state(api::AppState {
-            db,
+            db: db.clone(),
             config: Arc::new(config.clone()),
             broadcaster,
+            shutdown_rx,
         });
 
     let addr: SocketAddr = format!("0.0.0.0:{}", config.port)
@@ -116,8 +121,21 @@ async fn main() {
     info!("Server listening on: {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.expect("Cannot bind port");
-    if let Err(e) = axum::serve(listener, app).await {
+
+    let shutdown_signal = async move {
+        tokio::signal::ctrl_c().await.ok();
+        info!("收到关闭信号 (Ctrl+C)，开始优雅关闭...");
+        let _ = shutdown_tx.send(true);
+    };
+
+    if let Err(e) = axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal)
+        .await
+    {
         error!("Server error: {}", e);
     }
-}
 
+    info!("HTTP 服务已停止，正在关闭数据库连接...");
+    Database::close(db.as_ref()).await;
+    info!("MotdTracker 已完全关闭");
+}

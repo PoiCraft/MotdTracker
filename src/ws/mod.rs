@@ -7,8 +7,8 @@ use axum::extract::ws::{Message, WebSocket};
 use chrono::{DateTime, Utc};
 use futures::{SinkExt, StreamExt};
 use std::sync::Arc;
-use tokio::sync::{broadcast, RwLock};
-use tracing::{debug, error};
+use tokio::sync::{broadcast, watch, RwLock};
+use tracing::{debug, error, info};
 
 /// WebSocket 广播器
 pub struct WsBroadcaster {
@@ -95,7 +95,11 @@ impl Default for WsBroadcaster {
 }
 
 /// 处理 WebSocket 连接
-pub async fn handle_socket(socket: WebSocket, broadcaster: Arc<WsBroadcaster>) {
+pub async fn handle_socket(
+    socket: WebSocket,
+    broadcaster: Arc<WsBroadcaster>,
+    mut shutdown_rx: watch::Receiver<bool>,
+) {
     broadcaster.add_client().await;
 
     let (mut tx, mut rx) = socket.split();
@@ -125,6 +129,16 @@ pub async fn handle_socket(socket: WebSocket, broadcaster: Arc<WsBroadcaster>) {
                         break;
                     }
                     _ => {}
+                }
+            }
+            result = shutdown_rx.changed() => {
+                if result.is_ok() || result.is_err() {
+                    info!("WebSocket 收到关闭信号，发送 close frame");
+                    let _ = tx.send(Message::Close(Some(axum::extract::ws::CloseFrame {
+                        code: 1001,
+                        reason: "Server shutting down".into(),
+                    }))).await;
+                    break;
                 }
             }
         }

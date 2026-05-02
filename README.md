@@ -146,19 +146,6 @@ online_confirm_frames = 3
 
 </details>
 
-<details>
-<summary>Umami 分析</summary>
-
-```toml
-[umami]
-enabled = true
-script_url = "https://analytics.example.com/script.js"
-website_id = "your-website-id"
-domains = "monitor.example.com"
-```
-
-</details>
-
 ---
 
 ## 从源码构建
