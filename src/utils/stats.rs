@@ -1,8 +1,8 @@
-﻿//! 缁熻璁＄畻妯″潡
+﻿//! 统计计算模块
 
 use crate::models::{StatusLog, LatencyStats};
 
-/// 璁＄畻寤惰繜缁熻
+/// 计算延迟统计
 pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
     let total_checks = history.len() as u32;
     let online_checks = history.iter().filter(|h| h.online).count() as u32;
@@ -13,7 +13,7 @@ pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
         0.0
     };
     
-    // 鏀堕泦鏈夋晥寤惰繜鍊?
+    // 收集有效延迟值
     let latencies: Vec<f64> = history.iter()
         .filter(|h| h.online && h.latency.is_some())
         .map(|h| h.latency.unwrap())
@@ -33,11 +33,11 @@ pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
         };
     }
     
-    // 璁＄畻骞冲潎鍊?
+    // 计算平均值
     let sum: f64 = latencies.iter().sum();
     let avg = sum / latencies.len() as f64;
     
-    // 璁＄畻鏍囧噯宸?
+    // 计算标准差
     let std_dev = if latencies.len() > 1 {
         let variance: f64 = latencies.iter()
             .map(|x| (x - avg).powi(2))
@@ -47,17 +47,17 @@ pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
         Some(0.0)
     };
     
-    // 璁＄畻鏈€灏?鏈€澶у€?
+    // 计算最小/最大值
     let min = latencies.iter().cloned().fold(f64::INFINITY, f64::min);
     let max = latencies.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
     
-    // 璁＄畻 P95
+    // 计算 P95
     let mut sorted = latencies.clone();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let p95_index = ((sorted.len() as f64 * 0.95).ceil() as usize).saturating_sub(1);
     let p95 = sorted.get(p95_index).copied().unwrap_or(max);
     
-    // 璁＄畻鍙樺紓绯绘暟
+    // 计算变异系数
     let cv = if avg > 0.0 && std_dev.is_some() {
         Some((std_dev.unwrap() / avg) * 100.0)
     } else {
@@ -77,37 +77,37 @@ pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
     }
 }
 
-/// 鏍规嵁鍦ㄧ嚎鐜囪幏鍙栭鑹?
+/// 根据在线率获取颜色 (shields.io hex colors)
 pub fn get_uptime_color(uptime: f64) -> &'static str {
     if uptime >= 99.0 {
-        "green"
+        "#4c1"
     } else if uptime >= 95.0 {
-        "limegreen"
+        "#97CA00"
     } else if uptime >= 90.0 {
-        "yellowgreen"
+        "#a4a61d"
     } else if uptime >= 75.0 {
-        "yellow"
+        "#dfb317"
     } else if uptime >= 50.0 {
-        "orange"
+        "#fe7d37"
     } else {
-        "red"
+        "#e05d44"
     }
 }
 
-/// 鏍规嵁寤惰繜鑾峰彇棰滆壊
+/// 根据延迟获取颜色 (shields.io hex colors)
 pub fn get_latency_color(latency: f64) -> &'static str {
     if latency <= 50.0 {
-        "green"
+        "#4c1"
     } else if latency <= 100.0 {
-        "limegreen"
+        "#97CA00"
     } else if latency <= 150.0 {
-        "yellowgreen"
+        "#a4a61d"
     } else if latency <= 200.0 {
-        "yellow"
+        "#dfb317"
     } else if latency <= 300.0 {
-        "orange"
+        "#fe7d37"
     } else {
-        "red"
+        "#e05d44"
     }
 }
 
@@ -158,11 +158,11 @@ mod tests {
     
     #[test]
     fn test_get_uptime_color() {
-        assert_eq!(get_uptime_color(99.5), "green");
-        assert_eq!(get_uptime_color(96.0), "limegreen");
-        assert_eq!(get_uptime_color(92.0), "yellowgreen");
-        assert_eq!(get_uptime_color(80.0), "yellow");
-        assert_eq!(get_uptime_color(60.0), "orange");
-        assert_eq!(get_uptime_color(40.0), "red");
+        assert_eq!(get_uptime_color(99.5), "#4c1");
+        assert_eq!(get_uptime_color(96.0), "#97CA00");
+        assert_eq!(get_uptime_color(92.0), "#a4a61d");
+        assert_eq!(get_uptime_color(80.0), "#dfb317");
+        assert_eq!(get_uptime_color(60.0), "#fe7d37");
+        assert_eq!(get_uptime_color(40.0), "#e05d44");
     }
 }
