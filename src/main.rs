@@ -63,6 +63,12 @@ async fn main() {
         }
     };
 
+    for node in &config.nodes {
+        if let Err(e) = db.add_server(&node.name, &node.host, node.port, node.color.as_deref(), Some(node.id)).await {
+            error!("Failed to sync server '{}' to database: {}", node.name, e);
+        }
+    }
+
     let broadcaster = Arc::new(WsBroadcaster::new());
 
     let poller = ServerPoller::new(
@@ -84,8 +90,6 @@ async fn main() {
     };
 
     let app = Router::new()
-        .route("/api/exporter/health", get(health_check))
-
         .nest("/api/server", api::server::create_router())
         .nest("/api/node", api::node::create_router())
         .nest("/api/player", api::player::create_router())
@@ -116,10 +120,6 @@ async fn main() {
     if let Err(e) = axum::serve(listener, app).await {
         error!("Server error: {}", e);
     }
-}
-
-async fn health_check() -> &'static str {
-    "OK"
 }
 
 async fn spa_fallback(uri: Uri) -> impl IntoResponse {

@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use std::collections::HashMap;
+use std::path::Path;
 
 use super::{Database, DbError};
 use crate::models::*;
@@ -16,6 +17,13 @@ pub struct SqliteDatabase {
 impl SqliteDatabase {
     /// 创建新的 SQLite 数据库连接
     pub async fn new(database_path: &str) -> Result<Self, DbError> {
+        if let Some(parent) = Path::new(database_path).parent() {
+            if !parent.as_os_str().is_empty() && !parent.exists() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| DbError::ConnectionError(format!("创建数据库目录失败: {}", e)))?;
+            }
+        }
+
         let url = format!("sqlite:{}?mode=rwc", database_path);
         
         let pool = SqlitePoolOptions::new()
