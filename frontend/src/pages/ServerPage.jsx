@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { io } from "socket.io-client";
 import { Link } from "react-router-dom";
 import {
   Alert,
@@ -33,7 +32,8 @@ import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import ScheduleRoundedIcon from "@mui/icons-material/ScheduleRounded";
 import MetricCard from "../components/MetricCard";
 import StatusPill, { StatusDot } from "../components/StatusPill";
-import { api, SOCKET_BASE } from "../api";
+import { api } from "../api";
+import { useWebSocket } from "../utils/ws";
 import { recreateChart, destroyChart } from "../utils/charts";
 import { formatDuration, formatTime, toTimeLabel } from "../utils/format";
 
@@ -126,7 +126,6 @@ export default function ServerPage() {
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [wsStatus, setWsStatus] = useState("connecting");
 
   const latencyCanvas = useRef(null);
   const playersCanvas = useRef(null);
@@ -293,38 +292,32 @@ export default function ServerPage() {
     loadFull();
   }, [hours]);
 
+  const wsStatus = useWebSocket(async () => {
+    try {
+      const head = await api.server.head(hours);
+      setPayload((prev) => {
+        if (!prev) return prev;
+        const next = {
+          ...prev,
+          ...head,
+          history: mergeLatestPoint(
+            prev.history,
+            head.latest_history_point
+          ),
+        };
+        renderCharts(next);
+        return next;
+      });
+    } catch {}
+  });
+
   useEffect(() => {
-    const socket = io(SOCKET_BASE, {
-      path: "/api/socket.io",
-      transports: ["websocket"],
-    });
-    socket.on("connect", () => setWsStatus("connected"));
-    socket.on("disconnect", () => setWsStatus("disconnected"));
-    socket.on("poll_complete", async () => {
-      try {
-        const head = await api.server.head(hours);
-        setPayload((prev) => {
-          if (!prev) return prev;
-          const next = {
-            ...prev,
-            ...head,
-            history: mergeLatestPoint(
-              prev.history,
-              head.latest_history_point
-            ),
-          };
-          renderCharts(next);
-          return next;
-        });
-      } catch {}
-    });
     return () => {
-      socket.disconnect();
       destroyChart(latencyChart);
       destroyChart(playersChart);
       destroyChart(statusChart);
     };
-  }, [hours]);
+  }, []);
 
   const head = payload?.head || {};
   const nodes = payload?.nodes || [];

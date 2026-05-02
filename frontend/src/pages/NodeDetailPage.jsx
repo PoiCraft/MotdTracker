@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { io } from "socket.io-client";
 import { useParams, Link } from "react-router-dom";
 import {
   Alert,
@@ -35,7 +34,8 @@ import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import PercentRoundedIcon from "@mui/icons-material/PercentRounded";
 import MetricCard from "../components/MetricCard";
 import StatusPill, { StatusDot } from "../components/StatusPill";
-import { api, SOCKET_BASE } from "../api";
+import { api } from "../api";
+import { useWebSocket } from "../utils/ws";
 import { recreateChart, destroyChart } from "../utils/charts";
 import { formatTime, toTimeLabel } from "../utils/format";
 
@@ -193,21 +193,21 @@ export default function NodeDetailPage() {
 
   useEffect(() => { loadFull(); }, [nodeId, hours]);
 
+  useWebSocket(async () => {
+    try {
+      const head = await api.node.head(nodeId, hours);
+      setPayload((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev, stats: head.stats || prev.stats, server: head.server || prev.server, status_timeline: head.status_timeline || prev.status_timeline, history: mergeNodeHistory(prev.history, head.latest_history_point) };
+        renderCharts(next);
+        return next;
+      });
+    } catch {}
+  });
+
   useEffect(() => {
-    const socket = io(SOCKET_BASE, { path: "/api/socket.io", transports: ["websocket"] });
-    socket.on("poll_complete", async () => {
-      try {
-        const head = await api.node.head(nodeId, hours);
-        setPayload((prev) => {
-          if (!prev) return prev;
-          const next = { ...prev, stats: head.stats || prev.stats, server: head.server || prev.server, status_timeline: head.status_timeline || prev.status_timeline, history: mergeNodeHistory(prev.history, head.latest_history_point) };
-          renderCharts(next);
-          return next;
-        });
-      } catch {}
-    });
-    return () => { socket.disconnect(); [latencyChart, playersChart, statusChart].forEach(destroyChart); };
-  }, [nodeId, hours]);
+    return () => { [latencyChart, playersChart, statusChart].forEach(destroyChart); };
+  }, []);
 
   const node = payload?.server;
   const status = node?.latest_status;

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { io } from "socket.io-client";
 import {
   Alert, Box, Button, Card, CardContent, Chip, FormControl, Grid,
   IconButton, InputLabel, LinearProgress, MenuItem, Select,
@@ -14,7 +13,8 @@ import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import ImageRoundedIcon from "@mui/icons-material/ImageRounded";
 import CodeRoundedIcon from "@mui/icons-material/CodeRounded";
 import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
-import { api, getApiBase, SOCKET_BASE } from "../api";
+import { api, getApiBase } from "../api";
+import { useWebSocket } from "../utils/ws";
 
 const TIME_OPTIONS = [
   { label: "24h(默认)", value: "" },
@@ -57,7 +57,6 @@ export default function BadgesPage() {
   const [playerName, setPlayerName] = useState("Steve");
   const [hours, setHours] = useState("");
   const [formatType, setFormatType] = useState("url");
-  const [wsState, setWsState] = useState("connecting");
   const [refreshSalt, setRefreshSalt] = useState(Date.now());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -83,13 +82,7 @@ export default function BadgesPage() {
 
   useEffect(() => { loadData(); }, []);
 
-  useEffect(() => {
-    const socket = io(SOCKET_BASE, { path: "/api/socket.io", transports: ["websocket"] });
-    socket.on("connect", () => setWsState("connected"));
-    socket.on("disconnect", () => setWsState("disconnected"));
-    socket.on("poll_complete", () => setRefreshSalt(Date.now()));
-    return () => socket.disconnect();
-  }, []);
+  const wsState = useWebSocket(() => setRefreshSalt(Date.now()));
 
   const rows = useMemo(() => {
     const n = nodeId || (nodes.length ? String(nodes[0].id) : "1");

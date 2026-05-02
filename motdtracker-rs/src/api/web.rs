@@ -1,5 +1,3 @@
-//! Web API（前端专用一体化接口）
-
 use axum::{
     routing::get,
     Router,
@@ -10,7 +8,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 use super::AppState;
-use crate::models::{NodeWithStats, LatencyStats};
+use crate::models::{NodeWithStats, NodeStatus, LatencyStats};
 use crate::utils::calculate_latency_stats;
 
 #[derive(Deserialize)]
@@ -29,50 +27,35 @@ pub fn create_router() -> Router<AppState> {
         .route("/node/:id/head", get(get_web_node_head))
 }
 
-/// 获取服务器页面完整数据
-async fn get_web_server(
-    State(state): State<AppState>,
-    axum::extract::Query(query): axum::extract::Query<HoursQuery>,
-) -> Json<serde_json::Value> {
-    let hours = query.hours.clamp(1, 720);
-    
-    // 获取节点列表
-    let servers = match state.db.get_all_servers().await {
-        Ok(s) => s,
-        Err(_) => return Json(serde_json::json!({})),
-    };
-    
-    // 获取历史数据
-    let history = match state.db.get_all_history(hours).await {
-        Ok(h) => h,
-        Err(_) => HashMap::new(),
-    };
-    
-    // 获取最新状态
-    let latest_status = match state.db.get_all_latest_status().await {
-        Ok(s) => s,
-        Err(_) => Vec::new(),
-    };
-    
-    // 计算统计
+async fn build_nodes_with_stats(state: &AppState, hours: u32) -> (Vec<NodeWithStats>, HashMap<i32, LatencyStats>, HashMap<i32, Vec<crate::models::StatusLog>>) {
+    let servers = state.db.get_all_servers().await.unwrap_or_default();
+    let history_map = state.db.get_all_history(hours).await.unwrap_or_default();
+    let latest_status = state.db.get_all_latest_status().await.unwrap_or_default();
+
+    let latest_map: HashMap<i32, crate::models::StatusLog> = latest_status
+        .into_iter()
+        .map(|s| (s.server_id, s))
+        .collect();
+
     let mut stats_by_id: HashMap<i32, LatencyStats> = HashMap::new();
-    for (id, logs) in &history {
-        stats_by_id.insert(*id, calculate_latency_stats(logs));
+    for (id, logs) in &history_map {
+        if !logs.is_empty() {
+            stats_by_id.insert(*id, calculate_latency_stats(logs));
+        }
     }
-    
-    // 构建节点数据
+
     let nodes: Vec<NodeWithStats> = servers
         .iter()
         .map(|server| {
-            let latest = latest_status.iter().find(|s| s.server_id == server.id);
+            let latest = latest_map.get(&server.id);
             let enabled = state.config.get_node(server.id)
                 .map(|n| n.enable)
                 .unwrap_or(true);
-            
+
             NodeWithStats {
                 server: server.clone(),
                 enabled,
-                latest_status: latest.map(|s| crate::models::NodeStatus {
+                latest_status: latest.map(|s| NodeStatus {
                     timestamp: s.timestamp,
                     online: s.online,
                     latency: s.latency,
@@ -85,39 +68,223 @@ async fn get_web_server(
             }
         })
         .collect();
-    
-    // 计算头部信息
-    let online_nodes = nodes.iter().filter(|n| n.latest_status.as_ref().map(|s| s.online).unwrap_or(false)).count() as u32;
-    let total_players: u32 = latest_status.iter()
-        .filter_map(|s| s.players_online.map(|n| n as u32))
-        .sum();
-    
-    // 计算在线率
-    let mut uptime: HashMap<i32, f64> = HashMap::new();
-    for (id, logs) in &history {
-        let total = logs.len() as u32;
-        let online = logs.iter().filter(|l| l.online).count() as u32;
-        let rate = if total > 0 { (online as f64 / total as f64) * 100.0 } else { 0.0 };
-        uptime.insert(*id, rate);
+
+    (nodes, stats_by_id, history_map)
+}
+
+fn build_aggregated_history(
+    history_map: &HashMap<i32, Vec<crate::models::StatusLog>>,
+    nodes: &[NodeWithStats],
+) -> serde_json::Value {
+    use std::collections::BTreeMap;
+
+    let mut by_ts: BTreeMap<String, Vec<&crate::models::StatusLog>> = BTreeMap::new();
+
+    for (_id, logs) in history_map {
+        for log in logs {
+            let ts = log.timestamp.to_rfc3339();
+            by_ts.entry(ts).or_default().push(log);
+        }
     }
-    
-    // 获取在线玩家
-    let players = match state.db.get_all_online_players().await {
-        Ok(p) => p,
-        Err(_) => Vec::new(),
+
+    let mut timestamps = Vec::new();
+    let mut online_list = Vec::new();
+    let mut players_online_list = Vec::new();
+    let mut players_max_list = Vec::new();
+    let mut latencies: HashMap<String, Vec<Option<f64>>> = HashMap::new();
+
+    for node in nodes {
+        latencies.insert(node.server.name.clone(), Vec::new());
+    }
+
+    for (ts, records) in &by_ts {
+        timestamps.push(ts.clone());
+        let any_online = records.iter().any(|r| r.online);
+        online_list.push(any_online);
+
+        let rep = records.iter().find(|r| r.online).or(records.first());
+        players_online_list.push(rep.and_then(|r| r.players_online));
+        players_max_list.push(rep.and_then(|r| r.players_max));
+
+        for node in nodes {
+            let node_record = records.iter().find(|r| r.server_id == node.server.id);
+            let latency_val = node_record
+                .filter(|r| r.online)
+                .and_then(|r| r.latency);
+            latencies.get_mut(&node.server.name).unwrap().push(latency_val);
+        }
+    }
+
+    serde_json::json!({
+        "timestamps": timestamps,
+        "online": online_list,
+        "players_online": players_online_list,
+        "players_max": players_max_list,
+        "latencies": latencies,
+    })
+}
+
+fn build_status_timeline(
+    history_map: &HashMap<i32, Vec<crate::models::StatusLog>>,
+) -> serde_json::Value {
+    use std::collections::BTreeMap;
+
+    let mut by_ts: BTreeMap<String, Vec<bool>> = BTreeMap::new();
+
+    for (_id, logs) in history_map {
+        for log in logs {
+            let ts = log.timestamp.to_rfc3339();
+            by_ts.entry(ts).or_default().push(log.online);
+        }
+    }
+
+    let mut timestamps = Vec::new();
+    let mut online_list = Vec::new();
+
+    for (ts, statuses) in &by_ts {
+        timestamps.push(ts.clone());
+        online_list.push(statuses.iter().any(|&s| s));
+    }
+
+    serde_json::json!({
+        "timestamps": timestamps,
+        "online": online_list,
+    })
+}
+
+fn build_server_head(_state: &AppState, nodes: &[NodeWithStats]) -> serde_json::Value {
+    let nodes_with_status: Vec<&NodeWithStats> = nodes.iter()
+        .filter(|n| n.latest_status.is_some())
+        .collect();
+
+    if nodes_with_status.is_empty() {
+        return serde_json::json!({});
+    }
+
+    let online_nodes: Vec<&&NodeWithStats> = nodes_with_status.iter()
+        .filter(|n| n.latest_status.as_ref().map(|s| s.online).unwrap_or(false))
+        .collect();
+
+    let selected = if !online_nodes.is_empty() {
+        online_nodes[0]
+    } else {
+        nodes_with_status[0]
     };
-    
+
+    let selected_status = selected.latest_status.as_ref().unwrap();
+
+    let latencies: HashMap<String, Option<f64>> = nodes_with_status.iter()
+        .map(|n| {
+            let lat = if n.latest_status.as_ref().map(|s| s.online).unwrap_or(false) {
+                n.latest_status.as_ref().and_then(|s| s.latency)
+            } else {
+                None
+            };
+            (n.server.name.clone(), lat)
+        })
+        .collect();
+
+    let online = nodes_with_status.iter().any(|n| {
+        n.latest_status.as_ref().map(|s| s.online).unwrap_or(false)
+    });
+
+    let nodes_json: Vec<serde_json::Value> = nodes_with_status.iter().map(|n| {
+        serde_json::json!({
+            "id": n.server.id,
+            "name": n.server.name,
+            "latest_status": n.latest_status,
+        })
+    }).collect();
+
+    serde_json::json!({
+        "timestamp": selected_status.timestamp.to_rfc3339(),
+        "online": online,
+        "players_online": selected_status.players_online,
+        "players_max": selected_status.players_max,
+        "latencies": latencies,
+        "version": selected_status.version,
+        "motd": selected_status.motd,
+        "nodes": nodes_json,
+    })
+}
+
+async fn get_online_players_aggregated(state: &AppState) -> Vec<serde_json::Value> {
+    let servers = state.db.get_all_servers().await.unwrap_or_default();
+    let mut aggregated: HashMap<String, serde_json::Value> = HashMap::new();
+
+    for server in &servers {
+        let sessions = state.db.get_all_player_sessions(server.id).await.unwrap_or_default();
+        for s in &sessions {
+            if !s.online {
+                continue;
+            }
+            let name = s.player_name.clone();
+            let start_iso = s.session_start.map(|dt| dt.to_rfc3339());
+            let last_iso = s.last_seen.to_rfc3339();
+            let first_iso = s.first_seen.to_rfc3339();
+
+            if !aggregated.contains_key(&name) {
+                aggregated.insert(name.clone(), serde_json::json!({
+                    "player_name": name,
+                    "online": true,
+                    "first_seen": first_iso,
+                    "session_start": start_iso,
+                    "last_seen": last_iso,
+                    "duration_seconds": s.duration_seconds,
+                }));
+            } else {
+                let entry = aggregated.get_mut(&name).unwrap();
+                if let Some(existing_last) = entry.get("last_seen").and_then(|v| v.as_str()) {
+                    if last_iso > existing_last.to_string() {
+                        entry["last_seen"] = serde_json::json!(last_iso);
+                    }
+                }
+                if let Some(start) = &start_iso {
+                    if entry.get("session_start").and_then(|v| v.as_str()).is_none() {
+                        entry["session_start"] = serde_json::json!(start);
+                    }
+                }
+                if let Some(dur) = s.duration_seconds {
+                    let existing_dur = entry.get("duration_seconds").and_then(|v| v.as_i64());
+                    if existing_dur.is_none() || Some(dur) > existing_dur {
+                        entry["duration_seconds"] = serde_json::json!(dur);
+                    }
+                }
+            }
+        }
+    }
+
+    let mut result: Vec<serde_json::Value> = aggregated.into_values().collect();
+    result.sort_by(|a, b| {
+        let a_name = a.get("player_name").and_then(|v| v.as_str()).unwrap_or("");
+        let b_name = b.get("player_name").and_then(|v| v.as_str()).unwrap_or("");
+        a_name.to_lowercase().cmp(&b_name.to_lowercase())
+    });
+
+    result
+}
+
+async fn get_web_server(
+    State(state): State<AppState>,
+    axum::extract::Query(query): axum::extract::Query<HoursQuery>,
+) -> Json<serde_json::Value> {
+    let hours = query.hours.clamp(1, 720);
+
+    let (nodes, stats_by_id, history_map) = build_nodes_with_stats(&state, hours).await;
+
+    let history = build_aggregated_history(&history_map, &nodes);
+    let status_timeline = build_status_timeline(&history_map);
+    let head = build_server_head(&state, &nodes);
+    let players = get_online_players_aggregated(&state).await;
+
     Json(serde_json::json!({
         "nodes": nodes,
         "stats_by_id": stats_by_id,
         "history": history,
-        "uptime": uptime,
+        "uptime": {},
+        "status_timeline": status_timeline,
         "players": players,
-        "head": {
-            "total_nodes": nodes.len() as u32,
-            "online_nodes": online_nodes,
-            "total_players": total_players,
-        },
+        "head": head,
         "config": {
             "poll_interval": state.config.poll_interval,
             "server_name": state.config.server_name,
@@ -125,68 +292,178 @@ async fn get_web_server(
     }))
 }
 
-/// 获取服务器增量数据
 async fn get_web_server_head(
     State(state): State<AppState>,
     axum::extract::Query(query): axum::extract::Query<HoursQuery>,
 ) -> Json<serde_json::Value> {
-    let _hours = query.hours.clamp(1, 720);
-    
-    let latest_status = match state.db.get_all_latest_status().await {
-        Ok(s) => s,
-        Err(_) => return Json(serde_json::json!({})),
+    let hours = query.hours.clamp(1, 720);
+
+    let (nodes, stats_by_id, history_map) = build_nodes_with_stats(&state, hours).await;
+
+    let history = build_aggregated_history(&history_map, &nodes);
+    let status_timeline = build_status_timeline(&history_map);
+    let head = build_server_head(&state, &nodes);
+    let players = get_online_players_aggregated(&state).await;
+
+    let latest_history_point = if let (Some(ts_arr), Some(online_arr)) = (
+        history.get("timestamps").and_then(|v| v.as_array()),
+        history.get("online").and_then(|v| v.as_array()),
+    ) {
+        if let Some(last_ts) = ts_arr.last() {
+            let idx = ts_arr.len() - 1;
+            let latencies = history.get("latencies")
+                .and_then(|v| v.as_object())
+                .map(|obj| {
+                    obj.iter().map(|(k, v)| {
+                        let val = v.as_array().and_then(|arr| arr.get(idx)).cloned();
+                        (k.clone(), val.unwrap_or(serde_json::Value::Null))
+                    }).collect::<serde_json::Map<String, serde_json::Value>>()
+                })
+                .unwrap_or_default();
+
+            Some(serde_json::json!({
+                "timestamp": last_ts,
+                "online": online_arr.get(idx).and_then(|v| v.as_bool()).unwrap_or(false),
+                "players_online": history.get("players_online").and_then(|v| v.as_array()).and_then(|a| a.get(idx)).cloned().unwrap_or(serde_json::Value::Null),
+                "players_max": history.get("players_max").and_then(|v| v.as_array()).and_then(|a| a.get(idx)).cloned().unwrap_or(serde_json::Value::Null),
+                "latencies": latencies,
+            }))
+        } else {
+            None
+        }
+    } else {
+        None
     };
-    
-    let total_nodes = latest_status.len() as u32;
-    let online_nodes = latest_status.iter().filter(|s| s.online).count() as u32;
-    let total_players: u32 = latest_status.iter()
-        .filter_map(|s| s.players_online.map(|n| n as u32))
-        .sum();
-    
+
     Json(serde_json::json!({
-        "total_nodes": total_nodes,
-        "online_nodes": online_nodes,
-        "total_players": total_players,
-        "latest_status": latest_status,
+        "nodes": nodes,
+        "stats_by_id": stats_by_id,
+        "latest_history_point": latest_history_point,
+        "uptime": {},
+        "status_timeline": status_timeline,
+        "players": players,
+        "head": head,
+        "config": {
+            "poll_interval": state.config.poll_interval,
+            "server_name": state.config.server_name,
+        }
     }))
 }
 
-/// 获取节点页面完整数据
 async fn get_web_node(
     State(state): State<AppState>,
     Path(id): Path<i32>,
     axum::extract::Query(query): axum::extract::Query<HoursQuery>,
 ) -> Json<serde_json::Value> {
-    let _hours = query.hours.clamp(1, 720);
-    
+    let hours = query.hours.clamp(1, 720);
+
     let server = match state.db.get_server(id).await {
         Ok(Some(s)) => s,
         _ => return Json(serde_json::json!({})),
     };
-    
+
     let latest_status = state.db.get_server_latest_status(id).await.ok().flatten();
-    let history = state.db.get_server_history(id, 1000).await.unwrap_or_default();
-    let stats = calculate_latency_stats(&history);
-    let players = state.db.get_all_player_sessions(id).await.unwrap_or_default();
-    
+    let history_raw = state.db.get_server_history_range(
+        id,
+        chrono::Utc::now() - chrono::Duration::hours(hours as i64),
+        chrono::Utc::now(),
+    ).await.unwrap_or_default();
+
+    let mut sorted_history = history_raw;
+    sorted_history.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+
+    let stats = if !sorted_history.is_empty() {
+        Some(calculate_latency_stats(&sorted_history))
+    } else {
+        None
+    };
+
+    let compact = serde_json::json!({
+        "timestamps": sorted_history.iter().map(|h| h.timestamp.to_rfc3339()).collect::<Vec<_>>(),
+        "online": sorted_history.iter().map(|h| h.online).collect::<Vec<_>>(),
+        "latency": sorted_history.iter().map(|h| h.latency).collect::<Vec<_>>(),
+        "players_online": sorted_history.iter().map(|h| h.players_online).collect::<Vec<_>>(),
+        "players_max": sorted_history.iter().map(|h| h.players_max).collect::<Vec<_>>(),
+    });
+
+    let status_timeline = serde_json::json!({
+        "timestamps": sorted_history.iter().map(|h| h.timestamp.to_rfc3339()).collect::<Vec<_>>(),
+        "online": sorted_history.iter().map(|h| h.online).collect::<Vec<_>>(),
+    });
+
     Json(serde_json::json!({
-        "server": server,
-        "latest_status": latest_status,
-        "history": history,
+        "server": {
+            "id": server.id,
+            "name": server.name,
+            "host": server.host,
+            "port": server.port,
+            "color": server.color,
+            "latest_status": latest_status,
+        },
+        "history": compact,
         "stats": stats,
-        "players": players,
+        "status_timeline": status_timeline,
+        "config": {
+            "poll_interval": state.config.poll_interval,
+        }
     }))
 }
 
-/// 获取节点增量数据
 async fn get_web_node_head(
     State(state): State<AppState>,
     Path(id): Path<i32>,
+    axum::extract::Query(query): axum::extract::Query<HoursQuery>,
 ) -> Json<serde_json::Value> {
-    let latest_status = match state.db.get_server_latest_status(id).await {
+    let hours = query.hours.clamp(1, 720);
+
+    let server = match state.db.get_server(id).await {
         Ok(Some(s)) => s,
         _ => return Json(serde_json::json!({})),
     };
-    
-    Json(serde_json::to_value(latest_status).unwrap_or(serde_json::json!({})))
+
+    let latest_status = state.db.get_server_latest_status(id).await.ok().flatten();
+
+    let history_raw = state.db.get_server_history_range(
+        id,
+        chrono::Utc::now() - chrono::Duration::hours(hours as i64),
+        chrono::Utc::now(),
+    ).await.unwrap_or_default();
+
+    let mut sorted_history = history_raw;
+    sorted_history.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+
+    let stats = if !sorted_history.is_empty() {
+        Some(calculate_latency_stats(&sorted_history))
+    } else {
+        None
+    };
+
+    let latest_history_point = sorted_history.last().map(|h| {
+        serde_json::json!({
+            "timestamp": h.timestamp.to_rfc3339(),
+            "online": h.online,
+            "latency": h.latency,
+            "players_online": h.players_online,
+            "players_max": h.players_max,
+        })
+    });
+
+    let status_timeline = serde_json::json!({
+        "timestamps": sorted_history.iter().map(|h| h.timestamp.to_rfc3339()).collect::<Vec<_>>(),
+        "online": sorted_history.iter().map(|h| h.online).collect::<Vec<_>>(),
+    });
+
+    Json(serde_json::json!({
+        "server": {
+            "id": server.id,
+            "name": server.name,
+            "latest_status": latest_status,
+        },
+        "stats": stats,
+        "latest_history_point": latest_history_point,
+        "status_timeline": status_timeline,
+        "config": {
+            "poll_interval": state.config.poll_interval,
+        }
+    }))
 }

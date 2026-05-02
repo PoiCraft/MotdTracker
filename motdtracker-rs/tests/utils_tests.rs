@@ -4,7 +4,7 @@
 
 #[cfg(test)]
 mod tests {
-    use motdtracker::models::{StatusLog, LatencyStats};
+    use motdtracker::models::StatusLog;
     use motdtracker::utils::{
         calculate_latency_stats,
         get_uptime_color,
@@ -16,7 +16,7 @@ mod tests {
         hours_ago,
         days_ago,
     };
-    use chrono::Utc;
+    use chrono::{Utc, Timelike};
 
     fn create_test_log(online: bool, latency: Option<f64>) -> StatusLog {
         StatusLog {
@@ -160,9 +160,8 @@ mod tests {
         let two_hours_ago = hours_ago(2);
         let diff_duration = now - two_hours_ago;
         
-        // 应该在 2 小时左右（允许几秒的误差）
-        let hours = diff_duration.num_seconds() / 3600;
-        assert_eq!(hours, 2);
+        let seconds = diff_duration.num_seconds();
+        assert!(seconds >= 7140 && seconds <= 7260, "Expected ~7200s, got {}", seconds);
     }
 
     #[test]
@@ -171,9 +170,8 @@ mod tests {
         let seven_days_ago = days_ago(7);
         let diff_duration = now - seven_days_ago;
         
-        // 应该在 7 天左右
-        let days = diff_duration.num_days();
-        assert_eq!(days, 7);
+        let seconds = diff_duration.num_seconds();
+        assert!(seconds >= 604740 && seconds <= 604860, "Expected ~604800s, got {}", seconds);
     }
 
     #[test]

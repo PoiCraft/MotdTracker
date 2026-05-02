@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { io } from "socket.io-client";
 import { Link } from "react-router-dom";
 import {
   Alert,
@@ -20,7 +19,8 @@ import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
 import StatusPill, { StatusDot } from "../components/StatusPill";
-import { api, SOCKET_BASE } from "../api";
+import { api } from "../api";
+import { useWebSocket } from "../utils/ws";
 import { formatTime } from "../utils/format";
 
 function NodeCard({ node }) {
@@ -173,7 +173,6 @@ export default function NodesPage() {
   const [nodes, setNodes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [wsState, setWsState] = useState("connecting");
 
   const loadNodes = async () => {
     setLoading(true);
@@ -192,16 +191,7 @@ export default function NodesPage() {
     loadNodes();
   }, []);
 
-  useEffect(() => {
-    const socket = io(SOCKET_BASE, {
-      path: "/api/socket.io",
-      transports: ["websocket"],
-    });
-    socket.on("connect", () => setWsState("connected"));
-    socket.on("disconnect", () => setWsState("disconnected"));
-    socket.on("poll_complete", () => loadNodes());
-    return () => socket.disconnect();
-  }, []);
+  const wsState = useWebSocket(() => loadNodes());
 
   const stats = useMemo(() => {
     const on = nodes.filter((n) => n.latest_status?.online);

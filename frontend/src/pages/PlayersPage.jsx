@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { io } from "socket.io-client";
 import { Link } from "react-router-dom";
 import {
   Alert,
@@ -23,7 +22,8 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import StatusPill from "../components/StatusPill";
-import { api, SOCKET_BASE } from "../api";
+import { api } from "../api";
+import { useWebSocket } from "../utils/ws";
 import { formatDuration, formatTime } from "../utils/format";
 
 function to24hBlocks(heatmap) {
@@ -167,7 +167,6 @@ export default function PlayersPage() {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [wsState, setWsState] = useState("connecting");
   const [keyword, setKeyword] = useState("");
 
   const loadPlayers = async () => {
@@ -196,13 +195,7 @@ export default function PlayersPage() {
 
   useEffect(() => { loadPlayers(); }, []);
 
-  useEffect(() => {
-    const socket = io(SOCKET_BASE, { path: "/api/socket.io", transports: ["websocket"] });
-    socket.on("connect", () => setWsState("connected"));
-    socket.on("disconnect", () => setWsState("disconnected"));
-    socket.on("poll_complete", () => loadPlayers());
-    return () => socket.disconnect();
-  }, []);
+  const wsState = useWebSocket(() => loadPlayers());
 
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase();

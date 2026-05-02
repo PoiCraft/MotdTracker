@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { io } from "socket.io-client";
 import { useParams, Link } from "react-router-dom";
 import {
   Alert, Box, Button, Card, CardContent, Chip, Grid, LinearProgress,
@@ -15,7 +14,8 @@ import ScheduleRoundedIcon from "@mui/icons-material/ScheduleRounded";
 import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
 import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
 import MetricCard from "../components/MetricCard";
-import { api, SOCKET_BASE } from "../api";
+import { api } from "../api";
+import { useWebSocket } from "../utils/ws";
 import { recreateChart, destroyChart } from "../utils/charts";
 import { formatDuration, formatTime } from "../utils/format";
 
@@ -140,13 +140,13 @@ export default function PlayerDetailPage() {
 
   useEffect(() => { loadFull(); }, [name]);
 
+  useWebSocket(async () => {
+    try { setSummary(await api.player.detail(name)); } catch {}
+  });
+
   useEffect(() => {
-    const socket = io(SOCKET_BASE, { path: "/api/socket.io", transports: ["websocket"] });
-    socket.on("poll_complete", async () => {
-      try { setSummary(await api.player.detail(name)); } catch {}
-    });
-    return () => { socket.disconnect(); [hourlyChart, dailyChart, weekdayChart].forEach(destroyChart); };
-  }, [name]);
+    return () => { [hourlyChart, dailyChart, weekdayChart].forEach(destroyChart); };
+  }, []);
 
   const blocks24h = useMemo(() => build24hBlocks(sessions?.heatmap || []), [sessions]);
   const max24h = Math.max(...blocks24h, 1);
