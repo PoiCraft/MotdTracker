@@ -1,248 +1,247 @@
-# MotdTracker Rust 重构进度
+# MotdTracker Rust 重构详细进度
 
-> 最后更新: 2026-03-29 23:45 (UTC+8)
-> 最后更新: 2026-03-30 01:15 (UTC+8)
+> 最后更新: 2026-05-02 10:50 (UTC+8)
 
 ## 概述
 
-本文档记录 MotdTracker 项目从 Python 重构到 Rust 的进度。
+本文档记录 MotdTracker 项目从 Python/Flask 重构到 Rust/Axum 的完整进度，包括后端 API、前端 React 对接、WebSocket 迁移等。
 
-## 🎉 编译状态: 成功 (无警告)
+## 编译与测试状态
 
-项目已成功编译！所有模块已实现并通过 `cargo build` 验证。**所有编译警告已修复**。
+| 项目 | 状态 |
+|------|------|
+| `cargo build` | ✅ 成功 (0 错误, 0 代码警告) |
+| `cargo test` | ✅ 27 个测试全部通过 |
+| `npm run build` (frontend) | ✅ 成功 |
 
 ## 项目结构
 
 ```
 motdtracker-rs/
-├── Cargo.toml              ✅ 已完成
-├── config.example.toml     ✅ 已完成
+├── Cargo.toml                ✅
 └── src/
-    ├── main.rs             ✅ 已完成
-    ├── lib.rs              ✅ 已完成
+    ├── main.rs               ✅ Axum 入口 + SPA fallback
+    ├── lib.rs                ✅
     ├── config/
-    │   ├── mod.rs          ✅ 已完成
-    │   └── loader.rs       ✅ 已完成
+    │   ├── mod.rs            ✅ AppConfig, NodeConfig, NapCatAlertConfig, UmamiConfig
+    │   └── loader.rs         ✅ TOML 加载 + 交互式配置向导
     ├── models/
-    │   ├── mod.rs          ✅ 已完成
-    │   ├── server.rs       ✅ 已完成
-    │   ├── player.rs       ✅ 已完成
-    │   └── status.rs       ✅ 已完成
+    │   ├── mod.rs            ✅
+    │   ├── server.rs         ✅ Server, NodeWithStats, NodeStatus, LatencyStats, ServerHead
+    │   ├── player.rs         ✅ PlayerSession, PlayerSessionHistory, PlayerDetail, PlayerHeatmap, PlayerListItem
+    │   └── status.rs         ✅ StatusLog, StatusLogEntry, ServerStatus, QueryResult
     ├── db/
-    │   ├── mod.rs          ✅ 已完成
-    │   ├── database_trait.rs ✅ 已完成
-    │   └── sqlite.rs       ✅ 已完成
+    │   ├── mod.rs            ✅
+    │   ├── database_trait.rs ✅ async Database trait (20+ 方法)
+    │   └── sqlite.rs         ✅ 完整 SQLite 实现 (sqlx)
     ├── core/
-    │   ├── mod.rs          ✅ 已完成
-    │   ├── monitor.rs      ✅ 已完成
-    │   └── poller.rs       ✅ 已完成
+    │   ├── mod.rs            ✅
+    │   ├── monitor.rs        ✅ MinecraftQuerier (原生协议查询)
+    │   └── poller.rs         ✅ ServerPoller (JoinSet 并行轮询 + NapCat 告警)
     ├── utils/
-    │   ├── mod.rs          ✅ 已完成
-    │   ├── stats.rs        ✅ 已完成
-    │   └── time.rs         ✅ 已完成
+    │   ├── mod.rs            ✅
+    │   ├── stats.rs          ✅ calculate_latency_stats, get_uptime_color, get_latency_color
+    │   └── time.rs           ✅ format_duration, hours_ago, days_ago, start_of_day
     ├── ws/
-    │   ├── mod.rs          ✅ 已完成
-    │   └── handler.rs      ✅ 已完成
+    │   ├── mod.rs            ✅ WsBroadcaster (broadcast channel) + handle_socket
+    │   └── handler.rs        ✅ (空，逻辑在 mod.rs)
     ├── alert/
-    │   ├── mod.rs          ✅ 已完成
-    │   └── napcat.rs       ✅ 已完成
+    │   ├── mod.rs            ✅
+    │   └── napcat.rs         ✅ NapCat QQ 机器人告警
     └── api/
-        ├── mod.rs          ✅ 已完成
-        ├── server.rs       ✅ 已完成
-        ├── node.rs         ✅ 已完成
-        ├── player.rs       ✅ 已完成
-        ├── web.rs          ✅ 已完成
-        ├── badge.rs        ✅ 已完成
-        ├── exporter.rs     ✅ 已完成
-        ├── query.rs        ✅ 已完成
-        └── pages.rs        ✅ 已完成
+        ├── mod.rs            ✅ AppState + ws_handler
+        ├── server.rs         ✅ /api/server/* (nodes, head, history, stats, uptime, players, config)
+        ├── node.rs           ✅ /api/node/:id/* (detail, history, stats, players)
+        ├── player.rs         ✅ /api/player/* (list, detail, sessions, weekly-stats, heatmap)
+        ├── web.rs            ✅ /api/web/* (server, server/head, node/:id, node/:id/head)
+        ├── badge.rs          ✅ /api/badge/* (12 个端点)
+        ├── exporter.rs       ✅ /api/exporter/* (health, version, metrics)
+        ├── query.rs          ✅ /api/query (简化 SQL 查询)
+        └── pages.rs          ✅ HTML 页面路由 (Askama 模板，遗留)
 ```
 
-## 模块进度
+## 模块详细进度
 
-### 1. 基础设施 (100%)
-
-| 组件 | 状态 | 描述 |
-|------|------|------|
-| Cargo.toml | ✅ | 依赖配置完成 |
-| main.rs | ✅ | 应用入口和路由配置 |
-| lib.rs | ✅ | 库导出 |
-
-### 2. 配置模块 (100%)
+### 1. 配置模块 (100%)
 
 | 组件 | 状态 | 描述 |
 |------|------|------|
-| AppConfig | ✅ | 主配置结构体 |
-| NodeConfig | ✅ | 节点配置 |
-| PostgreSQLConfig | ✅ | PostgreSQL 配置 |
-| NapCatAlertConfig | ✅ | 告警配置 |
-| UmamiConfig | ✅ | 分析配置 |
-| 配置加载器 | ✅ | TOML 解析和加载 |
+| AppConfig | ✅ | 主配置: server_name, database, poll_interval, port, nodes |
+| NodeConfig | ✅ | 节点: id, name, host, port, color, enable |
+| PostgreSQLConfig | ✅ | PostgreSQL 连接信息 |
+| NapCatAlertConfig | ✅ | host, groups, delta_minutes, confirm_frames |
+| UmamiConfig | ✅ | enabled, script_url, website_id, domains |
+| TOML 加载器 | ✅ | load_config, load_config_from_path, load_config_with_fallback |
+| 交互式向导 | ✅ | feature flag `interactive`，dialoguer CLI |
 
-### 3. 数据模型 (100%)
+### 2. 数据模型 (100%)
 
-| 组件 | 状态 | 描述 |
+| 模型 | 字段 | 用途 |
 |------|------|------|
-| Server | ✅ | 服务器节点模型 |
-| NodeWithStats | ✅ | 带统计的节点 |
-| NodeStatus | ✅ | 节点状态 |
-| LatencyStats | ✅ | 延迟统计 |
-| PlayerSession | ✅ | 玩家会话 |
-| PlayerSessionHistory | ✅ | 玩家历史会话 |
-| PlayerDetail | ✅ | 玩家详情 |
-| PlayerHeatmap | ✅ | 玩家热力图数据 |
-| StatusLog | ✅ | 状态日志 |
-| ServerStatus | ✅ | 服务器状态 |
+| Server | id, name, host, port, color | 服务器节点 |
+| NodeWithStats | server + enabled + latest_status + latency_stats | 带状态的节点 |
+| NodeStatus | timestamp, online, latency, players_online/max, version, motd | 最新状态 |
+| LatencyStats | uptime%, avg, std_dev, min, max, p95, cv, total_checks, online_checks | 统计 |
+| StatusLog | 12 个字段 (完整日志记录) | 状态日志 |
+| StatusLogEntry | 同 StatusLog (用于插入) | 写入用 |
+| PlayerSession | id, server_id, player_name, first_seen, session_start, last_seen, online, duration_seconds | 当前会话 |
+| PlayerSessionHistory | id, server_id, player_name, session_start, session_end | 历史会话 |
+| PlayerDetail | player_name, online, session_start, last_seen, duration_seconds, servers, sessions | 玩家详情 |
+| PlayerListItem | player_name, online, session_start, last_seen, duration_seconds, servers | 列表项 |
+| PlayerHeatmap | hour, weekday, count | 热力图原始数据 |
 
-### 4. 数据库层 (100%)
+### 3. 数据库层 (100% SQLite, 0% PostgreSQL)
 
-| 组件 | 状态 | 描述 |
-|------|------|------|
-| Database trait | ✅ | 数据库抽象接口 |
-| SqliteDatabase | ✅ | SQLite 实现 |
-| 表结构创建 | ✅ | servers, status_logs, player_sessions 等 |
-| CRUD 操作 | ✅ | 所有数据库操作 |
-| PostgreSQL | ⏳ | 待实现（trait 已设计） |
+Database trait 定义了 20+ 个 async 方法：
 
-### 5. 核心功能 (100%)
+| 方法分类 | 方法 |
+|----------|------|
+| 服务器管理 | add_server, get_all_servers, get_server, delete_server |
+| 状态记录 | log_status, log_status_batch, get_server_latest_status, get_server_history, get_server_history_range, get_all_latest_status, get_all_history, cleanup_old_records |
+| 玩家会话 | update_player_sessions, get_online_players, get_all_online_players, get_all_player_sessions, get_player_history, get_all_player_names, get_player_detail, get_player_heatmap, end_offline_sessions |
+| 初始化 | init_database |
 
-| 组件 | 状态 | 描述 |
-|------|------|------|
-| MinecraftQuerier | ✅ | Minecraft 服务器查询 |
-| ServerPoller | ✅ | 轮询器 |
-| 并行轮询 | ✅ | 使用 JoinSet |
-| 告警检查 | ✅ | 离线/恢复告警 |
+SQLite 实现使用 WAL 模式、30s busy_timeout、5 连接池。
 
-### 6. WebSocket (100%)
+### 4. 核心功能 (100%)
 
-| 组件 | 状态 | 描述 |
-|------|------|------|
-| WsBroadcaster | ✅ | 广播器 |
-| 消息格式 | ✅ | JSON 格式 |
-| poll_complete 事件 | ✅ | 轮询完成通知 |
-| axum::extract::ws | ✅ | 使用 axum 内置 WebSocket |
+| 组件 | 描述 |
+|------|------|
+| MinecraftQuerier | 原生 Minecraft 协议查询 (握手 + 状态请求) |
+| ServerPoller | JoinSet 并行轮询所有节点，共享时间戳，轮询完成后广播 WS 事件 |
+| NapCat 告警 | 离线/恢复状态变化检测，连续帧确认，QQ 群消息推送 |
 
-### 7. 告警系统 (100%)
+### 5. WebSocket (100%)
 
-| 组件 | 状态 | 描述 |
-|------|------|------|
-| AlertManager | ✅ | 告警管理器 |
-| NapCat 集成 | ✅ | QQ 机器人告警 |
-| 状态跟踪 | ✅ | 连续帧计数 |
+| 组件 | 描述 |
+|------|------|
+| WsBroadcaster | `broadcast::channel(256)` 广播器，支持多客户端 |
+| 消息格式 | `{"event": "poll_complete", "data": {"timestamp": "..."}}` |
+| 端点 | `GET /api/ws` (axum 原生 WebSocket upgrade) |
+| 前端对接 | `useWebSocket` hook (原生 WebSocket API + 自动重连) |
 
-### 8. API 路由 (100%)
+### 6. API 端点 — 完整对照
 
-| 模块 | 状态 | 描述 |
-|------|------|------|
-| /api/server/* | ✅ | 服务器聚合 API |
-| /api/node/* | ✅ | 节点 API |
-| /api/player/* | ✅ | 玩家 API |
-| /api/web/* | ✅ | Web 前端 API |
-| /api/badge/* | ✅ | Badge 生成 |
-| /api/exporter/* | ✅ | Prometheus 指标 |
-| /api/query/* | ✅ | 类 SQL 查询（简化版） |
-| 页面路由 | ✅ | HTML 页面 |
+#### Web 前端专用 (前端依赖的 4 个端点)
 
-### 9. 工具函数 (100%)
+| 端点 | 响应格式 | 状态 |
+|------|----------|------|
+| `GET /api/web/server?hours=N` | `{nodes, stats_by_id, history:{timestamps,online,players_online,players_max,latencies}, uptime, status_timeline:{timestamps,online}, players, head:{timestamp,online,players_online,players_max,latencies,version,motd,nodes}, config}` | ✅ |
+| `GET /api/web/server/head?hours=N` | 同上 + `latest_history_point:{timestamp,online,players_online,players_max,latencies}` | ✅ |
+| `GET /api/web/node/:id?hours=N` | `{server:{id,name,host,port,color,latest_status}, history:{timestamps,online,latency,players_online,players_max}, stats, status_timeline, config}` | ✅ |
+| `GET /api/web/node/:id/head?hours=N` | `{server:{id,name,latest_status}, stats, latest_history_point:{timestamp,online,latency,players_online,players_max}, status_timeline, config}` | ✅ |
 
-| 组件 | 状态 | 描述 |
-|------|------|------|
-| calculate_latency_stats | ✅ | 延迟统计计算 |
-| get_uptime_color | ✅ | 在线率颜色 |
-| format_duration | ✅ | 时长格式化 |
+#### 服务器 / 节点
 
-## 编译修复记录
+| 端点 | 状态 |
+|------|------|
+| `GET /api/server/nodes` | ✅ Vec<NodeWithStats> |
+| `GET /api/server/head` | ✅ ServerHead |
+| `GET /api/server/history?hours=N` | ✅ HashMap<i32, Vec<StatusLog>> |
+| `GET /api/server/stats` | ✅ HashMap<i32, LatencyStats> |
+| `GET /api/server/uptime?hours=N` | ✅ HashMap<i32, f64> |
+| `GET /api/server/players` | ✅ Vec<PlayerSession> (去重) |
+| `GET /api/server/config` | ✅ {server_name, poll_interval, port, node_count} |
+| `GET /api/node/:id` | ✅ NodeWithStats |
+| `GET /api/node/:id/history?hours=N` | ✅ Vec<StatusLog> |
+| `GET /api/node/:id/stats` | ✅ LatencyStats |
+| `GET /api/node/:id/players` | ✅ Vec<PlayerSession> |
 
-### 已修复的问题
+#### 玩家
 
-1. **WebSocket 导入问题**: `axum-extra` 不包含 `ws` feature，改为使用 `axum` 内置的 WebSocket 支持 (`axum::extract::ws`)
-2. **tower-http API 变更**: `fs::ServeDir` 改为 `services::ServeDir`
-3. **PlayerHeatmap FromRow**: 添加 `#[derive(sqlx::FromRow)]` 并将字段类型改为 `i32`
-4. **所有权问题**: 修复 `servers.into_iter()` 改为 `servers.iter()` 并使用 `server.clone()`
-5. **main.rs 错误处理**: 移除 `anyhow::Result` 返回类型，改用显式错误处理
-6. **未使用导入**: 运行 `cargo fix` 自动修复大部分警告
+| 端点 | 响应格式 | 状态 |
+|------|----------|------|
+| `GET /api/player` | Vec<PlayerListItem> (聚合去重) | ✅ |
+| `GET /api/player/:name/detail` | PlayerDetail | ✅ |
+| `GET /api/player/:name/sessions?days=N` | `{days, player_online, heatmap:[{date,hour,seconds}], daily:[{date,total_seconds,sessions:[{start,end,server_name}]}], average_daily_seconds, average_session_seconds, hourly_average:[{hour,avg_seconds}]}` | ✅ |
+| `GET /api/player/:name/weekly-stats` | `{player_name, total_sample_days, weekly_heatmap:[{day,day_name,hour,avg_seconds,sample_days}], weekday_preference:[{day,day_name,avg_seconds,sample_days}]}` | ✅ |
+| `GET /api/player/:name/heatmap?days=N` | Vec<PlayerHeatmap> | ✅ |
 
-## 待完成事项
+#### Badge (SVG)
 
-### 高优先级
+| 端点 | 状态 |
+|------|------|
+| `GET /api/badge/server/status` | ✅ |
+| `GET /api/badge/server/uptime?hours=N` | ✅ |
+| `GET /api/badge/server/players` | ✅ |
+| `GET /api/badge/node/:id/status` | ✅ |
+| `GET /api/badge/node/:id/uptime?hours=N` | ✅ |
+| `GET /api/badge/node/:id/latency` | ✅ |
+| `GET /api/badge/node/:id/latency-stats?stat=avg\|min\|max\|std\|cv\|p95&hours=N` | ✅ |
+| `GET /api/badge/node/:id/players` | ✅ |
+| `GET /api/badge/player/:name/status` | ✅ |
+| `GET /api/badge/player/:name/current-session` | ✅ |
+| `GET /api/badge/player/:name/period-playtime?hours=N` | ✅ |
+| `GET /api/badge/player/:name/live` | ✅ |
 
-- [x] 修复编译错误
-- [x] 项目构建验证
-- [x] 修复所有编译警告 (**2026-03-29 完成**)
-- [x] 添加交互式配置生成功能 (**2026-03-29 完成**)
-- [ ] 编写核心模块单元测试
-- [ ] 完善错误处理和日志记录
-- [x] 编写核心模块单元及集成测试 (**2026-03-30 完成** - 28 个测试全部通过)
-- [ ] 完善错误处理和日志记录
+#### 其他
 
-### 中优先级
+| 端点 | 状态 |
+|------|------|
+| `GET /api/exporter/health` | ✅ |
+| `GET /api/exporter/version` | ✅ |
+| `GET /api/exporter/metrics` | ✅ (简化版) |
+| `GET /api/query` | ✅ (简化 SQL 查询) |
+| `WS /api/ws` | ✅ |
 
-- [ ] 性能优化和基准测试
-- [ ] PostgreSQL 数据库适配器实现
-- [x] 前端 React 应用重构（第一阶段：前后端分离骨架）
-- [ ] API 文档（OpenAPI/Swagger）
-- [ ] Docker 支持
+#### Python 后端独有 (Rust 未实现)
 
-### 前端分离重构（2026-03-30）
+| 端点 | 原因 |
+|------|------|
+| `GET /api/graphql` | 低优先级，feature flag `graphql` 已预留 |
+| `GET /api/docs` (Swagger UI) | Flask-RESTX 特有，Rust 无对应 |
 
-- 新增独立前端工程：`frontend/`（Vite + React + React Router）
-- 完成页面路由：`/server`、`/nodes`、`/nodes/:id`、`/players`、`/players/:name`、`/badges`
-- 完成 API 对接：`/api/web/*`、`/api/player/*`、`/api/node`、`/api/badge/*`
-- 完成 WebSocket 实时更新：监听 `poll_complete` 并增量刷新
-- 后端新增 API-only 模式：`api_only = true` 时仅保留 API/WebSocket
-- 后端新增跨域配置：`frontend_origins` 同时作用于 REST 与 SocketIO
+### 7. 静态文件与 SPA (100%)
 
-### 低优先级
+| 功能 | 实现 |
+|------|------|
+| 静态文件服务 | `ServeDir` 优先 `frontend/dist/`，回退 `static/` |
+| SPA fallback | 未匹配路径返回 `index.html`，支持 React Router |
+| CORS | `CorsLayer::new().allow_origin(Any).allow_methods(Any)` |
 
-- [ ] GraphQL API（可选功能）
-- [ ] 数据迁移工具
-- [ ] CI/CD 配置
-- [ ] 性能监控集成
+## 测试清单
 
-## 最近更新（2026-03-29）
-## 最新更新（2026-03-30）
+### 单元测试 (7 个)
 
-### ✅ 全面测试套件完成 (28 个测试全部通过)
+| 测试 | 模块 |
+|------|------|
+| test_default_config | config::loader |
+| test_config_with_defaults | config::loader |
+| test_calculate_latency_stats | utils::stats |
+| test_get_uptime_color | utils::stats |
+| test_format_duration | utils::time |
+| test_hours_ago | utils::time |
+| test_query_server | core::monitor |
 
-#### 集成测试覆盖
-- SQLite 数据库初始化和表结构验证
-- 服务器信息的 CRUD 操作
-- 状态日志的记录和查询
-- 玩家会话的管理和追踪
-- 24 小时历史数据的检索和统计计算
+### 集成测试 (5 个)
 
-#### 单元测试覆盖
-- 统计计算（延迟统计、在线率、标准差等）
-- 时间处理（UTC+8 转换、时长格式化）
-- 配置加载和解析
-- WebSocket 消息处理
-- 告警系统逻辑
+| 测试 | 描述 |
+|------|------|
+| test_sqlite_database_initialization | 建表 + 索引 |
+| test_add_and_retrieve_server | 服务器 CRUD |
+| test_log_and_retrieve_status | 状态日志写入查询 |
+| test_player_sessions | 玩家会话管理 |
+| test_get_server_history | 历史数据检索 |
 
-#### 测试统计
-- ✅ 28 个测试全部通过
-- ✅ 运行时间约 2.5 秒（调试模式）
-- ✅ 代码覆盖主要业务逻辑
+### 工具测试 (15 个)
 
-## 最近更新（2026-03-29）
-
-### ✅ 已完成
-
-1. **所有编译警告修复**
-   - 修复 WebSocket 处理中未使用的变量和不可达的模式匹配
-   - 修复数据库、API 模块中的未使用参数
-   - 现在编译完全无警告（除了外部 crate 的未来兼容性警告）
-
-2. **交互式配置生成功能**
-   - 添加 `dialoguer` 依赖（v0.11）
-   - 实现 `generate_config_interactive()` 函数
-   - 支持交互式配置创建，提升用户体验
-   - 添加 `interactive` feature flag
-
-### 📝 技术可交付
-
-- 编译状态：✅ 成功（0 个代码警告）
-- 代码质量：✅ 改进（所有警告已处理）
-- 用户体验：✅ 改进（添加交互式配置向导）
+| 测试 | 描述 |
+|------|------|
+| test_calculate_latency_stats_all_offline | 全离线统计 |
+| test_calculate_latency_stats_all_online | 全在线统计 |
+| test_calculate_latency_stats_mixed | 混合统计 |
+| test_calculate_latency_stats_single_entry | 单条记录 |
+| test_empty_history | 空历史 |
+| test_p95_calculation | P95 计算 |
+| test_standard_deviation_calculation | 标准差计算 |
+| test_get_uptime_color | 在线率颜色 |
+| test_get_latency_color | 延迟颜色 |
+| test_format_duration | 时长格式化 |
+| test_hours_ago | 小时偏移 |
+| test_days_ago | 天偏移 |
+| test_is_within_range | 时间范围判断 |
+| test_start_of_day | 当天开始 |
+| test_end_of_day | 当天结束 |
 
 ## 依赖版本
 
@@ -250,58 +249,43 @@ motdtracker-rs/
 |-------|------|------|
 | axum | 0.7 | Web 框架 (含 ws feature) |
 | axum-extra | 0.9 | 额外提取器 |
-| tokio | 1 | 异步运行时 |
-| sqlx | 0.7 | 数据库 |
-| serde | 1 | 序列化 |
-| chrono | 0.4 | 时间处理 |
-| reqwest | 0.12 | HTTP 客户端 |
-| tracing | 0.1 | 日志 |
 | tower | 0.4 | 中间件 |
-| tower-http | 0.5 | HTTP 中间件 |
-| tokio-cron-scheduler | 0.9 | 定时任务 |
-| statrs | 0.16 | 统计计算 |
+| tower-http | 0.5 | CORS, ServeDir, Trace |
+| tokio | 1 | 异步运行时 (full) |
+| serde / serde_json | 1 | 序列化 |
+| sqlx | 0.7 | 数据库 (sqlite, chrono, migrate) |
+| toml | 0.8 | 配置解析 |
+| chrono | 0.4 | 时间处理 |
+| reqwest | 0.12 | HTTP 客户端 (告警用) |
+| tracing / tracing-subscriber | 0.1 / 0.3 | 日志 |
 | async-trait | 0.1 | 异步 trait |
-| thiserror | 1 | 错误处理 |
-| **dialoguer** | **0.11** | **交互式 CLI（新增）** |
-| tokio-cron-scheduler | 0.9 | 定时任务 |
+| thiserror / anyhow | 1 | 错误处理 |
 | statrs | 0.16 | 统计计算 |
-| async-trait | 0.1 | 异步 trait |
-| thiserror | 1 | 错误处理 |
+| futures | 0.3 | StreamExt, SinkExt |
+| tokio-cron-scheduler | 0.9 | 定时轮询 |
+| dialoguer | 0.11 | 交互式 CLI (feature `interactive`) |
+| askama | 0.12 | HTML 模板 (遗留页面) |
 
-## API 兼容性
+## 编译修复记录
 
-所有 Python 版本的 API 端点已在 Rust 版本中实现：
+1. `axum-extra` 不含 `ws` feature → 改用 `axum::extract::ws`
+2. `tower_http::fs::ServeDir` → `tower_http::services::ServeDir`
+3. `PlayerHeatmap` 缺少 `FromRow` derive → 添加并修改字段类型
+4. `servers.into_iter()` 所有权问题 → 改为 `.iter()` + `.clone()`
+5. `main.rs` 错误处理 → 移除 `anyhow::Result`，显式 match
+6. 前端 WebSocket 迁移时 `wsStatus` 重复声明 → 移除 useState
+7. `SessionInfo` 缺少 `Serialize` → 添加 derive
+8. `HourAccum`/`WeekdayTotal` 缺少 `Clone` → 添加 derive
+9. String vs &str 比较 → 使用 `.as_str()` 或 `.to_string()`
+10. `get_latency_color` 返回 `&str` vs `String` → 统一为 `.to_string()`
 
-| Python 端点 | Rust 端点 | 兼容性 |
-|-------------|-----------|--------|
-| GET /api/server/nodes | ✅ | 完全兼容 |
-| GET /api/server/head | ✅ | 完全兼容 |
-| GET /api/server/history | ✅ | 完全兼容 |
-| GET /api/server/stats | ✅ | 完全兼容 |
-| GET /api/node/:id | ✅ | 完全兼容 |
-| GET /api/player | ✅ | 完全兼容 |
-| GET /api/badge/* | ✅ | 完全兼容 |
-| GET /api/exporter/metrics | ✅ | 完全兼容 |
-| WebSocket /api/socket.io | ⚠️ | 使用原生 WebSocket（非 Socket.IO） |
+## 下一步
 
-## 注意事项
-
-1. **WebSocket**: Rust 版本使用原生 WebSocket 而非 Socket.IO，前端需要相应调整
-2. **模板引擎**: 使用 Askama 替代 Jinja2
-3. **数据库迁移**: 需要从现有 SQLite 迁移数据
-4. **sqlx-postgres 警告**: 当前版本 (0.7.4) 有未来兼容性警告，但不影响编译
-
-## 下一步计划
-
-1. ✅ ~~修复编译错误~~
-2. ✅ ~~运行 cargo build 验证~~
-3. 创建示例配置文件 `config.example.toml`
-4. 运行测试验证功能
-5. 进行性能基准测试
-6. 完善文档
-1. ✅ ~~修复编译错误~~
-2. ✅ ~~运行 cargo build 验证~~
-3. ✅ ~~创建示例配置文件 `config.example.toml`~~
-4. ✅ ~~运行测试验证功能~~ (**28 个测试通过**)
-5. 进行性能基准测试
-6. 完善文档
+| 优先级 | 任务 |
+|--------|------|
+| 高 | PostgreSQL 适配器实现 |
+| 高 | HTTP API 级集成测试 |
+| 中 | 性能基准测试 |
+| 中 | API 文档 (OpenAPI) |
+| 低 | Docker 容器化 |
+| 低 | GraphQL (feature flag 已预留) |

@@ -1,180 +1,124 @@
-# MotdTracker Rust 重构进度总结 📊
+# MotdTracker Rust 重构进度总结
 
-**更新时间**: 2026-03-29 23:50 (UTC+8)  
-**状态**: 🚀 核心后端完全功能化，前端延后使用 React 重构
+**更新时间**: 2026-05-02 10:50 (UTC+8)
+**状态**: Rust 后端 + React 前端全功能可用，前后端完全对接
 
 ---
 
-## 📋 执行总结
+## 执行总结
 
-本次重构工作聚焦于**后端功能完善和代码质量提升**。前端工作已暂停，计划后续使用 React 完全重构。
+Rust 后端已完成所有核心 API 端点的实现，且全部与 React 前端的响应格式对齐。前端已从 Socket.IO 迁移到原生 WebSocket，直接对接 Rust 后端。Python 后端作为遗留方案保留。
 
 ### 关键成果
 
 | 任务 | 状态 | 完成时间 |
 |------|------|--------|
-| ✅ 项目编译 | 成功 | 2026-03-29 22:14 |
-| ✅ 编译警告修复 | 完全清除 | 2026-03-29 23:30 |
-| ✅ 交互式配置 | 已实现 | 2026-03-29 23:45 |
-| ⏳ 核心测试 | 未开始 | -- |
-| ⏳ API 文档 | 未开始 | -- |
+| Rust 后端编译 | 成功 (0 错误) | 2026-03-29 |
+| 编译警告修复 | 全部清除 | 2026-03-29 |
+| 交互式配置生成 | 已实现 | 2026-03-29 |
+| 单元/集成测试 | 27 个全部通过 | 2026-03-30 |
+| React 前端骨架 | 已完成 | 2026-03-30 |
+| **前端 WebSocket 迁移** | Socket.IO → 原生 WebSocket | 2026-05-02 |
+| **Web API 响应格式对齐** | 全部 4 个端点 | 2026-05-02 |
+| **Player sessions 端点** | heatmap + daily + hourly_avg | 2026-05-02 |
+| **Player weekly-stats 端点** | weekly_heatmap + weekday_preference | 2026-05-02 |
+| **Badge 端点补全** | 12 个端点全部实现 | 2026-05-02 |
+| **SPA 404 fallback** | React Router 路由支持 | 2026-05-02 |
+| **README 更新** | 反映当前架构 | 2026-05-02 |
 
 ---
 
-## 🔧 技术改进详情
+## 前后端对接详情 (2026-05-02)
 
-### 1. 编译警告修复 (8 个)
+### 1. WebSocket 协议统一
 
-**修复清单**:
-- ✅ `ws/mod.rs:123` - WebSocket Ping 消息未使用的 data 参数
-- ✅ `ws/mod.rs:140` - 不可达的模式匹配 (`_` 分支)
-- ✅ `db/sqlite.rs:167` - 未使用的 query result 变量
-- ✅ `api/query.rs:15` - QueryRequest 中未使用的 query 字段
-- ✅ `api/query.rs:107` - 请求 JSON 提取中未使用的 request 参数
-- ✅ `api/server.rs` (2 处) - 未使用的 state 和 query 参数
-- ✅ `api/web.rs` (2 处) - 未使用的 hours 变量
+**问题**: React 前端使用 `socket.io-client`，Rust 后端使用原生 WebSocket（`/api/ws`），两者不兼容。
 
-**结果**: 代码完全清晰，无编译警告 (仅保留外部库的未来兼容性注意)
+**方案**: 修改前端使用原生 WebSocket，而非在 Rust 中实现 Socket.IO。
 
-### 2. 交互式配置生成
+**改动**:
+- 新增 `frontend/src/utils/ws.js` — `useWebSocket` hook，使用浏览器原生 `WebSocket` API，支持自动重连
+- 所有 6 个页面组件（ServerPage、NodeDetailPage、NodesPage、PlayersPage、PlayerDetailPage、BadgesPage）从 `socket.io-client` 迁移到 `useWebSocket` hook
+- 移除 `socket.io-client` 依赖引用
+- 移除 `api.js` 中的 `SOCKET_BASE` 导出
 
-**功能特性**:
-```rust
-// 新增 feature flag: interactive
-// 启用: cargo build --features interactive
+### 2. Web API 响应格式对齐
 
-pub fn generate_config_interactive() -> Result<AppConfig, ConfigError>
-```
+对照 Python 后端 (`routes/web_api.py`) 的响应格式，重写了 Rust 的 4 个 Web 端点：
 
-**支持内容**:
-- 服务器基本设置（名称、端口、轮询间隔）
-- SQLite/PostgreSQL 数据库配置选择
-- 交互式提示和默认值建议
-- 生成有效的配置结构体
+| 端点 | 改动 |
+|------|------|
+| `GET /api/web/server` | 历史数据从 `HashMap<i32, Vec<StatusLog>>` 改为紧凑格式 `{timestamps, online, players_online, players_max, latencies}`；新增 `status_timeline`；`head` 字段补充 `timestamp`、`online`、`latencies`、`version`、`motd`、`nodes` |
+| `GET /api/web/server/head` | 新增 `latest_history_point`（含 `latencies` 映射）用于增量图表更新；返回完整 `nodes`、`stats_by_id`、`players`、`head`、`config` |
+| `GET /api/web/node/:id` | 历史数据从原始 `Vec<StatusLog>` 改为紧凑格式 `{timestamps, online, latency, players_online, players_max}`；新增 `status_timeline`、`config` |
+| `GET /api/web/node/:id/head` | 新增 `latest_history_point`、`stats`、`status_timeline`、`config`；`server` 字段简化为 `{id, name, latest_status}` |
 
-**用户体验改进**:
-```
-=== MotdTracker 配置向导 ===
+### 3. Player API 补全
 
-服务器名称: [MotdTracker]
-监听端口: [5011]
-轮询间隔（秒）: [60]
+| 端点 | 改动 |
+|------|------|
+| `GET /api/player/:name/sessions` | 全新实现：会话区间合并（多服务器去重）、按天/按小时切分、生成 heatmap `{date, hour, seconds}`、daily `{date, total_seconds, sessions}`、hourly_average `{hour, avg_seconds}` |
+| `GET /api/player/:name/weekly-stats` | 全新实现：全量历史数据周统计，生成 7×24 weekly_heatmap `{day, day_name, hour, avg_seconds, sample_days}`、weekday_preference `{day, day_name, avg_seconds, sample_days}`、total_sample_days |
 
-=== 数据库配置 ===
-SQLite 数据库路径: [data/motdtracker.db]
-```
+### 4. Badge 端点补全
 
----
+原有 6 个端点（server status/uptime/players + node status/uptime/players），新增 6 个：
 
-## 📦 依赖更新
+| 新端点 | 描述 |
+|--------|------|
+| `GET /api/badge/node/:id/latency` | 当前延迟 |
+| `GET /api/badge/node/:id/latency-stats?stat=avg\|min\|max\|std\|cv\|p95` | 延迟统计 |
+| `GET /api/badge/player/:name/status` | 玩家在线状态 |
+| `GET /api/badge/player/:name/current-session` | 当前会话时长 |
+| `GET /api/badge/player/:name/period-playtime?hours=N` | 时段游戏时长 |
+| `GET /api/badge/player/:name/live` | 实时状态（含服务器名） |
 
-**新增**:
-- `dialoguer v0.11` - 交互式 CLI 提示库
+### 5. SPA 静态文件服务
 
-**版本确认**:
-- axum: 0.7 ✅
-- tokio: 1.x ✅
-- sqlx: 0.7 ✅
-- serde: 1.x ✅
-- 所有依赖已验证，编译通过 ✅
+`main.rs` 改为：
+- 优先从 `frontend/dist/` 提供静态文件（React 构建产物）
+- 回退到 `static/`（兼容旧版 Python 前端资源）
+- 未匹配路径返回 `index.html`（SPA 404 fallback，支持 React Router）
 
 ---
 
-## 🎯 项目架构状态
+## 代码质量
 
-### 已实现的核心模块
-
-- ✅ **配置系统** (`config/`)
-  - 配置加载和解析
-  - 交互式配置生成
-  - 多数据库支持
-
-- ✅ **数据库层** (`db/`)
-  - SQLite 适配器
-  - 完整的 CRUD 操作
-  - 事务支持
-
-- ✅ **核心轮询** (`core/`)
-  - 并发轮询器 (JoinSet)
-  - Minecraft 服务器监控
-  - 告警系统集成
-
-- ✅ **API 接口** (`api/`)
-  - 服务器聚合 API
-  - 节点详情 API
-  - 玩家会话管理
-  - Badge 生成
-  - Prometheus 指标导出
-
-- ✅ **WebSocket** (`ws/`)
-  - 实时连接管理
-  - 消息广播
-
-- ✅ **告警系统** (`alert/`)
-  - NapCat QQ 机器人集成
-  - 状态变化检测
+| 指标 | 值 |
+|------|-----|
+| 编译错误 | 0 |
+| 编译警告 | 0 (仅 sqlx-postgres 外部兼容性警告) |
+| 测试数量 | 27 个 (7 单元 + 5 集成 + 15 工具) |
+| 测试通过率 | 100% |
+| 前端构建 | 成功 (759 KB gzip 240 KB) |
 
 ---
 
-## 📊 代码质量指标
+## 仍待完成
 
-| 指标 | 值 | 目标 | 状态 |
-|------|-----|------|------|
-| 编译警告数 | 0 | 0 | ✅ |
-| 测试覆盖率 | 0% | >70% | ⏳ |
-| API 文档 | 0% | 100% | ⏳ |
-| 错误处理 | 基础 | 完善 | ⏳ |
-| 日志记录 | 基础 | 详尽 | ⏳ |
+### 高优先级
 
----
+- [ ] PostgreSQL 数据库适配器（trait 已设计，代码预留）
+- [ ] 端到端集成测试（HTTP API 级别）
 
-## 🚀 后续优先级
+### 中优先级
 
-### 第一阶段 (高优先级)
-1. ✅ ~~编译和警告修复~~ **[已完成]**
-2. ✅ ~~交互式配置~~ **[已完成]**
-3. ⏳ **核心模块单元测试** (poller, monitor, database)
-4. ⏳ **完善错误处理和日志** (tracing 集成)
+- [ ] 性能基准测试
+- [ ] API 文档（OpenAPI/Swagger）
+- [ ] GraphQL API（可选）
+- [ ] Docker 容器化
 
-### 第二阶段 (中优先级)
-1. API 文档生成 (OpenAPI/Swagger)
-2. 性能优化和基准测试
-3. PostgreSQL 适配器完善
-4. React 前端应用架构
+### 低优先级
 
-### 第三阶段 (低优先级)
-1. Docker 容器化
-2. CI/CD 流水线
-3. 数据迁移工具
+- [ ] CI/CD 流水线
+- [ ] 数据迁移工具（SQLite → PostgreSQL）
 
 ---
 
-## 📝 笔记
+## 相关文件
 
-### 前端计划
-- **现状**: HTML 模板已创建但暂不继续
-- **计划**: 后续使用 React 完全重构
-- **原因**: 提高代码质量和用户体验
-
-### PostgreSQL 支持
-- trait 设计已完成
-- 实现代码已预留
-- 待完整适配和测试
-
-### 性能考虑
-- 使用 `ThreadPoolExecutor` 进行并发轮询
-- 每个轮询周期共享 timestamp（精确到秒）
-- 支持高达 8 线程的并发查询
-
----
-
-## 🔗 相关文件
-
-- 进度文档: [RUST_REFACTOR_PROGRESS.md](RUST_REFACTOR_PROGRESS.md)
-- 完整规格: [RUST_REFATOR_PROMPT.md](RUST_REFATOR_PROMPT.md)
+- 详细进度: [RUST_REFACTOR_PROGRESS.md](RUST_REFACTOR_PROGRESS.md)
+- 重构规格: [RUST_REFATOR_PROMPT.md](RUST_REFATOR_PROMPT.md)
 - 项目配置: [motdtracker-rs/Cargo.toml](motdtracker-rs/Cargo.toml)
 - 主入口: [motdtracker-rs/src/main.rs](motdtracker-rs/src/main.rs)
-
----
-
-**下一步行动**: 编写核心模块的单元测试，验证轮询、数据库和 API 的功能正确性。
+- 前端入口: [frontend/src/App.jsx](frontend/src/App.jsx)
