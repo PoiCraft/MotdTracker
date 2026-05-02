@@ -77,6 +77,26 @@ impl WizardState {
         }
     }
 
+    fn from_config(config: AppConfig) -> Self {
+        let mut list_state = ListState::default();
+        if !config.nodes.is_empty() {
+            list_state.select(Some(0));
+        }
+        Self {
+            step: Step::ServerName,
+            server_name: config.server_name.clone(),
+            port: config.port.to_string(),
+            poll_interval: config.poll_interval.to_string(),
+            db_path: config.database.path.clone(),
+            nodes: config.nodes.clone(),
+            node_list_state: list_state,
+            node_edit: None,
+            input: config.server_name.clone(),
+            cursor_pos: config.server_name.len(),
+            message: None,
+        }
+    }
+
     fn to_config(&self) -> AppConfig {
         AppConfig {
             server_name: self.server_name.clone(),
@@ -144,14 +164,14 @@ impl WizardState {
     }
 }
 
-pub fn run_wizard() -> io::Result<Option<AppConfig>> {
+pub fn run_wizard(existing: Option<AppConfig>) -> io::Result<Option<AppConfig>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let result = run_app(&mut terminal);
+    let result = run_app(&mut terminal, existing);
 
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
@@ -160,8 +180,11 @@ pub fn run_wizard() -> io::Result<Option<AppConfig>> {
     result
 }
 
-fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<Option<AppConfig>> {
-    let mut state = WizardState::new();
+fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, existing: Option<AppConfig>) -> io::Result<Option<AppConfig>> {
+    let mut state = match existing {
+        Some(cfg) => WizardState::from_config(cfg),
+        None => WizardState::new(),
+    };
 
     loop {
         terminal.draw(|f| ui(f, &mut state))?;
@@ -803,13 +826,13 @@ fn draw_node_edit(f: &mut Frame, area: Rect, state: &mut WizardState) {
             let display = if value.is_empty() {
                 Span::styled("_", Style::default().fg(Color::DarkGray))
             } else {
-                Span::raw(value.as_str())
+                Span::styled(value.as_str(), Style::default().fg(Color::White))
             };
             f.render_widget(Paragraph::new(display), inner);
             let cursor_offset = if *active { state.cursor_pos } else { value.len() };
             f.set_cursor_position((inner.x + cursor_offset as u16, inner.y));
         } else {
-            f.render_widget(Paragraph::new(value.as_str()), inner);
+            f.render_widget(Paragraph::new(Span::styled(value.as_str(), Style::default().fg(Color::White))), inner);
         }
     }
 }

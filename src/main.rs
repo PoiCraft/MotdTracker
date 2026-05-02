@@ -32,24 +32,40 @@ async fn main() {
 
     info!("Starting MotdTracker...");
 
-    let config = match load_config() {
-        Ok(cfg) => {
-            info!("Config loaded successfully");
-            cfg
+    let edit_mode = std::env::args().any(|a| a == "edit");
+
+    let config = if edit_mode {
+        let existing = load_config().ok();
+        eprintln!("启动配置编辑...");
+        match motdtracker::tui::run_wizard(existing) {
+            Ok(Some(cfg)) => cfg,
+            Ok(None) => {
+                eprintln!("配置已取消");
+                return;
+            }
+            Err(e) => {
+                error!("TUI 配置向导失败: {}", e);
+                return;
+            }
         }
-        Err(_) => {
-            eprintln!("未找到 config.toml，启动配置向导...");
-            match motdtracker::tui::run_wizard() {
-                Ok(Some(cfg)) => {
-                    cfg
-                }
-                Ok(None) => {
-                    eprintln!("配置已取消");
-                    return;
-                }
-                Err(e) => {
-                    error!("TUI 配置向导失败: {}", e);
-                    return;
+    } else {
+        match load_config() {
+            Ok(cfg) => {
+                info!("Config loaded successfully");
+                cfg
+            }
+            Err(_) => {
+                eprintln!("未找到 config.toml，启动配置向导...");
+                match motdtracker::tui::run_wizard(None) {
+                    Ok(Some(cfg)) => cfg,
+                    Ok(None) => {
+                        eprintln!("配置已取消");
+                        return;
+                    }
+                    Err(e) => {
+                        error!("TUI 配置向导失败: {}", e);
+                        return;
+                    }
                 }
             }
         }
