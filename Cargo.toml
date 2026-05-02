@@ -1,6 +1,6 @@
 [package]
 name = "motdtracker"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 description = "Minecraft single-server multi-entry-point real-time monitoring system"
 license = "MIT"

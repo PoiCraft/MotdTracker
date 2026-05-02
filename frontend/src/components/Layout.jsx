@@ -208,7 +208,7 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
                 variant="caption"
                 sx={{ color: c?.onSurfaceVariant }}
               >
-                伺服器监控
+                服务器监控
               </Typography>
             </Box>
           </>
@@ -226,31 +226,51 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
         ))}
       </List>
 
-      <Box sx={{ pb: 1 }}>
-        {showText ? (
-          <Box sx={{ px: INDICATOR_HORIZONTAL_PADDING }}>
-            <M3StatusTag online={wsState === "connected"} size={isMobile ? "small" : open ? "large" : "small"} />
-          </Box>
-        ) : (
-          <Tooltip
-            title={wsState === "connected" ? "已连接" : "未连接"}
-            placement="right"
-            arrow
+      <Box sx={{ pb: 1, position: "relative", height: INDICATOR_HEIGHT, overflow: "hidden" }}>
+        {/* Collapsed: centered dot-only */}
+        <Tooltip
+          title={wsState === "connected" ? "已连接" : "未连接"}
+          placement="right"
+          arrow
+        >
+          <Box
+            sx={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: isMobile ? 0 : open ? 0 : 1,
+              pointerEvents: isMobile ? "none" : open ? "none" : "auto",
+              transition: theme.transitions.create("opacity", {
+                duration: theme.transitions.duration.standard,
+                easing: theme.transitions.easing.emphasized,
+              }),
+            }}
           >
-            <Box
-              sx={{
-                width: COLLAPSED_INDICATOR_WIDTH,
-                minWidth: COLLAPSED_INDICATOR_WIDTH,
-                height: INDICATOR_HEIGHT,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <M3StatusTag online={wsState === "connected"} size="small" hideText />
-            </Box>
-          </Tooltip>
-        )}
+            <M3StatusTag online={wsState === "connected"} size="small" hideText />
+          </Box>
+        </Tooltip>
+
+        {/* Expanded: left-aligned with text */}
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            pl: INDICATOR_HORIZONTAL_PADDING,
+            opacity: isMobile ? 1 : open ? 1 : 0,
+            pointerEvents: isMobile ? "auto" : open ? "auto" : "none",
+            transition: theme.transitions.create("opacity", {
+              duration: theme.transitions.duration.standard,
+              easing: theme.transitions.easing.emphasized,
+            }),
+          }}
+        >
+          <Box sx={{ minWidth: "15px", flexShrink: 0 }} />
+          <M3StatusTag online={wsState === "connected"} size={isMobile ? "small" : open ? "large" : "small"} />
+        </Box>
       </Box>
 
       <Box sx={{ pb: 1, flexShrink: 0 }}>
@@ -520,8 +540,9 @@ export default function Layout({ children }) {
             flexDirection: "column",
             minHeight: "100vh",
             bgcolor: c?.background,
-            width: { xs: "100%", sm: `calc(100% - ${drawerWidth}px)` },
-            transition: theme.transitions.create("width", {
+            overflowX: "hidden",
+            willChange: "width",
+            transition: theme.transitions.create(["width", "margin"], {
               easing: theme.transitions.easing.emphasized,
               duration: theme.transitions.duration.standard,
             }),
