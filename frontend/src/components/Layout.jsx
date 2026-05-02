@@ -12,7 +12,6 @@ import {
   ListItem,
   ListItemButton,
   ListItemIcon,
-  ListItemText,
   Paper,
   Stack,
   Toolbar,
@@ -55,7 +54,7 @@ function NavItem({ item, onClick, open }) {
   const isActive = useLocation().pathname.startsWith(item.to);
 
   return (
-    <ListItem disablePadding sx={{ mb: 0.5, px: 2 }}>
+    <ListItem disablePadding sx={{ mb: 0.5 }}>
       <ListItemButton
         component={NavLink}
         to={item.to}
@@ -63,7 +62,7 @@ function NavItem({ item, onClick, open }) {
         sx={{
           minHeight: 48,
           borderRadius: 100,
-          justifyContent: "flex-start",
+          justifyContent: open ? "flex-start" : "center",
           px: 0,
           color: isActive ? c?.onPrimaryContainer : c?.onSurfaceVariant,
           "&:hover": {
@@ -108,7 +107,7 @@ function NavItem({ item, onClick, open }) {
 
         <Box
           sx={{
-            ml: 0.75,
+            ml: open ? 0.75 : 0,
             overflow: "hidden",
             whiteSpace: "nowrap",
             width: open ? 120 : 0,
@@ -150,11 +149,11 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
   const showText = isMobile ? true : open;
 
   return (
-    <Stack sx={{ height: "100%" }}>
+    <Stack sx={{ height: "100%", px: 2 }}>
+      {/* Header area with toggle */}
       <Box
         sx={{
           height: 64,
-          px: 2,
           display: "flex",
           alignItems: "center",
           justifyContent: "flex-start",
@@ -168,7 +167,7 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
               minWidth: ICON_AREA_W,
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
+              justifyContent: open ? "flex-start" : "center",
               flexShrink: 0,
             }}
           >
@@ -222,14 +221,14 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
                 variant="caption"
                 sx={{ color: c?.onSurfaceVariant }}
               >
-                服务器监控
+                伺服器监控
               </Typography>
             </Box>
           </>
         )}
       </Box>
 
-      <List sx={{ flex: 1, px: 0 }}>
+      <List sx={{ flex: 1 }}>
         {navItems.map((item) => (
           <NavItem
             key={item.to}
@@ -240,48 +239,32 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
         ))}
       </List>
 
-      <Box
-        sx={{
-          px: 2,
-          pb: 1,
-          overflow: "hidden",
-        }}
-      >
+      <Box sx={{ pb: 1 }}>
         {showText ? (
-          <>
-            <M3StatusTag online={wsState === "connected"} size={isMobile ? "small" : open ? "large" : "small"} />
-            {!isMobile && (
-              <Typography
-                variant="caption"
-                sx={{
-                  display: "block",
-                  mt: 0.5,
-                  color: c?.onSurfaceVariant,
-                  fontSize: "0.6875rem",
-                  opacity: open ? 1 : 0,
-                  transition: theme.transitions.create("opacity", {
-                    duration: theme.transitions.duration.shorter,
-                  }),
-                }}
-              >
-                {__APP_VERSION__}
-              </Typography>
-            )}
-          </>
+          <M3StatusTag online={wsState === "connected"} size={isMobile ? "small" : open ? "large" : "small"} />
         ) : (
           <Tooltip
             title={wsState === "connected" ? "已连接" : "未连接"}
             placement="right"
             arrow
           >
-            <Box sx={{ py: 0.5, display: "flex", justifyContent: "center", width: ICON_AREA_W }}>
+            <Box
+              sx={{
+                width: ICON_AREA_W,
+                minWidth: ICON_AREA_W,
+                height: 32,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <M3StatusTag online={wsState === "connected"} size="small" hideText />
             </Box>
           </Tooltip>
         )}
       </Box>
 
-      <Box sx={{ px: 2, pb: 1, flexShrink: 0 }}>
+      <Box sx={{ pb: 1, flexShrink: 0 }}>
         <Tooltip
           title={isDark ? "浅色模式" : "深色模式"}
           placement={showText ? "top" : "right"}
@@ -292,7 +275,7 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
             sx={{
               borderRadius: 100,
               minHeight: 48,
-              justifyContent: "flex-start",
+              justifyContent: showText ? "flex-start" : "center",
               px: 0,
               color: c?.onSurfaceVariant,
               "&:hover": {
@@ -330,7 +313,7 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
 
             <Box
               sx={{
-                ml: 0.75,
+                ml: showText ? 0.75 : 0,
                 overflow: "hidden",
                 whiteSpace: "nowrap",
                 width: showText ? 120 : 0,
@@ -467,6 +450,11 @@ export default function Layout({ children }) {
     [drawerWidth, isMobile, isTablet, isDesktop]
   );
 
+  const paperTransition = theme.transitions.create("width", {
+    easing: theme.transitions.easing.emphasized,
+    duration: theme.transitions.duration.standard,
+  });
+
   return (
     <LayoutContext.Provider value={layoutValue}>
       <Box
@@ -522,7 +510,7 @@ export default function Layout({ children }) {
           />
         </Drawer>
 
-        {/* ─── Desktop/Tablet collapsible drawer ──────────────────────── */}
+        {/* ─── Desktop/Tablet permanent drawer ────────────────────────── */}
         <Drawer
           variant="permanent"
           sx={{
@@ -535,10 +523,9 @@ export default function Layout({ children }) {
               borderRight: "none",
               boxShadow: "none",
               overflowX: "hidden",
-              transition: theme.transitions.create("width", {
-                easing: theme.transitions.easing.emphasized,
-                duration: theme.transitions.duration.standard,
-              }),
+              paddingLeft: 0,
+              paddingRight: 0,
+              transition: paperTransition,
             },
           }}
         >
@@ -566,7 +553,6 @@ export default function Layout({ children }) {
             }),
           }}
         >
-          {/* Spacer for mobile AppBar */}
           <Box sx={{ display: { xs: "block", sm: "none" }, height: 64 }} />
 
           <Box
@@ -582,6 +568,22 @@ export default function Layout({ children }) {
             }}
           >
             {children}
+          </Box>
+
+          {/* ─── Page footer with version ─────────────────────────────── */}
+          <Box
+            component="footer"
+            sx={{
+              py: 1.5,
+              px: { xs: 2, md: 3, lg: 4 },
+              textAlign: "center",
+              color: c?.onSurfaceVariant,
+              fontSize: "0.6875rem",
+              opacity: 0.5,
+              pb: { xs: "calc(64px + env(safe-area-inset-bottom, 0px) + 8px)", sm: 1.5 },
+            }}
+          >
+            {__APP_VERSION__}
           </Box>
         </Box>
 

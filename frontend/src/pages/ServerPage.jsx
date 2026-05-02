@@ -562,31 +562,31 @@ export default function ServerPage() {
         sx={{
           display: "grid",
           gridTemplateColumns: { xs: "1fr", md: "repeat(12, 1fr)" },
+          gridTemplateRows: { md: "auto 1fr" },
           gap: 2,
-          minWidth: 0,
         }}
       >
-        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 8" }, minWidth: 0 }}>
-          <Card elevation={0} sx={{ height: "100%" }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 8" } }}>
+          <Card elevation={0}>
+            <CardContent sx={{ display: "flex", flexDirection: "column" }}>
               <SectionTitle>节点延迟趋势</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: { xs: 200, md: 280 }, position: "relative", width: "100%" }}><canvas ref={latencyCanvas} style={{ width: "100%", height: "100%" }} /></Box>
+              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%" }}><canvas ref={latencyCanvas} /></Box>
             </CardContent>
           </Card>
         </Box>
-        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 4" }, minWidth: 0 }}>
-          <Card elevation={0} sx={{ height: "100%" }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 4" } }}>
+          <Card elevation={0}>
+            <CardContent sx={{ display: "flex", flexDirection: "column" }}>
               <SectionTitle>在线状态趋势</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: { xs: 200, md: 280 }, position: "relative", width: "100%" }}><canvas ref={statusCanvas} style={{ width: "100%", height: "100%" }} /></Box>
+              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%" }}><canvas ref={statusCanvas} /></Box>
             </CardContent>
           </Card>
         </Box>
-        <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
-          <Card elevation={0} sx={{ height: "100%" }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <Box sx={{ gridColumn: "1 / -1" }}>
+          <Card elevation={0}>
+            <CardContent sx={{ display: "flex", flexDirection: "column" }}>
               <SectionTitle>玩家数量趋势</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: { xs: 200, md: 280 }, position: "relative", width: "100%" }}><canvas ref={playersCanvas} style={{ width: "100%", height: "100%" }} /></Box>
+              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%" }}><canvas ref={playersCanvas} /></Box>
             </CardContent>
           </Card>
         </Box>
