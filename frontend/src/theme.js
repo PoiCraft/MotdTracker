@@ -371,20 +371,23 @@ function buildGeminiTheme(mode) {
         },
       },
 
-      // ─── Navigation items — 100px capsule hover, transparent selected ─
+      // ─── Navigation items — transparent bg, constrained ripple ──
       MuiListItemButton: {
         styleOverrides: {
           root: {
-            borderRadius: 100,
+            backgroundColor: "transparent",
             "&:hover": {
-              backgroundColor: alpha(c.onSurface, 0.08),
+              backgroundColor: "transparent",
             },
             "&.Mui-selected": {
               backgroundColor: "transparent",
-              color: c.onPrimaryContainer,
+              color: c.primary,
               "&:hover": {
-                backgroundColor: alpha(c.onSurface, 0.04),
+                backgroundColor: "transparent",
               },
+            },
+            "& .MuiTouchRipple-root": {
+              borderRadius: 100,
             },
           },
         },

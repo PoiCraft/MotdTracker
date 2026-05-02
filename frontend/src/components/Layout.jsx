@@ -43,7 +43,11 @@ const navItems = [
 
 const EXPANDED_WIDTH = 240;
 const COLLAPSED_WIDTH = 88;
-const ICON_AREA_W = 56;
+
+const INDICATOR_HEIGHT = "48px";
+const INDICATOR_HORIZONTAL_PADDING = "16px";
+const COLLAPSED_INDICATOR_WIDTH = "56px";
+const INDICATOR_BORDER_RADIUS = "100px";
 
 const MOBILE_BREAKPOINT = "sm";
 const TABLET_BREAKPOINT = "md";
@@ -53,87 +57,70 @@ function NavItem({ item, onClick, open }) {
   const c = theme.gemini?.colors;
   const isActive = useLocation().pathname.startsWith(item.to);
 
+  const activeColor = c?.primary || "#1A73E8";
+  const activeBg = alpha(activeColor, 0.1);
+  const neutralColor = "#444746";
+  const inactiveHover = alpha(c?.onSurface || "#000", 0.04);
+
+  const capsuleTransition = theme.transitions.create(
+    ["width", "height", "border-radius", "background-color"],
+    {
+      duration: theme.transitions.duration.standard,
+      easing: theme.transitions.easing.emphasized,
+    }
+  );
+
   return (
-    <ListItem disablePadding sx={{ mb: 0.5 }}>
+    <ListItem disablePadding sx={{ my: "4px" }}>
       <ListItemButton
         component={NavLink}
         to={item.to}
         onClick={onClick}
         sx={{
-          minHeight: 48,
-          borderRadius: 100,
+          height: INDICATOR_HEIGHT,
+          width: open ? undefined : COLLAPSED_INDICATOR_WIDTH,
+          mx: open ? "12px" : "auto",
+          borderRadius: INDICATOR_BORDER_RADIUS,
+          overflow: "hidden",
+          px: open ? INDICATOR_HORIZONTAL_PADDING : 0,
           justifyContent: open ? "flex-start" : "center",
-          px: 0,
-          color: isActive ? c?.onPrimaryContainer : c?.onSurfaceVariant,
+          backgroundColor: isActive ? activeBg : "transparent",
+          color: isActive ? activeColor : neutralColor,
+          transition: capsuleTransition,
+          "& .MuiTouchRipple-root": {
+            borderRadius: INDICATOR_BORDER_RADIUS,
+          },
           "&:hover": {
-            backgroundColor: isActive
-              ? "transparent"
-              : alpha(c?.onSurface || "#000", 0.08),
+            backgroundColor: isActive ? activeBg : inactiveHover,
           },
         }}
       >
-        <Box
+        <ListItemIcon
           sx={{
-            width: ICON_AREA_W,
-            minWidth: ICON_AREA_W,
-            height: 32,
-            borderRadius: 100,
+            minWidth: "40px",
+            color: "inherit",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            flexShrink: 0,
-            backgroundColor: isActive
-              ? c?.primaryContainer
-              : "transparent",
-            transition: theme.transitions.create("background-color", {
-              duration: theme.transitions.duration.shortest,
-            }),
           }}
         >
-          <ListItemIcon
-            sx={{
-              minWidth: 0,
-              width: 24,
-              height: 24,
-              color: "inherit",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {item.icon}
-          </ListItemIcon>
-        </Box>
+          {item.icon}
+        </ListItemIcon>
 
-        <Box
-          sx={{
-            ml: open ? 0.75 : 0,
-            overflow: "hidden",
-            whiteSpace: "nowrap",
-            width: open ? 120 : 0,
-            opacity: open ? 1 : 0,
-            transition: theme.transitions.create(
-              ["width", "opacity", "margin-left"],
-              {
-                duration: theme.transitions.duration.standard,
-                easing: theme.transitions.easing.emphasized,
-              }
-            ),
-          }}
-        >
+        {open && (
           <Typography
             component="span"
             sx={{
               fontSize: "0.875rem",
-              fontWeight: isActive ? 600 : 500,
+              fontWeight: isActive ? 700 : 500,
               letterSpacing: "0.01em",
               color: "inherit",
-              display: "block",
+              whiteSpace: "nowrap",
             }}
           >
             {item.label}
           </Typography>
-        </Box>
+        )}
       </ListItemButton>
     </ListItem>
   );
@@ -163,8 +150,8 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
         {!isMobile && (
           <Box
             sx={{
-              width: ICON_AREA_W,
-              minWidth: ICON_AREA_W,
+              width: COLLAPSED_INDICATOR_WIDTH,
+              minWidth: COLLAPSED_INDICATOR_WIDTH,
               display: "flex",
               alignItems: "center",
               justifyContent: open ? "flex-start" : "center",
@@ -241,7 +228,9 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
 
       <Box sx={{ pb: 1 }}>
         {showText ? (
-          <M3StatusTag online={wsState === "connected"} size={isMobile ? "small" : open ? "large" : "small"} />
+          <Box sx={{ px: INDICATOR_HORIZONTAL_PADDING }}>
+            <M3StatusTag online={wsState === "connected"} size={isMobile ? "small" : open ? "large" : "small"} />
+          </Box>
         ) : (
           <Tooltip
             title={wsState === "connected" ? "已连接" : "未连接"}
@@ -250,9 +239,9 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
           >
             <Box
               sx={{
-                width: ICON_AREA_W,
-                minWidth: ICON_AREA_W,
-                height: 32,
+                width: COLLAPSED_INDICATOR_WIDTH,
+                minWidth: COLLAPSED_INDICATOR_WIDTH,
+                height: INDICATOR_HEIGHT,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -270,37 +259,36 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
           placement={showText ? "top" : "right"}
           arrow
         >
-          <ListItemButton
-            onClick={toggleMode}
-            sx={{
-              borderRadius: 100,
-              minHeight: 48,
-              justifyContent: showText ? "flex-start" : "center",
-              px: 0,
-              color: c?.onSurfaceVariant,
-              "&:hover": {
-                backgroundColor: alpha(c?.onSurface || "#000", 0.08),
-              },
-            }}
-          >
-            <Box
+          <ListItem disablePadding sx={{ my: "4px" }}>
+            <ListItemButton
+              onClick={toggleMode}
               sx={{
-                width: ICON_AREA_W,
-                minWidth: ICON_AREA_W,
-                height: 32,
-                borderRadius: 100,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                backgroundColor: "transparent",
+                height: INDICATOR_HEIGHT,
+                width: showText ? undefined : COLLAPSED_INDICATOR_WIDTH,
+                mx: showText ? "12px" : "auto",
+                borderRadius: INDICATOR_BORDER_RADIUS,
+                overflow: "hidden",
+                px: showText ? INDICATOR_HORIZONTAL_PADDING : 0,
+                justifyContent: showText ? "flex-start" : "center",
+                color: "#444746",
+                transition: theme.transitions.create(
+                  ["width"],
+                  {
+                    duration: theme.transitions.duration.standard,
+                    easing: theme.transitions.easing.emphasized,
+                  }
+                ),
+                "& .MuiTouchRipple-root": {
+                  borderRadius: INDICATOR_BORDER_RADIUS,
+                },
+                "&:hover": {
+                  backgroundColor: alpha(c?.onSurface || "#000", 0.04),
+                },
               }}
             >
               <ListItemIcon
                 sx={{
-                  minWidth: 0,
-                  width: 24,
-                  height: 24,
+                  minWidth: "40px",
                   color: "inherit",
                   display: "flex",
                   alignItems: "center",
@@ -309,36 +297,22 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
               >
                 {isDark ? <LightModeRoundedIcon /> : <DarkModeRoundedIcon />}
               </ListItemIcon>
-            </Box>
 
-            <Box
-              sx={{
-                ml: showText ? 0.75 : 0,
-                overflow: "hidden",
-                whiteSpace: "nowrap",
-                width: showText ? 120 : 0,
-                opacity: showText ? 1 : 0,
-                transition: theme.transitions.create(
-                  ["width", "opacity", "margin-left"],
-                  {
-                    duration: theme.transitions.duration.standard,
-                    easing: theme.transitions.easing.emphasized,
-                  }
-                ),
-              }}
-            >
-              <Typography
-                component="span"
-                sx={{
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  display: "block",
-                }}
-              >
-                {isDark ? "浅色模式" : "深色模式"}
-              </Typography>
-            </Box>
-          </ListItemButton>
+              {showText && (
+                <Typography
+                  component="span"
+                  sx={{
+                    fontSize: "0.875rem",
+                    fontWeight: 500,
+                    display: "block",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {isDark ? "浅色模式" : "深色模式"}
+                </Typography>
+              )}
+            </ListItemButton>
+          </ListItem>
         </Tooltip>
       </Box>
     </Stack>
