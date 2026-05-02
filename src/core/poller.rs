@@ -137,19 +137,21 @@ impl ServerPoller {
         node: &NodeConfig,
         timestamp: DateTime<Utc>,
     ) -> (i32, bool, Option<Vec<String>>) {
-        debug!("轮询节点 {} ({}:{})", node.name, node.host, node.port);
-        
+        debug!("轮询节点 {} ({}:{}) [{}]", node.name, node.host, node.port, node.edition);
+
         // 查询服务器状态
         let status = MinecraftQuerier::query_server(
             &node.host,
             node.port,
             Duration::from_secs(5),
+            &node.edition,
         ).await;
-        
+
         let online = status.online;
         let players = status.sample_players.clone();
         let sample_players_json = status.sample_players.as_ref().map(|p| serde_json::to_string(p).unwrap_or_default());
-        
+        let edition_str = status.edition.as_ref().map(|e| e.to_string());
+
         // 构建状态日志条目
         let entry = StatusLogEntry {
             server_id: node.id,
@@ -164,13 +166,14 @@ impl ServerPoller {
             software: status.software,
             plugins: status.plugins.map(|p| serde_json::to_string(&p).unwrap_or_default()),
             map: status.map,
+            edition: edition_str,
         };
-        
+
         // 记录状态
         if let Err(e) = db.log_status(&entry).await {
             error!("记录状态失败: {}", e);
         }
-        
+
         (node.id, online, players)
     }
 }

@@ -21,6 +21,9 @@ pub struct Server {
     
     /// 图表颜色
     pub color: Option<String>,
+    
+    /// 服务器版本类型（java / bedrock）
+    pub edition: Option<String>,
 }
 
 /// 服务器节点带状态信息

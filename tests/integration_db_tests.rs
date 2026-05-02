@@ -41,6 +41,7 @@ async fn test_add_and_retrieve_server() {
         25565,
         Some("#ff0000"),
         None,
+        None,
     ).await.expect("Failed to add server");
     
     assert_eq!(id, 1, "First server should have id 1");
@@ -77,8 +78,9 @@ async fn test_log_and_retrieve_status() {
         25565,
         None,
         None,
+        None,
     ).await.expect("Failed to add server");
-    
+
     // 记录状态
     let timestamp = Utc::now();
     let entry = StatusLogEntry {
@@ -94,6 +96,7 @@ async fn test_log_and_retrieve_status() {
         software: None,
         plugins: None,
         map: None,
+        edition: Some("java".to_string()),
     };
     
     db.log_status(&entry).await.expect("Failed to log status");
@@ -130,8 +133,9 @@ async fn test_get_server_history() {
         25565,
         None,
         None,
+        None,
     ).await.expect("Failed to add server");
-    
+
     // 记录多个状态
     let mut base_time = Utc::now();
     for i in 0..5 {
@@ -148,6 +152,7 @@ async fn test_get_server_history() {
             software: None,
             plugins: None,
             map: None,
+            edition: Some("java".to_string()),
         };
         
         db.log_status(&entry).await.expect("Failed to log status");
@@ -182,8 +187,9 @@ async fn test_player_sessions() {
         25565,
         None,
         None,
+        None,
     ).await.expect("Failed to add server");
-    
+
     let timestamp = Utc::now();
     let players = vec!["Player1".to_string(), "Player2".to_string()];
     

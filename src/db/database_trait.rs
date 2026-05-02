@@ -47,6 +47,7 @@ pub trait Database: Send + Sync {
         port: u16,
         color: Option<&str>,
         server_id: Option<i32>,
+        edition: Option<&str>,
     ) -> Result<i32, DbError>;
     
     /// 获取所有节点

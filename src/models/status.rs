@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 
+use crate::config::ServerEdition;
+
 /// 状态日志记录
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct StatusLog {
@@ -45,6 +47,9 @@ pub struct StatusLog {
     
     /// 地图名称
     pub map: Option<String>,
+    
+    /// 服务器版本类型
+    pub edition: Option<String>,
 }
 
 /// 状态日志条目（用于插入）
@@ -85,6 +90,9 @@ pub struct StatusLogEntry {
     
     /// 地图名称
     pub map: Option<String>,
+    
+    /// 服务器版本类型
+    pub edition: Option<String>,
 }
 
 /// 服务器状态（查询结果）
@@ -123,6 +131,9 @@ pub struct ServerStatus {
     
     /// 错误信息
     pub error: Option<String>,
+    
+    /// 服务器版本类型
+    pub edition: Option<ServerEdition>,
 }
 
 /// 历史记录项（精简）

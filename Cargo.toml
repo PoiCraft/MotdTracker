@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Minecraft single-server multi-entry-point real-time monitoring system"
 license = "MIT"
-authors = ["MotdTracker Team"]
+authors = ["PoiCraft"]
 repository = "https://github.com/example/motdtracker-rs"
 
 [dependencies]
@@ -26,9 +26,6 @@ sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "chrono", "migr
 
 # Configuration
 toml = "0.8"
-
-# Interactive CLI
-dialoguer = "0.11"
 
 # Scheduling
 tokio-cron-scheduler = "0.9"
@@ -76,7 +73,6 @@ default = ["sqlite"]
 sqlite = ["sqlx/sqlite"]
 graphql = ["async-graphql", "async-graphql-axum"]
 prometheus = ["dep:prometheus"]
-interactive = []
 
 [profile.release]
 lto = true

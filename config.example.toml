@@ -7,16 +7,22 @@ port = 8080
 server_name = "MotdTracker Rust"
 poll_interval = 60
 
+# 前端静态文件目录（默认: frontend/dist）
+# static_dir = "frontend/dist"
+
 # 数据库配置（SQLite）
 [database]
 path = "data/motdtracker.db"
 
 # 节点配置（同一服务器的不同连接入口）
+# edition 可选值: java（默认）, bedrock
+# Java 版默认端口: 25565，基岩版默认端口: 19132
 [[nodes]]
 id = 1
 name = "主入口"
 host = "play.example.com"
 port = 25565
+edition = "java"
 enable = true
 
 [[nodes]]
@@ -24,10 +30,19 @@ id = 2
 name = "移动优化入口"
 host = "mobile.example.com"
 port = 25565
+edition = "java"
 enable = true
 
 [[nodes]]
 id = 3
+name = "基岩版入口"
+host = "play.example.com"
+port = 19132
+edition = "bedrock"
+enable = true
+
+[[nodes]]
+id = 4
 name = "教育网入口"
 host = "edu.example.com"
 port = 25565

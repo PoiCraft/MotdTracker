@@ -13,6 +13,7 @@ pub mod ws;
 pub mod alert;
 
 pub use config::AppConfig;
+pub use config::ServerEdition;
 pub use core::poller::ServerPoller;
 pub use core::monitor::MinecraftQuerier;
 pub use db::Database;

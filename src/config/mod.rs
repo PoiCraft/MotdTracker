@@ -6,6 +6,43 @@ pub use loader::*;
 
 use serde::{Deserialize, Serialize};
 
+/// 服务器版本类型
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ServerEdition {
+    /// Java 版
+    Java,
+    /// 基岩版
+    Bedrock,
+}
+
+impl Default for ServerEdition {
+    fn default() -> Self {
+        Self::Java
+    }
+}
+
+impl std::fmt::Display for ServerEdition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Java => write!(f, "java"),
+            Self::Bedrock => write!(f, "bedrock"),
+        }
+    }
+}
+
+impl std::str::FromStr for ServerEdition {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "java" => Ok(Self::Java),
+            "bedrock" => Ok(Self::Bedrock),
+            _ => Err(format!("未知的服务器版本: {}，可选值: java, bedrock", s)),
+        }
+    }
+}
+
 /// 数据库配置
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DatabaseConfig {
@@ -37,6 +74,10 @@ pub struct AppConfig {
     #[serde(default)]
     pub nodes: Vec<NodeConfig>,
     
+    /// 前端静态文件目录
+    #[serde(default = "default_static_dir")]
+    pub static_dir: String,
+    
     /// NapCat 告警配置（可选）
     pub napcat_alert: Option<NapCatAlertConfig>,
     
@@ -57,8 +98,12 @@ pub struct NodeConfig {
     pub host: String,
     
     /// 节点端口
-    #[serde(default = "default_port_minecraft")]
+    #[serde(default = "default_node_port")]
     pub port: u16,
+    
+    /// 服务器版本类型（java / bedrock）
+    #[serde(default)]
+    pub edition: ServerEdition,
     
     /// 图表颜色
     pub color: Option<String>,
@@ -117,7 +162,8 @@ fn default_server_name() -> String { "MotdTracker".to_string() }
 fn default_database() -> String { "data/motdtracker.db".to_string() }
 fn default_poll_interval() -> u64 { 60 }
 fn default_port() -> u16 { 5011 }
-fn default_port_minecraft() -> u16 { 25565 }
+fn default_node_port() -> u16 { 25565 }
+fn default_static_dir() -> String { "frontend/dist".to_string() }
 fn default_enable() -> bool { true }
 fn default_delta_minutes() -> u64 { 30 }
 fn default_offline_confirm_frames() -> u32 { 3 }

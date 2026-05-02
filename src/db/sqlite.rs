@@ -59,13 +59,19 @@ impl Database for SqliteDatabase {
                 name TEXT NOT NULL,
                 host TEXT NOT NULL,
                 port INTEGER NOT NULL,
-                color TEXT
+                color TEXT,
+                edition TEXT DEFAULT 'java'
             )
             "#,
         )
         .execute(&self.pool)
         .await
         .map_err(|e| DbError::MigrationError(e.to_string()))?;
+
+        // 迁移: 为 servers 表添加 edition 列（已有数据库兼容）
+        let _ = sqlx::query("ALTER TABLE servers ADD COLUMN edition TEXT DEFAULT 'java'")
+            .execute(&self.pool)
+            .await;
         
         // 创建唯一索引
         sqlx::query(
@@ -92,6 +98,7 @@ impl Database for SqliteDatabase {
                 software TEXT,
                 plugins TEXT,
                 map TEXT,
+                edition TEXT,
                 FOREIGN KEY (server_id) REFERENCES servers(id)
             )
             "#,
@@ -99,6 +106,11 @@ impl Database for SqliteDatabase {
         .execute(&self.pool)
         .await
         .map_err(|e| DbError::MigrationError(e.to_string()))?;
+
+        // 迁移: 为 status_logs 表添加 edition 列（已有数据库兼容）
+        let _ = sqlx::query("ALTER TABLE status_logs ADD COLUMN edition TEXT")
+            .execute(&self.pool)
+            .await;
         
         // 创建索引
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_status_logs_timestamp ON status_logs(timestamp)")
@@ -170,13 +182,15 @@ impl Database for SqliteDatabase {
         port: u16,
         color: Option<&str>,
         server_id: Option<i32>,
+        edition: Option<&str>,
     ) -> Result<i32, DbError> {
+        let edition_val = edition.unwrap_or("java");
         if let Some(id) = server_id {
             let _result = sqlx::query(
                 r#"
-                INSERT INTO servers (id, name, host, port, color)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET name=?, host=?, port=?, color=?
+                INSERT INTO servers (id, name, host, port, color, edition)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET name=?, host=?, port=?, color=?, edition=?
                 "#,
             )
             .bind(id)
@@ -184,43 +198,46 @@ impl Database for SqliteDatabase {
             .bind(host)
             .bind(port as i32)
             .bind(color)
+            .bind(edition_val)
             .bind(name)
             .bind(host)
             .bind(port as i32)
             .bind(color)
+            .bind(edition_val)
             .execute(&self.pool)
             .await
             .map_err(|e| DbError::InsertError(e.to_string()))?;
-            
+
             Ok(id)
         } else {
             let result = sqlx::query(
                 r#"
-                INSERT INTO servers (name, host, port, color)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO servers (name, host, port, color, edition)
+                VALUES (?, ?, ?, ?, ?)
                 "#,
             )
             .bind(name)
             .bind(host)
             .bind(port as i32)
             .bind(color)
+            .bind(edition_val)
             .execute(&self.pool)
             .await
             .map_err(|e| DbError::InsertError(e.to_string()))?;
-            
+
             Ok(result.last_insert_rowid() as i32)
         }
     }
     
     async fn get_all_servers(&self) -> Result<Vec<Server>, DbError> {
-        sqlx::query_as::<_, Server>("SELECT id, name, host, port, color FROM servers")
+        sqlx::query_as::<_, Server>("SELECT id, name, host, port, color, edition FROM servers")
             .fetch_all(&self.pool)
             .await
             .map_err(|e| DbError::QueryError(e.to_string()))
     }
-    
+
     async fn get_server(&self, id: i32) -> Result<Option<Server>, DbError> {
-        sqlx::query_as::<_, Server>("SELECT id, name, host, port, color FROM servers WHERE id = ?")
+        sqlx::query_as::<_, Server>("SELECT id, name, host, port, color, edition FROM servers WHERE id = ?")
             .bind(id)
             .fetch_optional(&self.pool)
             .await
@@ -242,8 +259,8 @@ impl Database for SqliteDatabase {
             INSERT INTO status_logs (
                 server_id, timestamp, online, latency,
                 players_online, players_max, version, motd,
-                sample_players, software, plugins, map
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                sample_players, software, plugins, map, edition
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(entry.server_id)
@@ -258,10 +275,11 @@ impl Database for SqliteDatabase {
         .bind(&entry.software)
         .bind(&entry.plugins)
         .bind(&entry.map)
+        .bind(&entry.edition)
         .execute(&self.pool)
         .await
         .map_err(|e| DbError::InsertError(e.to_string()))?;
-        
+
         Ok(())
     }
     
@@ -277,7 +295,7 @@ impl Database for SqliteDatabase {
             r#"
             SELECT id, server_id, timestamp, online, latency,
                    players_online, players_max, version, motd,
-                   sample_players, software, plugins, map
+                   sample_players, software, plugins, map, edition
             FROM status_logs
             WHERE server_id = ?
             ORDER BY timestamp DESC
@@ -299,7 +317,7 @@ impl Database for SqliteDatabase {
             r#"
             SELECT id, server_id, timestamp, online, latency,
                    players_online, players_max, version, motd,
-                   sample_players, software, plugins, map
+                   sample_players, software, plugins, map, edition
             FROM status_logs
             WHERE server_id = ?
             ORDER BY timestamp DESC
@@ -323,7 +341,7 @@ impl Database for SqliteDatabase {
             r#"
             SELECT id, server_id, timestamp, online, latency,
                    players_online, players_max, version, motd,
-                   sample_players, software, plugins, map
+                   sample_players, software, plugins, map, edition
             FROM status_logs
             WHERE server_id = ? AND timestamp >= ? AND timestamp <= ?
             ORDER BY timestamp ASC
@@ -342,7 +360,7 @@ impl Database for SqliteDatabase {
             r#"
             SELECT id, server_id, timestamp, online, latency,
                    players_online, players_max, version, motd,
-                   sample_players, software, plugins, map
+                   sample_players, software, plugins, map, edition
             FROM status_logs
             WHERE id IN (
                 SELECT MAX(id) FROM status_logs GROUP BY server_id
@@ -364,7 +382,7 @@ impl Database for SqliteDatabase {
             r#"
             SELECT id, server_id, timestamp, online, latency,
                    players_online, players_max, version, motd,
-                   sample_players, software, plugins, map
+                   sample_players, software, plugins, map, edition
             FROM status_logs
             WHERE timestamp >= ?
             ORDER BY timestamp ASC

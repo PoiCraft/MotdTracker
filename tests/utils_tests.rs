@@ -33,6 +33,7 @@ mod tests {
             software: None,
             plugins: None,
             map: None,
+            edition: None,
         }
     }
 

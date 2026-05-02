@@ -64,7 +64,8 @@ async fn main() {
     };
 
     for node in &config.nodes {
-        if let Err(e) = db.add_server(&node.name, &node.host, node.port, node.color.as_deref(), Some(node.id)).await {
+        let edition_str = node.edition.to_string();
+        if let Err(e) = db.add_server(&node.name, &node.host, node.port, node.color.as_deref(), Some(node.id), Some(&edition_str)).await {
             error!("Failed to sync server '{}' to database: {}", node.name, e);
         }
     }
@@ -82,9 +83,22 @@ async fn main() {
         }
     });
 
-    let static_dir = std::path::Path::new("frontend/dist");
+    let static_dir = std::path::Path::new(&config.static_dir);
+    let index_path = format!("{}/index.html", config.static_dir);
     let static_service = if static_dir.exists() {
-        ServeDir::new(static_dir).not_found_service(get(spa_fallback))
+        ServeDir::new(&config.static_dir).not_found_service(get(move |uri: Uri| {
+            let path = index_path.clone();
+            async move {
+                if std::path::Path::new(&path).exists() {
+                    match tokio::fs::read_to_string(&path).await {
+                        Ok(content) => axum::response::Html(content).into_response(),
+                        Err(_) => (StatusCode::NOT_FOUND, "Not Found").into_response(),
+                    }
+                } else {
+                    (StatusCode::NOT_FOUND, format!("Not Found: {}", uri)).into_response()
+                }
+            }
+        }))
     } else {
         ServeDir::new("static").not_found_service(get(spa_fallback))
     };
