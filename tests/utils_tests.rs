@@ -108,24 +108,24 @@ mod tests {
 
     #[test]
     fn test_get_uptime_color() {
-        assert_eq!(get_uptime_color(99.5), "green");
-        assert_eq!(get_uptime_color(99.0), "green");
-        assert_eq!(get_uptime_color(96.0), "limegreen");
-        assert_eq!(get_uptime_color(92.0), "yellowgreen");
-        assert_eq!(get_uptime_color(80.0), "yellow");
-        assert_eq!(get_uptime_color(60.0), "orange");
-        assert_eq!(get_uptime_color(40.0), "red");
-        assert_eq!(get_uptime_color(0.0), "red");
+        assert_eq!(get_uptime_color(99.5), "#4c1");
+        assert_eq!(get_uptime_color(99.0), "#4c1");
+        assert_eq!(get_uptime_color(96.0), "#97CA00");
+        assert_eq!(get_uptime_color(92.0), "#a4a61d");
+        assert_eq!(get_uptime_color(80.0), "#dfb317");
+        assert_eq!(get_uptime_color(60.0), "#fe7d37");
+        assert_eq!(get_uptime_color(40.0), "#e05d44");
+        assert_eq!(get_uptime_color(0.0), "#e05d44");
     }
 
     #[test]
     fn test_get_latency_color() {
-        assert_eq!(get_latency_color(25.0), "green");
-        assert_eq!(get_latency_color(100.0), "limegreen");
-        assert_eq!(get_latency_color(150.0), "yellowgreen");
-        assert_eq!(get_latency_color(200.0), "yellow");
-        assert_eq!(get_latency_color(250.0), "orange");
-        assert_eq!(get_latency_color(350.0), "red");
+        assert_eq!(get_latency_color(25.0), "#4c1");
+        assert_eq!(get_latency_color(100.0), "#97CA00");
+        assert_eq!(get_latency_color(150.0), "#a4a61d");
+        assert_eq!(get_latency_color(200.0), "#dfb317");
+        assert_eq!(get_latency_color(250.0), "#fe7d37");
+        assert_eq!(get_latency_color(350.0), "#e05d44");
     }
 
     #[test]
