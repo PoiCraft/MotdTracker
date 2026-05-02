@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-MotdTracker 是一个 Minecraft 多节点服务器监控系统，采用 Rust (Axum) 后端 + React (Vite) 前端的前后端分离架构。
+MotdTracker 是一个 Minecraft 服务器多入口点监控系统，通过多个节点（连接入口）监控同一台服务器，采用 Rust (Axum) 后端 + React (Vite) 前端的前后端分离架构。
 
 **技术栈**: Axum + sqlx (SQLite) + Tokio + React + Vite + Chart.js + 原生 WebSocket
 

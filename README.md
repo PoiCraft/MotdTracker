@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**Minecraft 多节点服务器监控面板**
+**Minecraft 服务器多入口点监控面板**
 
 Rust 高性能后端 + React 前端
 
@@ -16,7 +16,7 @@ Rust 高性能后端 + React 前端
 
 ## 简介
 
-MotdTracker 是一个专为 Minecraft 服务器设计的多节点实时监控系统，采用 Rust + React 前后端分离架构。
+MotdTracker 是一个专为 Minecraft 服务器设计的多入口点实时监控系统，采用 Rust + React 前后端分离架构。通过多个节点（连接入口）监控同一台服务器，提供状态追踪、延迟分析、玩家会话管理等功能。
 
 ### 功能特性
 
@@ -88,12 +88,19 @@ path = "data/motdtracker.db"
 poll_interval = 15
 port = 5011
 
+# 节点是同一服务器的不同连接入口
 [[nodes]]
 id = 1
-name = "主线入口"
+name = "主入口"
 host = "play.example.com"
 port = 25565
-color = "#10b981"
+enable = true
+
+[[nodes]]
+id = 2
+name = "移动优化入口"
+host = "mobile.example.com"
+port = 25565
 enable = true
 ```
 

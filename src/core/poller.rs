@@ -74,10 +74,10 @@ impl ServerPoller {
         }
     }
     
-    /// 轮询所有服务器
+    /// 轮询所有节点
     pub async fn poll_all_servers(&self) {
         let timestamp = Utc::now();
-        debug!("开始轮询所有服务器，时间: {}", timestamp);
+        debug!("开始轮询所有节点，时间: {}", timestamp);
         
         let enabled_nodes: Vec<&NodeConfig> = self.config.enabled_nodes();
         

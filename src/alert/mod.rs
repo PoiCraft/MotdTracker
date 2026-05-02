@@ -71,7 +71,7 @@ impl AlertManager {
             AlertState::Online => {
                 // 检查是否需要发送离线告警
                 if !any_online && offline_streak >= self.config.offline_confirm_frames {
-                    warn!("检测到服务器离线，发送告警");
+                    warn!("检测到所有节点离线，发送告警");
                     self.send_offline_alert(online_count, total_count).await;
                     *state = AlertState::Offline;
                     *self.last_alert_time.write().await = Some(Utc::now());
@@ -80,7 +80,7 @@ impl AlertManager {
             AlertState::Offline => {
                 // 检查是否需要发送恢复告警
                 if any_online && online_streak >= self.config.online_confirm_frames {
-                    info!("服务器已恢复，发送通知");
+                    info!("节点已恢复，发送通知");
                     self.send_recovery_alert(online_count, total_count).await;
                     *state = AlertState::Online;
                     *self.last_alert_time.write().await = Some(Utc::now());
@@ -94,7 +94,7 @@ impl AlertManager {
                     };
                     
                     if should_repeat {
-                        warn!("服务器仍然离线，重复发送告警");
+                        warn!("所有节点仍然离线，重复发送告警");
                         self.send_offline_alert(online_count, total_count).await;
                         *self.last_alert_time.write().await = Some(Utc::now());
                     }
@@ -106,7 +106,7 @@ impl AlertManager {
     /// 发送离线告警
     async fn send_offline_alert(&self, online_count: u32, total_count: u32) {
         let message = format!(
-            "🚨 服务器状态告警\n所有节点离线！\n在线: {}/{}\n时间: {}",
+            "🚨 节点状态告警\n所有连接入口离线！\n在线: {}/{}\n时间: {}",
             online_count,
             total_count,
             Utc::now().format("%Y-%m-%d %H:%M:%S")
@@ -118,7 +118,7 @@ impl AlertManager {
     /// 发送恢复告警
     async fn send_recovery_alert(&self, online_count: u32, total_count: u32) {
         let message = format!(
-            "✅ 服务器已恢复\n在线节点: {}/{}\n时间: {}",
+            "✅ 节点已恢复\n在线入口: {}/{}\n时间: {}",
             online_count,
             total_count,
             Utc::now().format("%Y-%m-%d %H:%M:%S")

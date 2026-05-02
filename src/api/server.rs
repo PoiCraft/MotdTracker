@@ -1,4 +1,4 @@
-//! 服务器 API
+//! 节点管理 API
 
 use axum::{
     routing::get,
@@ -91,7 +91,7 @@ async fn get_nodes(
     Json(result)
 }
 
-/// 获取服务器聚合状态
+/// 获取所有节点聚合状态
 async fn get_server_head(
     State(state): State<AppState>,
 ) -> Json<ServerHead> {
@@ -145,7 +145,7 @@ async fn get_server_head(
     })
 }
 
-/// 获取服务器历史数据
+/// 获取所有节点历史数据
 async fn get_server_history(
     State(state): State<AppState>,
     axum::extract::Query(query): axum::extract::Query<HoursQuery>,

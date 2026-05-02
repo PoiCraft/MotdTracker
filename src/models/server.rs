@@ -1,4 +1,4 @@
-//! 服务器模型
+//! 节点模型
 
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
@@ -13,10 +13,10 @@ pub struct Server {
     /// 节点名称
     pub name: String,
     
-    /// 服务器地址
+    /// 节点地址
     pub host: String,
     
-    /// 服务器端口
+    /// 节点端口
     pub port: i32,
     
     /// 图表颜色

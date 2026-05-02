@@ -37,9 +37,9 @@ pub trait Database: Send + Sync {
     /// 初始化数据库（创建表、索引等）
     async fn init_database(&self) -> Result<(), DbError>;
     
-    // ==================== 服务器管理 ====================
+    // ==================== 节点管理 ====================
     
-    /// 添加服务器节点
+    /// 添加节点
     async fn add_server(
         &self,
         name: &str,
@@ -49,13 +49,13 @@ pub trait Database: Send + Sync {
         server_id: Option<i32>,
     ) -> Result<i32, DbError>;
     
-    /// 获取所有服务器节点
+    /// 获取所有节点
     async fn get_all_servers(&self) -> Result<Vec<Server>, DbError>;
     
-    /// 获取单个服务器节点
+    /// 获取单个节点
     async fn get_server(&self, id: i32) -> Result<Option<Server>, DbError>;
     
-    /// 删除服务器节点
+    /// 删除节点
     async fn delete_server(&self, id: i32) -> Result<(), DbError>;
     
     // ==================== 状态记录 ====================
@@ -66,17 +66,17 @@ pub trait Database: Send + Sync {
     /// 批量记录状态日志
     async fn log_status_batch(&self, entries: &[StatusLogEntry]) -> Result<(), DbError>;
     
-    /// 获取服务器最新状态
+    /// 获取节点最新状态
     async fn get_server_latest_status(&self, server_id: i32) -> Result<Option<StatusLog>, DbError>;
     
-    /// 获取服务器历史记录
+    /// 获取节点历史记录
     async fn get_server_history(
         &self,
         server_id: i32,
         limit: i32,
     ) -> Result<Vec<StatusLog>, DbError>;
     
-    /// 获取服务器指定时间范围的历史记录
+    /// 获取节点指定时间范围的历史记录
     async fn get_server_history_range(
         &self,
         server_id: i32,
@@ -84,10 +84,10 @@ pub trait Database: Send + Sync {
         end: DateTime<Utc>,
     ) -> Result<Vec<StatusLog>, DbError>;
     
-    /// 获取所有服务器的最新状态
+    /// 获取所有节点的最新状态
     async fn get_all_latest_status(&self) -> Result<Vec<StatusLog>, DbError>;
     
-    /// 获取所有服务器的历史记录（聚合）
+    /// 获取所有节点的历史记录（聚合）
     async fn get_all_history(
         &self,
         hours: u32,
@@ -106,13 +106,13 @@ pub trait Database: Send + Sync {
         timestamp: DateTime<Utc>,
     ) -> Result<(), DbError>;
     
-    /// 获取服务器上的在线玩家
+    /// 获取节点上的在线玩家
     async fn get_online_players(&self, server_id: i32) -> Result<Vec<PlayerSession>, DbError>;
     
     /// 获取所有在线玩家
     async fn get_all_online_players(&self) -> Result<Vec<PlayerSession>, DbError>;
     
-    /// 获取服务器上的所有玩家会话记录
+    /// 获取节点上的所有玩家会话记录
     async fn get_all_player_sessions(&self, server_id: i32) -> Result<Vec<PlayerSession>, DbError>;
     
     /// 获取玩家历史会话

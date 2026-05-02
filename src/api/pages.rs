@@ -2,18 +2,18 @@
 
 use axum::response::Html;
 
-/// 服务器监控页面
+/// 监控总览页面
 pub async fn server_page() -> Html<&'static str> {
     Html(r#"
 <!DOCTYPE html>
 <html>
 <head>
-    <title>服务器监控 - MotdTracker</title>
+    <title>监控总览 - MotdTracker</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <div id="app">
-        <h1>服务器监控</h1>
+        <h1>监控总览</h1>
         <p>正在加载...</p>
     </div>
     <script src="/static/js/socket.io.min.js"></script>

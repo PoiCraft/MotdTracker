@@ -70,14 +70,14 @@ pub struct PlayerDetail {
     /// 会话时长（秒）
     pub duration_seconds: Option<i64>,
     
-    /// 所在服务器列表
+    /// 所在节点列表
     pub servers: Vec<PlayerServerEntry>,
     
     /// 会话历史
     pub sessions: Vec<PlayerSessionHistory>,
 }
 
-/// 玩家服务器条目
+/// 玩家节点条目
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerServerEntry {
     /// 节点 ID
@@ -127,6 +127,6 @@ pub struct PlayerListItem {
     /// 会话时长（秒）
     pub duration_seconds: Option<i64>,
     
-    /// 所在服务器
+    /// 所在节点
     pub servers: Vec<PlayerServerEntry>,
 }

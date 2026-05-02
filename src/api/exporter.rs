@@ -46,54 +46,54 @@ async fn prometheus_metrics(
     
     let mut metrics = String::new();
     
-    // 服务器指标
-    metrics.push_str("# HELP motd_server_online Server online status\n");
-    metrics.push_str("# TYPE motd_server_online gauge\n");
+    // 节点指标
+    metrics.push_str("# HELP motd_node_online Node online status\n");
+    metrics.push_str("# TYPE motd_node_online gauge\n");
     
     for status in &latest_status {
         if let Some(server) = servers.iter().find(|s| s.id == status.server_id) {
             let value = if status.online { 1 } else { 0 };
             metrics.push_str(&format!(
-                "motd_server_online{{server_id=\"{}\",node_name=\"{}\",host=\"{}\",port=\"{}\"}} {}\n",
+                "motd_node_online{{server_id=\"{}\",node_name=\"{}\",host=\"{}\",port=\"{}\"}} {}\n",
                 server.id, server.name, server.host, server.port, value
             ));
         }
     }
     
-    metrics.push_str("\n# HELP motd_server_players_online Online players count\n");
-    metrics.push_str("# TYPE motd_server_players_online gauge\n");
+    metrics.push_str("\n# HELP motd_node_players_online Online players count\n");
+    metrics.push_str("# TYPE motd_node_players_online gauge\n");
     
     for status in &latest_status {
         if let Some(server) = servers.iter().find(|s| s.id == status.server_id) {
             let value = status.players_online.unwrap_or(0);
             metrics.push_str(&format!(
-                "motd_server_players_online{{server_id=\"{}\",node_name=\"{}\"}} {}\n",
+                "motd_node_players_online{{server_id=\"{}\",node_name=\"{}\"}} {}\n",
                 server.id, server.name, value
             ));
         }
     }
     
-    metrics.push_str("\n# HELP motd_server_players_max Max players count\n");
-    metrics.push_str("# TYPE motd_server_players_max gauge\n");
+    metrics.push_str("\n# HELP motd_node_players_max Max players count\n");
+    metrics.push_str("# TYPE motd_node_players_max gauge\n");
     
     for status in &latest_status {
         if let Some(server) = servers.iter().find(|s| s.id == status.server_id) {
             let value = status.players_max.unwrap_or(0);
             metrics.push_str(&format!(
-                "motd_server_players_max{{server_id=\"{}\",node_name=\"{}\"}} {}\n",
+                "motd_node_players_max{{server_id=\"{}\",node_name=\"{}\"}} {}\n",
                 server.id, server.name, value
             ));
         }
     }
     
-    metrics.push_str("\n# HELP motd_server_latency_ms Server latency in milliseconds\n");
-    metrics.push_str("# TYPE motd_server_latency_ms gauge\n");
+    metrics.push_str("\n# HELP motd_node_latency_ms Node latency in milliseconds\n");
+    metrics.push_str("# TYPE motd_node_latency_ms gauge\n");
     
     for status in &latest_status {
         if let Some(server) = servers.iter().find(|s| s.id == status.server_id) {
             if let Some(latency) = status.latency {
                 metrics.push_str(&format!(
-                    "motd_server_latency_ms{{server_id=\"{}\",node_name=\"{}\"}} {}\n",
+                    "motd_node_latency_ms{{server_id=\"{}\",node_name=\"{}\"}} {}\n",
                     server.id, server.name, latency
                 ));
             }
@@ -101,28 +101,28 @@ async fn prometheus_metrics(
     }
     
     // 统计指标
-    metrics.push_str("\n# HELP motd_server_uptime_percentage Server uptime percentage\n");
-    metrics.push_str("# TYPE motd_server_uptime_percentage gauge\n");
+    metrics.push_str("\n# HELP motd_node_uptime_percentage Node uptime percentage\n");
+    metrics.push_str("# TYPE motd_node_uptime_percentage gauge\n");
     
     for (server_id, logs) in &history {
         if let Some(server) = servers.iter().find(|s| s.id == *server_id) {
             let stats = calculate_latency_stats(logs);
             metrics.push_str(&format!(
-                "motd_server_uptime_percentage{{server_id=\"{}\",node_name=\"{}\"}} {}\n",
+                "motd_node_uptime_percentage{{server_id=\"{}\",node_name=\"{}\"}} {}\n",
                 server.id, server.name, stats.uptime_percentage
             ));
         }
     }
     
-    metrics.push_str("\n# HELP motd_server_avg_latency_ms Average latency in milliseconds\n");
-    metrics.push_str("# TYPE motd_server_avg_latency_ms gauge\n");
+    metrics.push_str("\n# HELP motd_node_avg_latency_ms Node average latency in milliseconds\n");
+    metrics.push_str("# TYPE motd_node_avg_latency_ms gauge\n");
     
     for (server_id, logs) in &history {
         if let Some(server) = servers.iter().find(|s| s.id == *server_id) {
             let stats = calculate_latency_stats(logs);
             if let Some(avg) = stats.avg_latency {
                 metrics.push_str(&format!(
-                    "motd_server_avg_latency_ms{{server_id=\"{}\",node_name=\"{}\"}} {}\n",
+                    "motd_node_avg_latency_ms{{server_id=\"{}\",node_name=\"{}\"}} {}\n",
                     server.id, server.name, avg
                 ));
             }
@@ -145,9 +145,9 @@ async fn prometheus_metrics(
     metrics.push_str("# TYPE motd_players_count gauge\n");
     metrics.push_str(&format!("motd_players_count {}\n", online_players.len()));
     
-    metrics.push_str("\n# HELP motd_server_count Total servers\n");
-    metrics.push_str("# TYPE motd_server_count gauge\n");
-    metrics.push_str(&format!("motd_server_count {}\n", servers.len()));
+    metrics.push_str("\n# HELP motd_node_count Total nodes\n");
+    metrics.push_str("# TYPE motd_node_count gauge\n");
+    metrics.push_str(&format!("motd_node_count {}\n", servers.len()));
     
     Response::builder()
         .header("Content-Type", "text/plain; version=0.0.4")

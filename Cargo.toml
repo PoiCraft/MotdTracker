@@ -2,7 +2,7 @@
 name = "motdtracker"
 version = "0.1.0"
 edition = "2021"
-description = "Minecraft server multi-node real-time monitoring system"
+description = "Minecraft single-server multi-entry-point real-time monitoring system"
 license = "MIT"
 authors = ["MotdTracker Team"]
 repository = "https://github.com/example/motdtracker-rs"

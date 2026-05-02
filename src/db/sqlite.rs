@@ -544,14 +544,14 @@ impl Database for SqliteDatabase {
             return Ok(None);
         }
         
-        // 获取服务器名称映射
+        // 获取节点名称映射
         let servers = self.get_all_servers().await?;
         let server_map: HashMap<i32, String> = servers
             .into_iter()
             .map(|s| (s.id, s.name))
             .collect();
         
-        // 构建服务器条目
+        // 构建节点条目
         let mut server_entries: Vec<PlayerServerEntry> = Vec::new();
         let mut latest_session: Option<&PlayerSession> = None;
         let mut is_online = false;

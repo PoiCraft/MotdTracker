@@ -1,5 +1,6 @@
 # MotdTracker 配置文件示例
 # 复制此文件为 config.toml 并修改相应配置
+# 注意：节点是同一台服务器的不同连接入口，而非不同的服务器
 
 # 服务器配置
 port = 8080
@@ -10,25 +11,25 @@ poll_interval = 60
 [database]
 path = "data/motdtracker.db"
 
-# 监控节点配置
+# 节点配置（同一服务器的不同连接入口）
 [[nodes]]
 id = 1
-name = "Hypixel"
-host = "mc.hypixel.net"
+name = "主入口"
+host = "play.example.com"
 port = 25565
 enable = true
 
 [[nodes]]
 id = 2
-name = "CubeCraft"
-host = "play.cubecraft.net"
+name = "移动优化入口"
+host = "mobile.example.com"
 port = 25565
 enable = true
 
 [[nodes]]
 id = 3
-name = "Mineplex"
-host = "us.mineplex.com"
+name = "教育网入口"
+host = "edu.example.com"
 port = 25565
 enable = false
 

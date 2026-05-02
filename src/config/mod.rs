@@ -53,10 +53,10 @@ pub struct NodeConfig {
     /// 节点名称
     pub name: String,
     
-    /// 服务器地址
+    /// 节点地址
     pub host: String,
     
-    /// 服务器端口
+    /// 节点端口
     #[serde(default = "default_port_minecraft")]
     pub port: u16,
     
