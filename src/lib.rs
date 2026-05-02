@@ -14,6 +14,7 @@ pub mod alert;
 pub mod embedded;
 pub mod tui;
 
+pub const APP_VERSION: &str = env!("APP_VERSION");
 pub use config::AppConfig;
 pub use config::ServerEdition;
 pub use core::poller::ServerPoller;

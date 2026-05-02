@@ -200,6 +200,12 @@ function DrawerContent({ onNavClick }) {
 
       <Box sx={{ px: 2.5, pb: 1 }}>
         <StatusPill online={wsState === "connected"} size="small" />
+        <Typography
+          variant="caption"
+          sx={{ display: "block", mt: 0.5, color: md3?.onSurfaceVariant, fontSize: "0.6875rem" }}
+        >
+          {__APP_VERSION__}
+        </Typography>
       </Box>
 
       <Divider sx={{ mx: 2, mt: 1 }} />

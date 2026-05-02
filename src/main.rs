@@ -31,7 +31,7 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    info!("Starting MotdTracker...");
+    info!("Starting MotdTracker {}...", motdtracker::APP_VERSION);
 
     let config = match load_config() {
         Ok(cfg) => {
