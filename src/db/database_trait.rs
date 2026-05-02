@@ -142,4 +142,12 @@ pub trait Database: Send + Sync {
         online_players: &[String],
         timestamp: DateTime<Utc>,
     ) -> Result<(), DbError>;
+    
+    /// 聚合更新玩家会话（跨节点去重）
+    /// 任意节点观测到玩家则视为上线，所有节点均未观测到则视为离线，观测失败的节点不纳入统计
+    async fn update_player_sessions_aggregate(
+        &self,
+        observations: &[(i32, bool, Option<Vec<String>>)],
+        timestamp: DateTime<Utc>,
+    ) -> Result<(), DbError>;
 }

@@ -1,9 +1,9 @@
 //! SQLite 数据库实现
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, Datelike, Timelike};
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use super::{Database, DbError};
@@ -582,7 +582,10 @@ impl Database for SqliteDatabase {
             online: is_online,
             session_start: latest_session.and_then(|s| s.session_start),
             last_seen: latest_session.map(|s| s.last_seen).unwrap_or_else(Utc::now),
-            duration_seconds: latest_session.and_then(|s| s.duration_seconds),
+            duration_seconds: latest_session
+                .filter(|s| s.online)
+                .and_then(|s| s.session_start)
+                .map(|start| (Utc::now() - start).num_seconds()),
             servers: server_entries,
             sessions: history,
         }))
@@ -595,17 +598,12 @@ impl Database for SqliteDatabase {
     ) -> Result<Vec<PlayerHeatmap>, DbError> {
         let start_time = Utc::now() - chrono::Duration::days(days as i64);
         
-        // 这是一个简化的热力图查询，实际可能需要根据数据库调整
-        let result: Vec<PlayerHeatmap> = sqlx::query_as::<_, PlayerHeatmap>(
+        let history: Vec<PlayerSessionHistory> = sqlx::query_as::<_, PlayerSessionHistory>(
             r#"
-            SELECT 
-                CAST(strftime('%H', session_start) AS INTEGER) as hour,
-                CAST(strftime('%w', session_start) AS INTEGER) as weekday,
-                COUNT(*) as count
+            SELECT id, server_id, player_name, session_start, session_end
             FROM player_session_history
             WHERE player_name = ? AND session_start >= ?
-            GROUP BY hour, weekday
-            ORDER BY hour, weekday
+            ORDER BY session_start
             "#,
         )
         .bind(player_name)
@@ -614,7 +612,42 @@ impl Database for SqliteDatabase {
         .await
         .map_err(|e| DbError::QueryError(e.to_string()))?;
         
-        Ok(result)
+        let mut intervals: Vec<(DateTime<Utc>, DateTime<Utc>)> = history
+            .iter()
+            .filter(|h| h.session_end > h.session_start)
+            .map(|h| (h.session_start, h.session_end))
+            .collect();
+        
+        intervals.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut merged: Vec<(DateTime<Utc>, DateTime<Utc>)> = Vec::new();
+        for (start, end) in intervals {
+            if let Some(last) = merged.last_mut() {
+                if start <= last.1 {
+                    if end > last.1 {
+                        last.1 = end;
+                    }
+                } else {
+                    merged.push((start, end));
+                }
+            } else {
+                merged.push((start, end));
+            }
+        }
+        
+        let mut counts: HashMap<(i32, i32), i32> = HashMap::new();
+        for (start, _end) in &merged {
+            let hour = start.hour() as i32;
+            let weekday = start.weekday().num_days_from_monday() as i32;
+            *counts.entry((hour, weekday)).or_insert(0) += 1;
+        }
+        
+        Ok(counts.iter()
+            .map(|((hour, weekday), count)| PlayerHeatmap {
+                hour: *hour,
+                weekday: *weekday,
+                count: *count,
+            })
+            .collect())
     }
     
     async fn end_offline_sessions(
@@ -665,6 +698,88 @@ impl Database for SqliteDatabase {
                 .bind(session_id)
                 .execute(&self.pool)
                 .await;
+            }
+        }
+        
+        Ok(())
+    }
+    
+    async fn update_player_sessions_aggregate(
+        &self,
+        observations: &[(i32, bool, Option<Vec<String>>)],
+        timestamp: DateTime<Utc>,
+    ) -> Result<(), DbError> {
+        let mut seen_players: HashSet<String> = HashSet::new();
+        let mut node_players: HashMap<i32, Vec<String>> = HashMap::new();
+        
+        for (server_id, _online, players) in observations {
+            if let Some(p) = players {
+                for name in p {
+                    seen_players.insert(name.clone());
+                }
+                node_players.insert(*server_id, p.clone());
+            }
+        }
+        
+        for (server_id, players) in &node_players {
+            self.update_player_sessions(*server_id, players, timestamp).await?;
+        }
+        
+        let all_online = self.get_all_online_players().await?;
+        
+        for session in all_online {
+            if !node_players.contains_key(&session.server_id) {
+                continue;
+            }
+            
+            let is_seen_by_own_node = node_players
+                .get(&session.server_id)
+                .map(|p| p.contains(&session.player_name))
+                .unwrap_or(false);
+            
+            if seen_players.contains(&session.player_name) {
+                if !is_seen_by_own_node {
+                    sqlx::query(
+                        "UPDATE player_sessions SET online = 0, session_start = NULL, duration_seconds = NULL WHERE id = ?"
+                    )
+                    .bind(session.id)
+                    .execute(&self.pool)
+                    .await
+                    .map_err(|e| DbError::UpdateError(e.to_string()))?;
+                }
+            } else {
+                if let Some(start) = session.session_start {
+                    let exists: (i64,) = sqlx::query_as(
+                        "SELECT COUNT(*) FROM player_session_history WHERE player_name = ? AND session_start BETWEEN datetime(?, '-120 seconds') AND datetime(?, '+120 seconds')"
+                    )
+                    .bind(&session.player_name)
+                    .bind(start.to_rfc3339())
+                    .bind(start.to_rfc3339())
+                    .fetch_one(&self.pool)
+                    .await
+                    .map_err(|e| DbError::QueryError(e.to_string()))?;
+                    
+                    if exists.0 == 0 {
+                        sqlx::query(
+                            "INSERT INTO player_session_history (server_id, player_name, session_start, session_end) VALUES (?, ?, ?, ?)"
+                        )
+                        .bind(session.server_id)
+                        .bind(&session.player_name)
+                        .bind(start.to_rfc3339())
+                        .bind(timestamp.to_rfc3339())
+                        .execute(&self.pool)
+                        .await
+                        .map_err(|e| DbError::InsertError(e.to_string()))?;
+                    }
+                }
+                
+                sqlx::query(
+                    "UPDATE player_sessions SET online = 0, session_start = NULL, duration_seconds = NULL WHERE id = ?"
+                )
+                .bind(session.id)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| DbError::UpdateError(e.to_string()))?;
             }
         }
         

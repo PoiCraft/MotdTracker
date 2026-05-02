@@ -28,6 +28,8 @@ import HubRoundedIcon from "@mui/icons-material/HubRounded";
 import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
 import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
 import { useColorMode } from "../color-mode";
+import { useWsEvent } from "../utils/ws";
+import StatusPill from "./StatusPill";
 
 const navItems = [
   { to: "/server", label: "总览", icon: <HomeRoundedIcon /> },
@@ -154,6 +156,7 @@ function DrawerContent({ onNavClick }) {
   const md3 = theme.md3?.colors;
   const isDark = theme.md3?.isDark;
   const { mode, toggleMode } = useColorMode();
+  const wsState = useWsEvent(() => {});
 
   return (
     <Stack sx={{ height: "100%" }}>
@@ -194,6 +197,10 @@ function DrawerContent({ onNavClick }) {
           <NavItem key={item.to} item={item} onClick={onNavClick} />
         ))}
       </List>
+
+      <Box sx={{ px: 2.5, pb: 1 }}>
+        <StatusPill online={wsState === "connected"} size="small" />
+      </Box>
 
       <Divider sx={{ mx: 2, mt: 1 }} />
 

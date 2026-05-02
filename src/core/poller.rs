@@ -98,17 +98,22 @@ impl ServerPoller {
             });
         }
         
-        // 等待所有任务完成
         let mut online_count = 0;
         let mut total_count = 0;
+        let mut observations: Vec<(i32, bool, Option<Vec<String>>)> = Vec::new();
         
         while let Some(result) = tasks.join_next().await {
-            if let Ok(online) = result {
+            if let Ok((server_id, online, players)) = result {
                 total_count += 1;
                 if online {
                     online_count += 1;
                 }
+                observations.push((server_id, online, players));
             }
+        }
+        
+        if let Err(e) = self.db.update_player_sessions_aggregate(&observations, timestamp).await {
+            error!("更新玩家会话失败: {}", e);
         }
         
         // 发送 WebSocket 通知
@@ -131,7 +136,7 @@ impl ServerPoller {
         db: Arc<dyn Database>,
         node: &NodeConfig,
         timestamp: DateTime<Utc>,
-    ) -> bool {
+    ) -> (i32, bool, Option<Vec<String>>) {
         debug!("轮询节点 {} ({}:{})", node.name, node.host, node.port);
         
         // 查询服务器状态
@@ -142,7 +147,7 @@ impl ServerPoller {
         ).await;
         
         let online = status.online;
-        let sample_players_ref = status.sample_players.as_ref();
+        let players = status.sample_players.clone();
         let sample_players_json = status.sample_players.as_ref().map(|p| serde_json::to_string(p).unwrap_or_default());
         
         // 构建状态日志条目
@@ -166,24 +171,7 @@ impl ServerPoller {
             error!("记录状态失败: {}", e);
         }
         
-        // 更新玩家会话
-        if let Some(players) = sample_players_ref {
-            if let Err(e) = db.update_player_sessions(node.id, players, timestamp).await {
-                error!("更新玩家会话失败: {}", e);
-            }
-            
-            // 结束离线玩家的会话
-            if let Err(e) = db.end_offline_sessions(node.id, players, timestamp).await {
-                error!("结束离线会话失败: {}", e);
-            }
-        } else if online {
-            // 服务器在线但没有玩家样本，结束所有会话
-            if let Err(e) = db.end_offline_sessions(node.id, &[], timestamp).await {
-                error!("结束离线会话失败: {}", e);
-            }
-        }
-        
-        online
+        (node.id, online, players)
     }
 }
 

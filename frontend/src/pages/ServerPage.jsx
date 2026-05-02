@@ -266,7 +266,7 @@ export default function ServerPage() {
             min: 0,
             max: 1,
             grid: { color: chartGrid },
-            ticks: { callback: (v) => (v === 1 ? "在线" : "离线") },
+            ticks: { stepSize: 1, callback: (v) => (v === 1 ? "在线" : v === 0 ? "离线" : "") },
           },
         },
       },

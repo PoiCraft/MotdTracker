@@ -18,7 +18,7 @@ import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
-import StatusPill, { StatusDot } from "../components/StatusPill";
+import StatusPill from "../components/StatusPill";
 import { api } from "../api";
 import { useWsEvent } from "../utils/ws";
 import { formatTime } from "../utils/format";
@@ -48,7 +48,6 @@ function NodeCard({ node }) {
         <Stack spacing={2}>
           <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Stack direction="row" alignItems="center" spacing={1}>
-              <StatusDot online={online} size={8} />
               <Box>
                 <Typography
                   variant="subtitle1"
@@ -191,7 +190,7 @@ export default function NodesPage() {
     loadNodes();
   }, []);
 
-  const wsState = useWsEvent(() => loadNodes());
+  useWsEvent(() => loadNodes());
 
   const stats = useMemo(() => {
     const on = nodes.filter((n) => n.latest_status?.online);
@@ -237,12 +236,7 @@ export default function NodesPage() {
         </Button>
       </Stack>
 
-      <Stack direction="row" spacing={1}>
-        <Chip
-          size="small"
-          label={`WebSocket: ${wsState}`}
-          variant="outlined"
-        />
+      <Stack direction="row" spacing={1} alignItems="center">
         {stats.avgLatency != null && (
           <Chip
             size="small"

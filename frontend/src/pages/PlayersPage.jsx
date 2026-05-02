@@ -155,6 +155,15 @@ function PlayerCard({ player }) {
             <Typography variant="caption" sx={{ color: md3?.outline, fontSize: "0.625rem" }}>24h前</Typography>
             <Typography variant="caption" sx={{ color: md3?.outline, fontSize: "0.625rem" }}>现在</Typography>
           </Stack>
+
+          <Button
+            component={Link}
+            to={`/players/${encodeURIComponent(player.player_name)}`}
+            variant="outlined"
+            fullWidth
+          >
+            查看详情
+          </Button>
         </Stack>
       </CardContent>
     </Card>
@@ -195,7 +204,7 @@ export default function PlayersPage() {
 
   useEffect(() => { loadPlayers(); }, []);
 
-  const wsState = useWsEvent(() => loadPlayers());
+  useWsEvent(() => loadPlayers());
 
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
@@ -231,8 +240,6 @@ export default function PlayersPage() {
           <Button variant="outlined" startIcon={<RefreshRoundedIcon />} onClick={loadPlayers} disabled={loading}>刷新</Button>
         </Stack>
       </Stack>
-
-      <Chip size="small" label={`WebSocket: ${wsState}`} variant="outlined" sx={{ alignSelf: "flex-start" }} />
 
       {loading && <LinearProgress />}
       {error && <Alert severity="error">{error}</Alert>}

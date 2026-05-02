@@ -17,10 +17,10 @@ import { api, getApiBase } from "../api";
 import { useWsEvent } from "../utils/ws";
 
 const TIME_OPTIONS = [
-  { label: "24h(默认)", value: "" },
+  { label: "24h", value: "24" },
   { label: "1h", value: "1" }, { label: "3h", value: "3" },
   { label: "6h", value: "6" }, { label: "12h", value: "12" },
-  { label: "24h", value: "24" }, { label: "3d", value: "72" },
+  { label: "3d", value: "72" },
   { label: "7d", value: "168" }, { label: "30d", value: "720" },
 ];
 
@@ -30,7 +30,7 @@ function withHours(path, hours) {
 }
 
 function formatOutput(url, type) {
-  if (type === "html") return `<img src="${url}" alt="badge" />`;
+  if (type === "html") return `<img src="${url.replace(/&/g, "&amp;")}" alt="badge" />`;
   if (type === "markdown") return `![badge](${url})`;
   return url;
 }
@@ -55,7 +55,7 @@ export default function BadgesPage() {
   const [players, setPlayers] = useState([]);
   const [nodeId, setNodeId] = useState("");
   const [playerName, setPlayerName] = useState("Steve");
-  const [hours, setHours] = useState("");
+  const [hours, setHours] = useState("24");
   const [formatType, setFormatType] = useState("url");
   const [refreshSalt, setRefreshSalt] = useState(Date.now());
   const [loading, setLoading] = useState(false);
@@ -82,7 +82,7 @@ export default function BadgesPage() {
 
   useEffect(() => { loadData(); }, []);
 
-  const wsState = useWsEvent(() => setRefreshSalt(Date.now()));
+  useWsEvent(() => setRefreshSalt(Date.now()));
 
   const rows = useMemo(() => {
     const n = nodeId || (nodes.length ? String(nodes[0].id) : "1");
@@ -96,9 +96,11 @@ export default function BadgesPage() {
       { type: "状态", name: "节点状态", path: `/api/badge/node/${n}/status` },
       { type: "在线率", name: "节点在线率", path: withHours(`/api/badge/node/${n}/uptime`, hours) },
       { type: "延迟", name: "节点延迟", path: `/api/badge/node/${n}/latency` },
+      { type: "玩家", name: "节点玩家数", path: `/api/badge/node/${n}/players` },
       { type: "统计", name: "平均延迟", path: withHours(`/api/badge/node/${n}/latency-stats?stat=avg`, hours) },
       { type: "统计", name: "最小延迟", path: withHours(`/api/badge/node/${n}/latency-stats?stat=min`, hours) },
       { type: "统计", name: "最大延迟", path: withHours(`/api/badge/node/${n}/latency-stats?stat=max`, hours) },
+      { type: "统计", name: "P95 延迟", path: withHours(`/api/badge/node/${n}/latency-stats?stat=p95`, hours) },
       { type: "统计", name: "标准差", path: withHours(`/api/badge/node/${n}/latency-stats?stat=std`, hours) },
       { type: "统计", name: "变异系数", path: withHours(`/api/badge/node/${n}/latency-stats?stat=cv`, hours) },
       { section: "玩家", icon: <CodeRoundedIcon sx={{ fontSize: 16 }} /> },
@@ -126,7 +128,6 @@ export default function BadgesPage() {
           <Typography variant="body2" sx={{ color: md3?.onSurfaceVariant }}>生成状态徽章，可在任何地方嵌入使用</Typography>
         </Box>
         <Stack direction="row" spacing={1.5} alignItems="center">
-          <Chip size="small" label={`WS: ${wsState}`} variant="outlined" />
           <Button variant="outlined" startIcon={<RefreshRoundedIcon />} onClick={loadData} disabled={loading}>刷新</Button>
         </Stack>
       </Stack>
@@ -139,7 +140,7 @@ export default function BadgesPage() {
         <CardContent>
           <Typography variant="subtitle2" sx={{ fontWeight: 500, mb: 2 }}>配置选项</Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={6} sm={3} md={2}>
               <FormControl fullWidth size="small">
                 <InputLabel>输出格式</InputLabel>
                 <Select value={formatType} label="输出格式" onChange={(e) => setFormatType(e.target.value)}>
@@ -149,7 +150,7 @@ export default function BadgesPage() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={6} sm={3} md={4}>
               <FormControl fullWidth size="small">
                 <InputLabel>统计时间</InputLabel>
                 <Select value={hours} label="统计时间" onChange={(e) => setHours(e.target.value)}>
@@ -195,7 +196,7 @@ export default function BadgesPage() {
                 if (row.section) {
                   return (
                     <TableRow key={`s-${idx}`}>
-                      <TableCell colSpan={5} sx={{ p: 0, pt: idx > 0 ? 1.5 : 0, border: 0 }}>
+                      <TableCell colSpan={5} sx={{ p: 0, pt: 1.5, border: 0 }}>
                         <SectionHeader icon={row.icon}>{row.section}</SectionHeader>
                       </TableCell>
                     </TableRow>

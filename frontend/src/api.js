@@ -50,7 +50,7 @@ export const api = {
   },
   badge: {
     nodes() {
-      return request("/api/node");
+      return request("/api/server/nodes");
     }
   }
 };

@@ -177,7 +177,7 @@ export default function NodeDetailPage() {
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: true, position: "top", labels: legendLabels } },
-        scales: { x: { grid: { display: false } }, y: { min: 0, max: 1, grid: { color: grid }, ticks: { callback: (v) => (v === 1 ? "在线" : "离线") } } },
+        scales: { x: { grid: { display: false } }, y: { min: 0, max: 1, grid: { color: grid }, ticks: { stepSize: 1, callback: (v) => (v === 1 ? "在线" : v === 0 ? "离线" : "") } } },
       },
     });
   };
