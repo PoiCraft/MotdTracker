@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   AppBar,
   Avatar,
@@ -16,6 +16,7 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
@@ -56,6 +57,12 @@ function getPageTitle(pathname) {
   if (pathname.startsWith("/players/") || pathname.startsWith("/player/")) return "玩家详情";
   if (pathname === "/badges") return "徽章";
   return "页面";
+}
+
+function getBackPath(pathname) {
+  if (pathname.startsWith("/nodes/")) return "/nodes";
+  if (pathname.startsWith("/players/") || pathname.startsWith("/player/")) return "/players";
+  return null;
 }
 
 function NavItem({ item, onClick, open }) {
@@ -411,6 +418,7 @@ export default function Layout({ children }) {
   const theme = useTheme();
   const c = theme.gemini?.colors;
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isMobile = useMediaQuery(theme.breakpoints.down(MOBILE_BREAKPOINT));
   const isTablet = useMediaQuery(
@@ -461,6 +469,7 @@ export default function Layout({ children }) {
   }, [isMobile]);
 
   const currentTitle = useMemo(() => getPageTitle(location.pathname), [location.pathname]);
+  const backPath = useMemo(() => getBackPath(location.pathname), [location.pathname]);
 
   const browserTitle = useMemo(() => {
     if (!serverName) return currentTitle;
@@ -510,9 +519,15 @@ export default function Layout({ children }) {
           }}
         >
           <Toolbar sx={{ gap: 1 }}>
-            <IconButton onClick={() => setMobileOpen(true)} edge="start">
-              <MenuRoundedIcon />
-            </IconButton>
+            {backPath ? (
+              <IconButton onClick={() => navigate(backPath)} edge="start">
+                <ArrowBackRoundedIcon />
+              </IconButton>
+            ) : (
+              <IconButton onClick={() => setMobileOpen(true)} edge="start">
+                <MenuRoundedIcon />
+              </IconButton>
+            )}
             <Typography variant="h6" sx={{ flex: 1, fontWeight: 600 }}>
               {currentTitle}
             </Typography>
