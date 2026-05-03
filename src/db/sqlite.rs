@@ -8,6 +8,7 @@ use std::path::Path;
 
 use super::{Database, DbError};
 use crate::models::*;
+use crate::utils::time::{now_gmt8, format_gmt8_naive};
 
 /// SQLite 数据库
 pub struct SqliteDatabase {
@@ -264,7 +265,7 @@ impl Database for SqliteDatabase {
             "#,
         )
         .bind(entry.server_id)
-        .bind(entry.timestamp.to_rfc3339())
+        .bind(format_gmt8_naive(entry.timestamp))
         .bind(entry.online)
         .bind(entry.latency)
         .bind(entry.players_online)
@@ -348,8 +349,8 @@ impl Database for SqliteDatabase {
             "#,
         )
         .bind(server_id)
-        .bind(start.to_rfc3339())
-        .bind(end.to_rfc3339())
+        .bind(format_gmt8_naive(start))
+        .bind(format_gmt8_naive(end))
         .fetch_all(&self.pool)
         .await
         .map_err(|e| DbError::QueryError(e.to_string()))
@@ -376,7 +377,7 @@ impl Database for SqliteDatabase {
         &self,
         hours: u32,
     ) -> Result<HashMap<i32, Vec<StatusLog>>, DbError> {
-        let start_time = Utc::now() - chrono::Duration::hours(hours as i64);
+        let start_time = now_gmt8() - chrono::Duration::hours(hours as i64);
         
         let logs: Vec<StatusLog> = sqlx::query_as::<_, StatusLog>(
             r#"
@@ -388,7 +389,7 @@ impl Database for SqliteDatabase {
             ORDER BY timestamp ASC
             "#,
         )
-        .bind(start_time.to_rfc3339())
+        .bind(format_gmt8_naive(start_time))
         .fetch_all(&self.pool)
         .await
         .map_err(|e| DbError::QueryError(e.to_string()))?;
@@ -402,10 +403,10 @@ impl Database for SqliteDatabase {
     }
     
     async fn cleanup_old_records(&self, days: u32) -> Result<u64, DbError> {
-        let cutoff = Utc::now() - chrono::Duration::days(days as i64);
+        let cutoff = now_gmt8() - chrono::Duration::days(days as i64);
         
         let result = sqlx::query("DELETE FROM status_logs WHERE timestamp < ?")
-            .bind(cutoff.to_rfc3339())
+            .bind(format_gmt8_naive(cutoff))
             .execute(&self.pool)
             .await
             .map_err(|e| DbError::DeleteError(e.to_string()))?;
@@ -438,11 +439,11 @@ impl Database for SqliteDatabase {
             )
             .bind(server_id)
             .bind(player_name)
-            .bind(timestamp.to_rfc3339())
-            .bind(timestamp.to_rfc3339())
-            .bind(timestamp.to_rfc3339())
-            .bind(timestamp.to_rfc3339())
-            .bind(timestamp.to_rfc3339())
+            .bind(format_gmt8_naive(timestamp))
+            .bind(format_gmt8_naive(timestamp))
+            .bind(format_gmt8_naive(timestamp))
+            .bind(format_gmt8_naive(timestamp))
+            .bind(format_gmt8_naive(timestamp))
             .execute(&self.pool)
             .await
             .map_err(|e| DbError::InsertError(e.to_string()))?;
@@ -502,7 +503,7 @@ impl Database for SqliteDatabase {
         days: Option<u32>,
     ) -> Result<Vec<PlayerSessionHistory>, DbError> {
         let query = if let Some(days) = days {
-            let start_time = Utc::now() - chrono::Duration::days(days as i64);
+            let start_time = now_gmt8() - chrono::Duration::days(days as i64);
             sqlx::query_as::<_, PlayerSessionHistory>(
                 r#"
                 SELECT id, server_id, player_name, session_start, session_end
@@ -512,7 +513,7 @@ impl Database for SqliteDatabase {
                 "#,
             )
             .bind(player_name)
-            .bind(start_time.to_rfc3339())
+            .bind(format_gmt8_naive(start_time))
             .fetch_all(&self.pool)
             .await
         } else {
@@ -599,11 +600,11 @@ impl Database for SqliteDatabase {
             player_name: player_name.to_string(),
             online: is_online,
             session_start: latest_session.and_then(|s| s.session_start),
-            last_seen: latest_session.map(|s| s.last_seen).unwrap_or_else(Utc::now),
+            last_seen: latest_session.map(|s| s.last_seen).unwrap_or_else(now_gmt8),
             duration_seconds: latest_session
                 .filter(|s| s.online)
                 .and_then(|s| s.session_start)
-                .map(|start| (Utc::now() - start).num_seconds()),
+                .map(|start| (now_gmt8() - start).num_seconds()),
             servers: server_entries,
             sessions: history,
         }))
@@ -614,7 +615,7 @@ impl Database for SqliteDatabase {
         player_name: &str,
         days: u32,
     ) -> Result<Vec<PlayerHeatmap>, DbError> {
-        let start_time = Utc::now() - chrono::Duration::days(days as i64);
+        let start_time = now_gmt8() - chrono::Duration::days(days as i64);
         
         let history: Vec<PlayerSessionHistory> = sqlx::query_as::<_, PlayerSessionHistory>(
             r#"
@@ -625,7 +626,7 @@ impl Database for SqliteDatabase {
             "#,
         )
         .bind(player_name)
-        .bind(start_time.to_rfc3339())
+        .bind(format_gmt8_naive(start_time))
         .fetch_all(&self.pool)
         .await
         .map_err(|e| DbError::QueryError(e.to_string()))?;
@@ -700,7 +701,7 @@ impl Database for SqliteDatabase {
                     .bind(server_id)
                     .bind(&player_name)
                     .bind(&start)
-                    .bind(timestamp.to_rfc3339())
+                    .bind(format_gmt8_naive(timestamp))
                     .execute(&self.pool)
                     .await;
                 }
@@ -771,8 +772,8 @@ impl Database for SqliteDatabase {
                         "SELECT COUNT(*) FROM player_session_history WHERE player_name = ? AND session_start BETWEEN datetime(?, '-120 seconds') AND datetime(?, '+120 seconds')"
                     )
                     .bind(&session.player_name)
-                    .bind(start.to_rfc3339())
-                    .bind(start.to_rfc3339())
+                    .bind(format_gmt8_naive(start))
+                    .bind(format_gmt8_naive(start))
                     .fetch_one(&self.pool)
                     .await
                     .map_err(|e| DbError::QueryError(e.to_string()))?;
@@ -783,8 +784,8 @@ impl Database for SqliteDatabase {
                         )
                         .bind(session.server_id)
                         .bind(&session.player_name)
-                        .bind(start.to_rfc3339())
-                        .bind(timestamp.to_rfc3339())
+                        .bind(format_gmt8_naive(start))
+                    .bind(format_gmt8_naive(timestamp))
                         .execute(&self.pool)
                         .await
                         .map_err(|e| DbError::InsertError(e.to_string()))?;

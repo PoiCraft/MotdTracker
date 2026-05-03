@@ -15,14 +15,15 @@ mod tests {
         end_of_day,
         hours_ago,
         days_ago,
+        now_gmt8,
     };
-    use chrono::{Utc, Timelike};
+    use chrono::Timelike;
 
     fn create_test_log(online: bool, latency: Option<f64>) -> StatusLog {
         StatusLog {
             id: 0,
             server_id: 1,
-            timestamp: Utc::now(),
+            timestamp: now_gmt8(),
             online,
             latency,
             players_online: None,
@@ -140,7 +141,7 @@ mod tests {
 
     #[test]
     fn test_is_within_range() {
-        let now = Utc::now();
+        let now = now_gmt8();
         let earlier = now - chrono::Duration::hours(2);
         let later = now + chrono::Duration::hours(2);
         
@@ -157,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_hours_ago() {
-        let now = Utc::now();
+        let now = now_gmt8();
         let two_hours_ago = hours_ago(2);
         let diff_duration = now - two_hours_ago;
         
@@ -167,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_days_ago() {
-        let now = Utc::now();
+        let now = now_gmt8();
         let seven_days_ago = days_ago(7);
         let diff_duration = now - seven_days_ago;
         
@@ -177,7 +178,7 @@ mod tests {
 
     #[test]
     fn test_start_of_day() {
-        let time = Utc::now();
+        let time = now_gmt8();
         let start = start_of_day(time);
         
         // 应该是今天的 00:00:00
@@ -189,7 +190,7 @@ mod tests {
 
     #[test]
     fn test_end_of_day() {
-        let time = Utc::now();
+        let time = now_gmt8();
         let end = end_of_day(time);
         
         // 应该是今天的 23:59:59

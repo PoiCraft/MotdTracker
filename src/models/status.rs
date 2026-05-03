@@ -16,6 +16,7 @@ pub struct StatusLog {
     pub server_id: i32,
     
     /// 时间戳
+    #[serde(with = "crate::utils::time::serde_gmt8")]
     pub timestamp: DateTime<Utc>,
     
     /// 是否在线
@@ -59,6 +60,7 @@ pub struct StatusLogEntry {
     pub server_id: i32,
     
     /// 时间戳
+    #[serde(with = "crate::utils::time::serde_gmt8")]
     pub timestamp: DateTime<Utc>,
     
     /// 是否在线
@@ -140,6 +142,7 @@ pub struct ServerStatus {
 #[derive(Debug, Clone, Serialize)]
 pub struct HistoryRecord {
     /// 时间戳
+    #[serde(with = "crate::utils::time::serde_gmt8")]
     pub timestamp: DateTime<Utc>,
     
     /// 在线节点 ID 列表
@@ -159,6 +162,7 @@ pub struct HistoryRecord {
 #[derive(Debug, Clone, Serialize)]
 pub struct StatusTimelineItem {
     /// 时间戳
+    #[serde(with = "crate::utils::time::serde_gmt8")]
     pub timestamp: DateTime<Utc>,
     
     /// 在线状态映射（节点 ID -> 是否在线）

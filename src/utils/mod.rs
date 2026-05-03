@@ -1,7 +1,7 @@
 //! 工具模块
 
-mod stats;
-mod time;
+pub mod stats;
+pub mod time;
 
 pub use stats::*;
 pub use time::*;

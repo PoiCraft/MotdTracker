@@ -13,6 +13,7 @@ use crate::models::StatusLogEntry;
 use crate::core::monitor::MinecraftQuerier;
 use crate::ws::WsBroadcaster;
 use crate::alert::AlertManager;
+use crate::utils::time::now_gmt8;
 
 /// 服务器轮询器
 pub struct ServerPoller {
@@ -91,7 +92,7 @@ impl ServerPoller {
     
     /// 轮询所有节点
     pub async fn poll_all_servers(&self) {
-        let timestamp = Utc::now();
+        let timestamp = now_gmt8();
         debug!("开始轮询所有节点，时间: {}", timestamp);
         
         let enabled_nodes: Vec<&NodeConfig> = self.config.enabled_nodes();

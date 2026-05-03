@@ -114,13 +114,13 @@ pub fn get_latency_color(latency: f64) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
+    use crate::utils::time::now_gmt8;
     
     fn create_status_log(online: bool, latency: Option<f64>) -> StatusLog {
         StatusLog {
             id: 0,
             server_id: 1,
-            timestamp: Utc::now(),
+            timestamp: now_gmt8(),
             online,
             latency,
             players_online: None,

@@ -5,7 +5,7 @@
 
 use motdtracker::db::{Database, SqliteDatabase};
 use motdtracker::models::StatusLogEntry;
-use chrono::Utc;
+use motdtracker::utils::now_gmt8;
 use std::fs;
 
 #[tokio::test]
@@ -82,7 +82,7 @@ async fn test_log_and_retrieve_status() {
     ).await.expect("Failed to add server");
 
     // 记录状态
-    let timestamp = Utc::now();
+    let timestamp = now_gmt8();
     let entry = StatusLogEntry {
         server_id,
         timestamp,
@@ -137,7 +137,7 @@ async fn test_get_server_history() {
     ).await.expect("Failed to add server");
 
     // 记录多个状态
-    let mut base_time = Utc::now();
+    let mut base_time = now_gmt8();
     for i in 0..5 {
         let entry = StatusLogEntry {
             server_id,
@@ -190,7 +190,7 @@ async fn test_player_sessions() {
         None,
     ).await.expect("Failed to add server");
 
-    let timestamp = Utc::now();
+    let timestamp = now_gmt8();
     let players = vec!["Player1".to_string(), "Player2".to_string()];
     
     // 更新玩家会话

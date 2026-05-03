@@ -47,6 +47,7 @@ pub struct NodeWithStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeStatus {
     /// 时间戳
+    #[serde(with = "crate::utils::time::serde_gmt8")]
     pub timestamp: DateTime<Utc>,
     
     /// 是否在线

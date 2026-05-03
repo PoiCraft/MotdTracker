@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use super::AppState;
 use crate::models::{NodeWithStats, NodeStatus, LatencyStats};
 use crate::utils::calculate_latency_stats;
+use crate::utils::time::{now_gmt8, format_gmt8_naive};
 
 #[derive(Deserialize)]
 struct HoursQuery {
@@ -82,7 +83,7 @@ fn build_aggregated_history(
 
     for (_id, logs) in history_map {
         for log in logs {
-            let ts = log.timestamp.to_rfc3339();
+            let ts = format_gmt8_naive(log.timestamp);
             by_ts.entry(ts).or_default().push(log);
         }
     }
@@ -133,7 +134,7 @@ fn build_status_timeline(
 
     for (_id, logs) in history_map {
         for log in logs {
-            let ts = log.timestamp.to_rfc3339();
+            let ts = format_gmt8_naive(log.timestamp);
             by_ts.entry(ts).or_default().push(log.online);
         }
     }
@@ -197,7 +198,7 @@ fn build_server_head(_state: &AppState, nodes: &[NodeWithStats]) -> serde_json::
     }).collect();
 
     serde_json::json!({
-        "timestamp": selected_status.timestamp.to_rfc3339(),
+        "timestamp": format_gmt8_naive(selected_status.timestamp),
         "online": online,
         "players_online": selected_status.players_online,
         "players_max": selected_status.players_max,
@@ -219,9 +220,9 @@ async fn get_online_players_aggregated(state: &AppState) -> Vec<serde_json::Valu
                 continue;
             }
             let name = s.player_name.clone();
-            let start_iso = s.session_start.map(|dt| dt.to_rfc3339());
-            let last_iso = s.last_seen.to_rfc3339();
-            let first_iso = s.first_seen.to_rfc3339();
+            let start_iso = s.session_start.map(|dt| format_gmt8_naive(dt));
+            let last_iso = format_gmt8_naive(s.last_seen);
+            let first_iso = format_gmt8_naive(s.first_seen);
 
             if !aggregated.contains_key(&name) {
                 aggregated.insert(name.clone(), serde_json::json!({
@@ -365,8 +366,8 @@ async fn get_web_node(
     let latest_status = state.db.get_server_latest_status(id).await.ok().flatten();
     let history_raw = state.db.get_server_history_range(
         id,
-        chrono::Utc::now() - chrono::Duration::hours(hours as i64),
-        chrono::Utc::now(),
+        now_gmt8() - chrono::Duration::hours(hours as i64),
+        now_gmt8(),
     ).await.unwrap_or_default();
 
     let mut sorted_history = history_raw;
@@ -379,7 +380,7 @@ async fn get_web_node(
     };
 
     let compact = serde_json::json!({
-        "timestamps": sorted_history.iter().map(|h| h.timestamp.to_rfc3339()).collect::<Vec<_>>(),
+        "timestamps": sorted_history.iter().map(|h| format_gmt8_naive(h.timestamp)).collect::<Vec<_>>(),
         "online": sorted_history.iter().map(|h| h.online).collect::<Vec<_>>(),
         "latency": sorted_history.iter().map(|h| h.latency).collect::<Vec<_>>(),
         "players_online": sorted_history.iter().map(|h| h.players_online).collect::<Vec<_>>(),
@@ -387,7 +388,7 @@ async fn get_web_node(
     });
 
     let status_timeline = serde_json::json!({
-        "timestamps": sorted_history.iter().map(|h| h.timestamp.to_rfc3339()).collect::<Vec<_>>(),
+        "timestamps": sorted_history.iter().map(|h| format_gmt8_naive(h.timestamp)).collect::<Vec<_>>(),
         "online": sorted_history.iter().map(|h| h.online).collect::<Vec<_>>(),
     });
 
@@ -425,8 +426,8 @@ async fn get_web_node_head(
 
     let history_raw = state.db.get_server_history_range(
         id,
-        chrono::Utc::now() - chrono::Duration::hours(hours as i64),
-        chrono::Utc::now(),
+        now_gmt8() - chrono::Duration::hours(hours as i64),
+        now_gmt8(),
     ).await.unwrap_or_default();
 
     let mut sorted_history = history_raw;
@@ -440,7 +441,7 @@ async fn get_web_node_head(
 
     let latest_history_point = sorted_history.last().map(|h| {
         serde_json::json!({
-            "timestamp": h.timestamp.to_rfc3339(),
+            "timestamp": format_gmt8_naive(h.timestamp),
             "online": h.online,
             "latency": h.latency,
             "players_online": h.players_online,
@@ -449,7 +450,7 @@ async fn get_web_node_head(
     });
 
     let status_timeline = serde_json::json!({
-        "timestamps": sorted_history.iter().map(|h| h.timestamp.to_rfc3339()).collect::<Vec<_>>(),
+        "timestamps": sorted_history.iter().map(|h| format_gmt8_naive(h.timestamp)).collect::<Vec<_>>(),
         "online": sorted_history.iter().map(|h| h.online).collect::<Vec<_>>(),
     });
 

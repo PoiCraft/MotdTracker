@@ -10,6 +10,7 @@ use std::collections::{HashMap, HashSet};
 
 use super::AppState;
 use crate::models::{PlayerListItem, PlayerDetail};
+use crate::utils::time::{now_gmt8, format_gmt8_naive};
 
 #[derive(Deserialize)]
 struct DaysQuery {
@@ -56,8 +57,8 @@ async fn get_players(
             (true, false) => std::cmp::Ordering::Less,
             (false, true) => std::cmp::Ordering::Greater,
             _ => {
-                let a_time = a.last_seen.unwrap_or_else(Utc::now);
-                let b_time = b.last_seen.unwrap_or_else(Utc::now);
+                let a_time = a.last_seen.unwrap_or_else(now_gmt8);
+                let b_time = b.last_seen.unwrap_or_else(now_gmt8);
                 b_time.cmp(&a_time)
             }
         }
@@ -83,7 +84,7 @@ async fn get_player_sessions(
     axum::extract::Query(query): axum::extract::Query<DaysQuery>,
 ) -> Json<serde_json::Value> {
     let days = query.days.clamp(1, 365);
-    let now = Utc::now();
+    let now = now_gmt8();
 
     let history = state.db.get_player_history(&name, Some(days)).await.unwrap_or_default();
 
@@ -140,8 +141,8 @@ async fn get_player_sessions(
 
             entry.total_seconds += seg_dur;
             entry.sessions.push(SessionInfo {
-                start: current.to_rfc3339(),
-                end: std::cmp::min(*end, chrono::DateTime::<Utc>::from_naive_utc_and_offset(seg_end, Utc)).to_rfc3339(),
+                start: format_gmt8_naive(current),
+                end: format_gmt8_naive(std::cmp::min(*end, chrono::DateTime::<Utc>::from_naive_utc_and_offset(seg_end, Utc))),
                 server_name: server_group.clone(),
             });
 
@@ -222,7 +223,7 @@ async fn get_player_weekly_stats(
     Path(name): Path<String>,
 ) -> Json<serde_json::Value> {
     let history = state.db.get_player_history(&name, None).await.unwrap_or_default();
-    let now = Utc::now();
+    let now = now_gmt8();
 
     let servers = state.db.get_all_servers().await.unwrap_or_default();
 

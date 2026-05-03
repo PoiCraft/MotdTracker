@@ -10,6 +10,7 @@ use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 use crate::config::NapCatAlertConfig;
+use crate::utils::time::{now_gmt8, format_gmt8_naive};
 
 /// 告警状态
 #[derive(Debug, Clone)]
@@ -74,7 +75,7 @@ impl AlertManager {
                     warn!("检测到所有节点离线，发送告警");
                     self.send_offline_alert(online_count, total_count).await;
                     *state = AlertState::Offline;
-                    *self.last_alert_time.write().await = Some(Utc::now());
+                    *self.last_alert_time.write().await = Some(now_gmt8());
                 }
             }
             AlertState::Offline => {
@@ -83,11 +84,11 @@ impl AlertManager {
                     info!("节点已恢复，发送通知");
                     self.send_recovery_alert(online_count, total_count).await;
                     *state = AlertState::Online;
-                    *self.last_alert_time.write().await = Some(Utc::now());
+                    *self.last_alert_time.write().await = Some(now_gmt8());
                 } else if !any_online {
                     // 检查是否需要重复告警
                     let should_repeat = if let Some(last_time) = *self.last_alert_time.read().await {
-                        let elapsed = (Utc::now() - last_time).num_minutes() as u64;
+                        let elapsed = (now_gmt8() - last_time).num_minutes() as u64;
                         elapsed >= self.config.delta_minutes
                     } else {
                         true
@@ -96,7 +97,7 @@ impl AlertManager {
                     if should_repeat {
                         warn!("所有节点仍然离线，重复发送告警");
                         self.send_offline_alert(online_count, total_count).await;
-                        *self.last_alert_time.write().await = Some(Utc::now());
+                        *self.last_alert_time.write().await = Some(now_gmt8());
                     }
                 }
             }
@@ -109,7 +110,7 @@ impl AlertManager {
             "🚨 节点状态告警\n所有连接入口离线！\n在线: {}/{}\n时间: {}",
             online_count,
             total_count,
-            Utc::now().format("%Y-%m-%d %H:%M:%S")
+            format_gmt8_naive(now_gmt8())
         );
         
         self.send_message(&message).await;
@@ -121,7 +122,7 @@ impl AlertManager {
             "✅ 节点已恢复\n在线入口: {}/{}\n时间: {}",
             online_count,
             total_count,
-            Utc::now().format("%Y-%m-%d %H:%M:%S")
+            format_gmt8_naive(now_gmt8())
         );
         
         self.send_message(&message).await;

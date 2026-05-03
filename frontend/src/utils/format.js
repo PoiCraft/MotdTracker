@@ -16,21 +16,22 @@ export function formatTime(value) {
   if (!value) {
     return "未知";
   }
-  return new Date(value).toLocaleString("zh-CN", { hour12: false });
+  return new Date(value.replace(" ", "T")).toLocaleString("zh-CN", { hour12: false, timeZone: "Asia/Shanghai" });
 }
 
 export function toTimeLabel(value, chartHours) {
   if (!value) {
     return "-";
   }
-  const date = new Date(value);
+  const date = new Date(value.replace(" ", "T"));
   if (chartHours > 24) {
     return date.toLocaleString("zh-CN", {
       month: "short",
       day: "numeric",
       hour: "2-digit",
-      minute: "2-digit"
+      minute: "2-digit",
+      timeZone: "Asia/Shanghai"
     });
   }
-  return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" });
 }

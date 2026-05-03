@@ -17,12 +17,15 @@ pub struct PlayerSession {
     pub player_name: String,
     
     /// 首次出现时间
+    #[serde(with = "crate::utils::time::serde_gmt8")]
     pub first_seen: DateTime<Utc>,
     
     /// 当前会话开始时间
+    #[serde(with = "crate::utils::time::serde_gmt8_opt")]
     pub session_start: Option<DateTime<Utc>>,
     
     /// 最后在线时间
+    #[serde(with = "crate::utils::time::serde_gmt8")]
     pub last_seen: DateTime<Utc>,
     
     /// 是否在线
@@ -46,9 +49,11 @@ pub struct PlayerSessionHistory {
     pub player_name: String,
     
     /// 会话开始时间
+    #[serde(with = "crate::utils::time::serde_gmt8")]
     pub session_start: DateTime<Utc>,
     
     /// 会话结束时间
+    #[serde(with = "crate::utils::time::serde_gmt8")]
     pub session_end: DateTime<Utc>,
 }
 
@@ -62,9 +67,11 @@ pub struct PlayerDetail {
     pub online: bool,
     
     /// 会话开始时间
+    #[serde(with = "crate::utils::time::serde_gmt8_opt")]
     pub session_start: Option<DateTime<Utc>>,
     
     /// 最后在线时间
+    #[serde(with = "crate::utils::time::serde_gmt8")]
     pub last_seen: DateTime<Utc>,
     
     /// 会话时长（秒）
@@ -90,9 +97,11 @@ pub struct PlayerServerEntry {
     pub online: bool,
     
     /// 首次出现时间
+    #[serde(with = "crate::utils::time::serde_gmt8")]
     pub first_seen: DateTime<Utc>,
     
     /// 最后在线时间
+    #[serde(with = "crate::utils::time::serde_gmt8")]
     pub last_seen: DateTime<Utc>,
 }
 
@@ -119,9 +128,11 @@ pub struct PlayerListItem {
     pub online: bool,
     
     /// 会话开始时间
+    #[serde(with = "crate::utils::time::serde_gmt8_opt")]
     pub session_start: Option<DateTime<Utc>>,
     
     /// 最后在线时间
+    #[serde(with = "crate::utils::time::serde_gmt8_opt")]
     pub last_seen: Option<DateTime<Utc>>,
     
     /// 会话时长（秒）

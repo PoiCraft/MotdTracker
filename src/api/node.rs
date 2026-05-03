@@ -11,6 +11,7 @@ use serde::Deserialize;
 use super::AppState;
 use crate::models::{NodeWithStats, NodeStatus, LatencyStats, PlayerSession};
 use crate::utils::calculate_latency_stats;
+use crate::utils::time::now_gmt8;
 
 #[derive(Deserialize)]
 struct HoursQuery {
@@ -80,8 +81,8 @@ async fn get_node_history(
     let hours = query.hours.clamp(1, 720);
     
     // 计算时间范围
-    let start = chrono::Utc::now() - chrono::Duration::hours(hours as i64);
-    let end = chrono::Utc::now();
+    let start = now_gmt8() - chrono::Duration::hours(hours as i64);
+    let end = now_gmt8();
     
     match state.db.get_server_history_range(id, start, end).await {
         Ok(history) => {

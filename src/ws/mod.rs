@@ -10,6 +10,8 @@ use std::sync::Arc;
 use tokio::sync::{broadcast, watch, RwLock};
 use tracing::{debug, error, info};
 
+use crate::utils::time::format_gmt8_naive;
+
 /// WebSocket 广播器
 pub struct WsBroadcaster {
     /// 广播发送器
@@ -42,7 +44,7 @@ impl WsBroadcaster {
         let message = WsMessage {
             event: "poll_complete".to_string(),
             data: serde_json::json!({
-                "timestamp": timestamp.to_rfc3339()
+                "timestamp": format_gmt8_naive(timestamp)
             }),
         };
         

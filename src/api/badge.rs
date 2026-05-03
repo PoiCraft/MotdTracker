@@ -7,7 +7,7 @@ use axum::{
 use serde::Deserialize;
 
 use super::AppState;
-use crate::utils::{get_uptime_color, get_latency_color};
+use crate::utils::{get_uptime_color, get_latency_color, now_gmt8};
 
 #[derive(Deserialize)]
 struct HoursQuery {
@@ -406,8 +406,8 @@ async fn badge_node_uptime(
     axum::extract::Query(query): axum::extract::Query<HoursQuery>,
 ) -> Response {
     let hours = query.hours.clamp(1, 720);
-    let start = chrono::Utc::now() - chrono::Duration::hours(hours as i64);
-    let end = chrono::Utc::now();
+    let start = now_gmt8() - chrono::Duration::hours(hours as i64);
+    let end = now_gmt8();
 
     let history = state.db.get_server_history_range(id, start, end).await.ok();
 
@@ -456,8 +456,8 @@ async fn badge_node_latency_stats(
     axum::extract::Query(query): axum::extract::Query<StatQuery>,
 ) -> Response {
     let hours = query.hours.clamp(1, 720);
-    let start = chrono::Utc::now() - chrono::Duration::hours(hours as i64);
-    let end = chrono::Utc::now();
+    let start = now_gmt8() - chrono::Duration::hours(hours as i64);
+    let end = now_gmt8();
 
     let history = state.db.get_server_history_range(id, start, end).await.unwrap_or_default();
     let stats = crate::utils::calculate_latency_stats(&history);
@@ -557,7 +557,7 @@ async fn badge_player_period_playtime(
     let days = (hours + 23) / 24;
     let history = state.db.get_player_history(&name, Some(days)).await.unwrap_or_default();
 
-    let cutoff = chrono::Utc::now() - chrono::Duration::hours(hours as i64);
+    let cutoff = now_gmt8() - chrono::Duration::hours(hours as i64);
     let mut total_secs = 0i64;
 
     for h in &history {
@@ -598,7 +598,7 @@ async fn badge_player_live(State(state): State<AppState>, Path(name): Path<Strin
             }
         } else {
             let ago = if d.last_seen.timestamp() > 0 {
-                let diff = chrono::Utc::now() - d.last_seen;
+                let diff = now_gmt8() - d.last_seen;
                 let mins = diff.num_minutes();
                 if mins < 60 { format!("{}m ago", mins) }
                 else if mins < 1440 { format!("{}h ago", mins / 60) }
