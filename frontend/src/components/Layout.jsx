@@ -25,9 +25,9 @@ import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import DnsRoundedIcon from "@mui/icons-material/DnsRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import BadgeRoundedIcon from "@mui/icons-material/BadgeRounded";
-import HubRoundedIcon from "@mui/icons-material/HubRounded";
 import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
 import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
+import { api } from "../api";
 import { useColorMode } from "../color-mode";
 import { useWsEvent } from "../utils/ws";
 import { StatusDot } from "./M3StatusTag";
@@ -50,6 +50,16 @@ const INDICATOR_BORDER_RADIUS = "100px";
 
 const MOBILE_BREAKPOINT = "sm";
 const TABLET_BREAKPOINT = "md";
+
+function getPageTitle(pathname) {
+  if (pathname === "/server" || pathname.startsWith("/server/")) return "总览";
+  if (pathname === "/nodes") return "节点";
+  if (pathname.startsWith("/nodes/")) return "节点详情";
+  if (pathname === "/players") return "玩家";
+  if (pathname.startsWith("/players/") || pathname.startsWith("/player/")) return "玩家详情";
+  if (pathname === "/badges") return "徽章";
+  return "页面";
+}
 
 function NavItem({ item, onClick, open }) {
   const theme = useTheme();
@@ -136,7 +146,7 @@ function NavItem({ item, onClick, open }) {
   );
 }
 
-function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
+function SidebarContent({ onNavClick, open, onToggle, isMobile, serverName }) {
   const theme = useTheme();
   const c = theme.gemini?.colors;
   const isDark = theme.gemini?.isDark;
@@ -152,6 +162,7 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
     : theme.palette.error.dark || theme.palette.error.main;
 
   const showText = isMobile ? true : open;
+  const displayServerName = serverName.trim();
 
   return (
     <Stack sx={{ height: "100%", px: 2, overflowX: "hidden", whiteSpace: "nowrap" }}>
@@ -198,20 +209,8 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
           </Box>
         )}
 
-        {isMobile && (
+        {showText && (
           <>
-            <Avatar
-              sx={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                bgcolor: c?.primaryContainer,
-                color: c?.onPrimaryContainer,
-                flexShrink: 0,
-              }}
-            >
-              <HubRoundedIcon sx={{ fontSize: 20 }} />
-            </Avatar>
             <Box sx={{ minWidth: 0 }}>
               <Typography
                 variant="subtitle1"
@@ -221,7 +220,7 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
                   fontSize: "0.9375rem",
                 }}
               >
-                MotdTracker
+                {displayServerName || "服务器监控"}
               </Typography>
               <Typography
                 variant="caption"
@@ -470,6 +469,7 @@ function MobileBottomNav({ currentPath }) {
 export default function Layout({ children }) {
   const [userToggled, setUserToggled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [serverName, setServerName] = useState("");
   const theme = useTheme();
   const c = theme.gemini?.colors;
   const location = useLocation();
@@ -495,6 +495,25 @@ export default function Layout({ children }) {
     }
   }, [isMobile]);
 
+  useEffect(() => {
+    let alive = true;
+
+    api.server
+      .head(1)
+      .then((data) => {
+        if (!alive) return;
+        setServerName(data?.config?.server_name?.trim() || "");
+      })
+      .catch(() => {
+        if (!alive) return;
+        setServerName("");
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const handleToggle = useCallback(() => {
     setUserToggled((prev) => !prev);
   }, []);
@@ -503,10 +522,16 @@ export default function Layout({ children }) {
     if (isMobile) setMobileOpen(false);
   }, [isMobile]);
 
-  const currentTitle = useMemo(() => {
-    const match = navItems.find((i) => location.pathname.startsWith(i.to));
-    return match?.label || "MotdTracker";
-  }, [location.pathname]);
+  const currentTitle = useMemo(() => getPageTitle(location.pathname), [location.pathname]);
+
+  const browserTitle = useMemo(() => {
+    if (!serverName) return currentTitle;
+    return `${currentTitle} - ${serverName}`;
+  }, [currentTitle, serverName]);
+
+  useEffect(() => {
+    document.title = browserTitle;
+  }, [browserTitle]);
 
   const layoutValue = useMemo(
     () => ({ drawerWidth, isMobile, isTablet, isDesktop }),
@@ -578,6 +603,7 @@ export default function Layout({ children }) {
             open={true}
             onToggle={() => setMobileOpen(false)}
             isMobile={true}
+            serverName={serverName}
           />
         </Drawer>
 
@@ -600,6 +626,7 @@ export default function Layout({ children }) {
               open={open}
               onToggle={handleToggle}
               isMobile={false}
+              serverName={serverName}
             />
           </Box>
         </Box>
