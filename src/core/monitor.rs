@@ -271,7 +271,7 @@ impl MinecraftQuerier {
         offset += 8;
 
         // Magic (16 bytes)
-        if &data[offset..offset + 16] != &RAKNET_MAGIC {
+        if data[offset..offset + 16] != RAKNET_MAGIC {
             return Err("无效的 RakNet Magic 字节".into());
         }
         offset += 16;
@@ -334,7 +334,7 @@ impl MinecraftQuerier {
             None
         };
 
-        let software = if parts.len() > 0 {
+        let software = if !parts.is_empty() {
             Some(format!("Bedrock/{}", parts[0]))
         } else {
             Some("Bedrock".to_string())
@@ -467,7 +467,7 @@ impl MinecraftQuerier {
 
         let motd = json
             .get("description")
-            .and_then(|d| Self::extract_motd(d))
+            .and_then(Self::extract_motd)
             .map(|s| s.to_string());
 
         let players_online = json

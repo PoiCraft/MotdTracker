@@ -208,7 +208,7 @@ fn is_cjk_punctuation(ch: char) -> bool {
 fn preferred_width_of(text: &str) -> u32 {
     let raw: f64 = text.chars().map(char_width).sum();
     let truncated = raw as u32;
-    if truncated % 2 == 0 {
+    if truncated.is_multiple_of(2) {
         truncated + 1
     } else {
         truncated
@@ -632,7 +632,7 @@ async fn badge_player_period_playtime(
     axum::extract::Query(query): axum::extract::Query<HoursQuery>,
 ) -> Response {
     let hours = query.hours.clamp(1, 720);
-    let days = (hours + 23) / 24;
+    let days = hours.div_ceil(24);
     let history = state
         .db
         .get_player_history(&name, Some(days))

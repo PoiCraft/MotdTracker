@@ -38,15 +38,9 @@ async fn get_nodes(State(state): State<AppState>) -> Json<Vec<NodeWithStats>> {
         Err(_) => return Json(Vec::new()),
     };
 
-    let history = match state.db.get_all_history(24).await {
-        Ok(h) => h,
-        Err(_) => HashMap::new(),
-    };
+    let history = state.db.get_all_history(24).await.unwrap_or_default();
 
-    let latest_status = match state.db.get_all_latest_status().await {
-        Ok(s) => s,
-        Err(_) => Vec::new(),
-    };
+    let latest_status = state.db.get_all_latest_status().await.unwrap_or_default();
 
     let latest_map: HashMap<i32, StatusLog> = latest_status
         .into_iter()
@@ -105,10 +99,7 @@ async fn get_server_head(State(state): State<AppState>) -> Json<ServerHead> {
         }
     };
 
-    let latest_status = match state.db.get_all_latest_status().await {
-        Ok(s) => s,
-        Err(_) => Vec::new(),
-    };
+    let latest_status = state.db.get_all_latest_status().await.unwrap_or_default();
 
     let total_nodes = servers.len() as u32;
     let online_nodes = latest_status.iter().filter(|s| s.online).count() as u32;

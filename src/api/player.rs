@@ -322,17 +322,16 @@ async fn get_player_weekly_stats(
         }
     }
 
-    for d in 0..7 {
+    for (d, day) in weekday_hours.iter_mut().enumerate() {
         let day_count = weekday_totals[d].days.len() as f64;
-        for h in 0..24 {
-            weekday_hours[d][h].count = day_count;
+        for slot in day.iter_mut() {
+            slot.count = day_count;
         }
     }
 
     let mut weekly_heatmap = Vec::new();
-    for d in 0..7 {
-        for h in 0..24 {
-            let data = &weekday_hours[d][h];
+    for (d, day_row) in weekday_hours.iter().enumerate() {
+        for (h, data) in day_row.iter().enumerate() {
             let avg = if data.count > 0.0 {
                 data.total / data.count
             } else {
@@ -366,8 +365,8 @@ async fn get_player_weekly_stats(
         .collect();
 
     let mut all_days: HashSet<chrono::NaiveDate> = HashSet::new();
-    for d in 0..7 {
-        all_days.extend(&weekday_totals[d].days);
+    for totals in &weekday_totals {
+        all_days.extend(&totals.days);
     }
 
     Json(serde_json::json!({
