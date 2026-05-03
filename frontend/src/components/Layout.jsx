@@ -1,24 +1,22 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   AppBar,
   Avatar,
   Box,
-  BottomNavigation,
-  BottomNavigationAction,
   Drawer,
   IconButton,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
-  Paper,
   Stack,
   Toolbar,
   Typography,
   useMediaQuery,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
@@ -59,6 +57,12 @@ function getPageTitle(pathname) {
   if (pathname.startsWith("/players/") || pathname.startsWith("/player/")) return "玩家详情";
   if (pathname === "/badges") return "徽章";
   return "页面";
+}
+
+function getBackPath(pathname) {
+  if (pathname.startsWith("/nodes/")) return "/nodes";
+  if (pathname.startsWith("/players/") || pathname.startsWith("/player/")) return "/players";
+  return null;
 }
 
 function NavItem({ item, onClick, open }) {
@@ -269,7 +273,7 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile, serverName }) {
                 borderRadius: showText ? 100 : "50%",
                 bgcolor: alpha(statusColor, 0.12),
                 color: statusTextColor,
-                ml: 0.5,
+                ml: 1,
                 pr: showText ? 1.25 : 0,
                 overflow: "hidden",
                 whiteSpace: "nowrap",
@@ -407,65 +411,6 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile, serverName }) {
   );
 }
 
-function MobileBottomNav({ currentPath }) {
-  const theme = useTheme();
-  const c = theme.gemini?.colors;
-
-  const activeIdx = navItems.findIndex((i) => currentPath.startsWith(i.to));
-  const navValue = activeIdx >= 0 ? activeIdx : 0;
-
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: theme.zIndex.drawer + 1,
-        bgcolor: c?.surfaceContainer,
-        borderTop: `1px solid ${c?.outlineVariant}`,
-        backgroundImage: "none",
-        pb: "env(safe-area-inset-bottom, 0px)",
-      }}
-    >
-      <BottomNavigation
-        value={navValue}
-        showLabels
-        sx={{
-          bgcolor: "transparent",
-          height: 64,
-          "& .MuiBottomNavigationAction-root": {
-            color: c?.onSurfaceVariant,
-            minWidth: "auto",
-            px: 1,
-            "&.Mui-selected": {
-              color: c?.onPrimaryContainer,
-            },
-          },
-          "& .MuiBottomNavigationAction-label": {
-            fontSize: "0.6875rem",
-            "&.Mui-selected": {
-              fontSize: "0.75rem",
-              fontWeight: 600,
-            },
-          },
-        }}
-      >
-        {navItems.map((item) => (
-          <BottomNavigationAction
-            key={item.to}
-            component={NavLink}
-            to={item.to}
-            icon={item.icon}
-            label={item.label}
-          />
-        ))}
-      </BottomNavigation>
-    </Paper>
-  );
-}
-
 export default function Layout({ children }) {
   const [userToggled, setUserToggled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -473,6 +418,7 @@ export default function Layout({ children }) {
   const theme = useTheme();
   const c = theme.gemini?.colors;
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isMobile = useMediaQuery(theme.breakpoints.down(MOBILE_BREAKPOINT));
   const isTablet = useMediaQuery(
@@ -523,6 +469,7 @@ export default function Layout({ children }) {
   }, [isMobile]);
 
   const currentTitle = useMemo(() => getPageTitle(location.pathname), [location.pathname]);
+  const backPath = useMemo(() => getBackPath(location.pathname), [location.pathname]);
 
   const browserTitle = useMemo(() => {
     if (!serverName) return currentTitle;
@@ -572,9 +519,15 @@ export default function Layout({ children }) {
           }}
         >
           <Toolbar sx={{ gap: 1 }}>
-            <IconButton onClick={() => setMobileOpen(true)} edge="start">
-              <MenuRoundedIcon />
-            </IconButton>
+            {backPath ? (
+              <IconButton onClick={() => navigate(backPath)} edge="start">
+                <ArrowBackRoundedIcon />
+              </IconButton>
+            ) : (
+              <IconButton onClick={() => setMobileOpen(true)} edge="start">
+                <MenuRoundedIcon />
+              </IconButton>
+            )}
             <Typography variant="h6" sx={{ flex: 1, fontWeight: 600 }}>
               {currentTitle}
             </Typography>
@@ -658,7 +611,7 @@ export default function Layout({ children }) {
               maxWidth: 1440,
               width: "100%",
               mx: "auto",
-              pb: { xs: "calc(64px + env(safe-area-inset-bottom, 0px) + 16px)", sm: 3 },
+              pb: 3,
             }}
           >
             {children}
@@ -674,17 +627,12 @@ export default function Layout({ children }) {
               color: c?.onSurfaceVariant,
               fontSize: "0.6875rem",
               opacity: 0.5,
-              pb: { xs: "calc(64px + env(safe-area-inset-bottom, 0px) + 8px)", sm: 1.5 },
+              pb: 1.5,
             }}
           >
             {__APP_VERSION__}
           </Box>
         </Box>
-
-        {/* ─── Mobile bottom navigation ───────────────────────────────── */}
-        {isMobile && (
-          <MobileBottomNav currentPath={location.pathname} />
-        )}
       </Box>
     </LayoutContext.Provider>
   );
