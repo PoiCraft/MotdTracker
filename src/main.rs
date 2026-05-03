@@ -1,24 +1,21 @@
-use std::sync::Arc;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
-use axum::{
-    routing::get,
-    Router,
-};
+use axum::{routing::get, Router};
 use tokio::sync::watch;
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
-use tracing::{info, error};
+use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use motdtracker::{
     api,
     config::load_config,
-    db::{SqliteDatabase, Database},
-    ws::WsBroadcaster,
     core::poller::ServerPoller,
+    db::{Database, SqliteDatabase},
+    ws::WsBroadcaster,
 };
 
 #[tokio::main]
@@ -41,9 +38,7 @@ async fn main() {
         Err(_) => {
             eprintln!("未找到 config.toml，启动配置向导...");
             match motdtracker::tui::run_wizard() {
-                Ok(Some(cfg)) => {
-                    cfg
-                }
+                Ok(Some(cfg)) => cfg,
                 Ok(None) => {
                     eprintln!("配置已取消");
                     return;
@@ -75,7 +70,17 @@ async fn main() {
 
     for node in &config.nodes {
         let edition_str = node.edition.to_string();
-        if let Err(e) = db.add_server(&node.name, &node.host, node.port, node.color.as_deref(), Some(node.id), Some(&edition_str)).await {
+        if let Err(e) = db
+            .add_server(
+                &node.name,
+                &node.host,
+                node.port,
+                node.color.as_deref(),
+                Some(node.id),
+                Some(&edition_str),
+            )
+            .await
+        {
             error!("Failed to sync server '{}' to database: {}", node.name, e);
         }
     }
@@ -120,7 +125,9 @@ async fn main() {
         .expect("Invalid address");
     info!("Server listening on: {}", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await.expect("Cannot bind port");
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .expect("Cannot bind port");
 
     let shutdown_signal = async move {
         tokio::signal::ctrl_c().await.ok();

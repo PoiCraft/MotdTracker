@@ -1,23 +1,15 @@
 /// 工具模块单元测试
-/// 
+///
 /// 测试统计计算、时间处理等工具函数的正确性
 
 #[cfg(test)]
 mod tests {
+    use chrono::Timelike;
     use motdtracker::models::StatusLog;
     use motdtracker::utils::{
-        calculate_latency_stats,
-        get_uptime_color,
-        get_latency_color,
-        format_duration,
-        is_within_range,
-        start_of_day,
-        end_of_day,
-        hours_ago,
-        days_ago,
-        now_gmt8,
+        calculate_latency_stats, days_ago, end_of_day, format_duration, get_latency_color,
+        get_uptime_color, hours_ago, is_within_range, now_gmt8, start_of_day,
     };
-    use chrono::Timelike;
 
     fn create_test_log(online: bool, latency: Option<f64>) -> StatusLog {
         StatusLog {
@@ -47,9 +39,9 @@ mod tests {
             create_test_log(true, Some(40.0)),
             create_test_log(true, Some(50.0)),
         ];
-        
+
         let stats = calculate_latency_stats(&history);
-        
+
         assert_eq!(stats.total_checks, 5);
         assert_eq!(stats.online_checks, 5);
         assert!((stats.uptime_percentage - 100.0).abs() < 0.01);
@@ -69,9 +61,9 @@ mod tests {
             create_test_log(false, None),
             create_test_log(false, None),
         ];
-        
+
         let stats = calculate_latency_stats(&history);
-        
+
         assert_eq!(stats.total_checks, 7);
         assert_eq!(stats.online_checks, 5);
         assert!((stats.uptime_percentage - 71.43).abs() < 0.1);
@@ -85,9 +77,9 @@ mod tests {
             create_test_log(false, None),
             create_test_log(false, None),
         ];
-        
+
         let stats = calculate_latency_stats(&history);
-        
+
         assert_eq!(stats.total_checks, 3);
         assert_eq!(stats.online_checks, 0);
         assert!((stats.uptime_percentage - 0.0).abs() < 0.01);
@@ -97,9 +89,9 @@ mod tests {
     #[test]
     fn test_calculate_latency_stats_single_entry() {
         let history = vec![create_test_log(true, Some(25.0))];
-        
+
         let stats = calculate_latency_stats(&history);
-        
+
         assert_eq!(stats.total_checks, 1);
         assert_eq!(stats.online_checks, 1);
         assert_eq!(stats.avg_latency, Some(25.0));
@@ -144,14 +136,14 @@ mod tests {
         let now = now_gmt8();
         let earlier = now - chrono::Duration::hours(2);
         let later = now + chrono::Duration::hours(2);
-        
+
         assert!(is_within_range(now, earlier, later));
         assert!(is_within_range(earlier, earlier, later));
         assert!(is_within_range(later, earlier, later));
-        
+
         let outside_before = earlier - chrono::Duration::hours(1);
         assert!(!is_within_range(outside_before, earlier, later));
-        
+
         let outside_after = later + chrono::Duration::hours(1);
         assert!(!is_within_range(outside_after, earlier, later));
     }
@@ -161,9 +153,13 @@ mod tests {
         let now = now_gmt8();
         let two_hours_ago = hours_ago(2);
         let diff_duration = now - two_hours_ago;
-        
+
         let seconds = diff_duration.num_seconds();
-        assert!(seconds >= 7140 && seconds <= 7260, "Expected ~7200s, got {}", seconds);
+        assert!(
+            seconds >= 7140 && seconds <= 7260,
+            "Expected ~7200s, got {}",
+            seconds
+        );
     }
 
     #[test]
@@ -171,16 +167,20 @@ mod tests {
         let now = now_gmt8();
         let seven_days_ago = days_ago(7);
         let diff_duration = now - seven_days_ago;
-        
+
         let seconds = diff_duration.num_seconds();
-        assert!(seconds >= 604740 && seconds <= 604860, "Expected ~604800s, got {}", seconds);
+        assert!(
+            seconds >= 604740 && seconds <= 604860,
+            "Expected ~604800s, got {}",
+            seconds
+        );
     }
 
     #[test]
     fn test_start_of_day() {
         let time = now_gmt8();
         let start = start_of_day(time);
-        
+
         // 应该是今天的 00:00:00
         assert_eq!(start.hour(), 0);
         assert_eq!(start.minute(), 0);
@@ -192,7 +192,7 @@ mod tests {
     fn test_end_of_day() {
         let time = now_gmt8();
         let end = end_of_day(time);
-        
+
         // 应该是今天的 23:59:59
         assert_eq!(end.hour(), 23);
         assert_eq!(end.minute(), 59);
@@ -209,15 +209,15 @@ mod tests {
             create_test_log(true, Some(90.0)),
             create_test_log(true, Some(100.0)),
         ];
-        
+
         let stats = calculate_latency_stats(&history);
-        
+
         // 平均值应该是 100
         assert_eq!(stats.avg_latency, Some(100.0));
-        
+
         // 标准差应该存在
         assert!(stats.std_dev.is_some());
-        
+
         // CV（变异系数）应该存在
         assert!(stats.cv.is_some());
     }
@@ -229,9 +229,9 @@ mod tests {
         for i in 0..100 {
             history.push(create_test_log(true, Some(i as f64)));
         }
-        
+
         let stats = calculate_latency_stats(&history);
-        
+
         // P95 应该约为第 95 个值
         assert!(stats.p95_latency.is_some());
         let p95 = stats.p95_latency.unwrap();
@@ -242,7 +242,7 @@ mod tests {
     fn test_empty_history() {
         let history: Vec<StatusLog> = vec![];
         let stats = calculate_latency_stats(&history);
-        
+
         assert_eq!(stats.total_checks, 0);
         assert_eq!(stats.online_checks, 0);
         assert_eq!(stats.uptime_percentage, 0.0);

@@ -1,15 +1,14 @@
 //! 节点 API
 
 use axum::{
+    extract::{Path, State},
     routing::get,
-    Router,
-    extract::{State, Path},
-    Json,
+    Json, Router,
 };
 use serde::Deserialize;
 
 use super::AppState;
-use crate::models::{NodeWithStats, NodeStatus, LatencyStats, PlayerSession};
+use crate::models::{LatencyStats, NodeStatus, NodeWithStats, PlayerSession};
 use crate::utils::calculate_latency_stats;
 use crate::utils::time::now_gmt8;
 
@@ -19,7 +18,9 @@ struct HoursQuery {
     hours: u32,
 }
 
-fn default_hours() -> u32 { 12 }
+fn default_hours() -> u32 {
+    12
+}
 
 pub fn create_router() -> Router<AppState> {
     Router::new()
@@ -34,11 +35,17 @@ async fn get_node(
     State(state): State<AppState>,
     Path(id): Path<i32>,
 ) -> Result<Json<NodeWithStats>, axum::http::StatusCode> {
-    let server = state.db.get_server(id).await
+    let server = state
+        .db
+        .get_server(id)
+        .await
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(axum::http::StatusCode::NOT_FOUND)?;
-    
-    let latest_status = state.db.get_server_latest_status(id).await
+
+    let latest_status = state
+        .db
+        .get_server_latest_status(id)
+        .await
         .ok()
         .flatten()
         .map(|s| NodeStatus {
@@ -50,20 +57,21 @@ async fn get_node(
             version: s.version,
             motd: s.motd,
         });
-    
-    let history = state.db.get_server_history(id, 1000).await
+
+    let history = state
+        .db
+        .get_server_history(id, 1000)
+        .await
         .unwrap_or_default();
-    
+
     let latency_stats = if history.is_empty() {
         None
     } else {
         Some(calculate_latency_stats(&history))
     };
-    
-    let enabled = state.config.get_node(id)
-        .map(|n| n.enable)
-        .unwrap_or(true);
-    
+
+    let enabled = state.config.get_node(id).map(|n| n.enable).unwrap_or(true);
+
     Ok(Json(NodeWithStats {
         server,
         enabled,
@@ -79,29 +87,24 @@ async fn get_node_history(
     axum::extract::Query(query): axum::extract::Query<HoursQuery>,
 ) -> Json<serde_json::Value> {
     let hours = query.hours.clamp(1, 720);
-    
+
     // 计算时间范围
     let start = now_gmt8() - chrono::Duration::hours(hours as i64);
     let end = now_gmt8();
-    
+
     match state.db.get_server_history_range(id, start, end).await {
-        Ok(history) => {
-            Json(serde_json::to_value(history).unwrap_or(serde_json::json!([])))
-        }
+        Ok(history) => Json(serde_json::to_value(history).unwrap_or(serde_json::json!([]))),
         Err(_) => Json(serde_json::json!([])),
     }
 }
 
 /// 获取节点统计
-async fn get_node_stats(
-    State(state): State<AppState>,
-    Path(id): Path<i32>,
-) -> Json<LatencyStats> {
+async fn get_node_stats(State(state): State<AppState>, Path(id): Path<i32>) -> Json<LatencyStats> {
     let history = match state.db.get_server_history(id, 1000).await {
         Ok(h) => h,
         Err(_) => return Json(LatencyStats::default()),
     };
-    
+
     Json(calculate_latency_stats(&history))
 }
 

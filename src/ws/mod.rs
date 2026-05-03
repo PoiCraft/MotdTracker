@@ -2,7 +2,6 @@
 
 mod handler;
 
-
 use axum::extract::ws::{Message, WebSocket};
 use chrono::{DateTime, Utc};
 use futures::{SinkExt, StreamExt};
@@ -38,7 +37,7 @@ impl WsBroadcaster {
             client_count: Arc::new(RwLock::new(0)),
         }
     }
-    
+
     /// 广播轮询完成事件
     pub async fn broadcast_poll_complete(&self, timestamp: DateTime<Utc>) {
         let message = WsMessage {
@@ -47,43 +46,43 @@ impl WsBroadcaster {
                 "timestamp": format_gmt8_naive(timestamp)
             }),
         };
-        
+
         if self.sender.send(message).is_err() {
             debug!("没有活跃的 WebSocket 客户端");
         }
     }
-    
+
     /// 广播自定义事件
     pub async fn broadcast(&self, event: &str, data: serde_json::Value) {
         let message = WsMessage {
             event: event.to_string(),
             data,
         };
-        
+
         if self.sender.send(message).is_err() {
             debug!("没有活跃的 WebSocket 客户端");
         }
     }
-    
+
     /// 订阅消息
     pub fn subscribe(&self) -> broadcast::Receiver<WsMessage> {
         self.sender.subscribe()
     }
-    
+
     /// 增加客户端计数
     pub async fn add_client(&self) {
         let mut count = self.client_count.write().await;
         *count += 1;
         debug!("WebSocket 客户端连接，当前数量: {}", *count);
     }
-    
+
     /// 减少客户端计数
     pub async fn remove_client(&self) {
         let mut count = self.client_count.write().await;
         *count = count.saturating_sub(1);
         debug!("WebSocket 客户端断开，当前数量: {}", *count);
     }
-    
+
     /// 获取客户端数量
     pub async fn client_count(&self) -> usize {
         *self.client_count.read().await

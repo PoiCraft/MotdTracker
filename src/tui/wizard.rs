@@ -1,4 +1,3 @@
-use std::io;
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     execute,
@@ -12,6 +11,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
     Frame, Terminal,
 };
+use std::io;
 
 use crate::config::{AppConfig, DatabaseConfig, NodeConfig, ServerEdition};
 
@@ -339,7 +339,8 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                                 state.cursor_pos = state.input.len();
                             }
                             KeyCode::Char('n') => {
-                                let next_id = state.nodes.iter().map(|n| n.id).max().unwrap_or(0) + 1;
+                                let next_id =
+                                    state.nodes.iter().map(|n| n.id).max().unwrap_or(0) + 1;
                                 state.node_edit = Some(NodeEditState {
                                     name: String::new(),
                                     host: String::new(),
@@ -569,17 +570,53 @@ fn ui(f: &mut Frame, state: &mut WizardState) {
         .split(size);
 
     let title = Paragraph::new("  MotdTracker 配置向导")
-        .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)));
+        .style(
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray)),
+        );
 
     f.render_widget(title, chunks[0]);
 
     match state.step {
         Step::Welcome => draw_welcome(f, chunks[1]),
-        Step::ServerName => draw_text_input(f, chunks[1], "服务器名称", &state.input, state.cursor_pos, "输入 MotdTracker 实例的显示名称"),
-        Step::Port => draw_text_input(f, chunks[1], "Web 端口", &state.input, state.cursor_pos, "输入 Web 服务监听端口 (0-65535)"),
-        Step::PollInterval => draw_text_input(f, chunks[1], "轮询间隔 (秒)", &state.input, state.cursor_pos, "输入服务器状态轮询间隔"),
-        Step::DatabasePath => draw_text_input(f, chunks[1], "数据库路径", &state.input, state.cursor_pos, "输入 SQLite 数据库文件路径"),
+        Step::ServerName => draw_text_input(
+            f,
+            chunks[1],
+            "服务器名称",
+            &state.input,
+            state.cursor_pos,
+            "输入 MotdTracker 实例的显示名称",
+        ),
+        Step::Port => draw_text_input(
+            f,
+            chunks[1],
+            "Web 端口",
+            &state.input,
+            state.cursor_pos,
+            "输入 Web 服务监听端口 (0-65535)",
+        ),
+        Step::PollInterval => draw_text_input(
+            f,
+            chunks[1],
+            "轮询间隔 (秒)",
+            &state.input,
+            state.cursor_pos,
+            "输入服务器状态轮询间隔",
+        ),
+        Step::DatabasePath => draw_text_input(
+            f,
+            chunks[1],
+            "数据库路径",
+            &state.input,
+            state.cursor_pos,
+            "输入 SQLite 数据库文件路径",
+        ),
         Step::Nodes => draw_nodes(f, chunks[1], state),
         Step::Review => draw_review(f, chunks[1], state),
     }
@@ -599,7 +636,11 @@ fn ui(f: &mut Frame, state: &mut WizardState) {
     };
     let footer = Paragraph::new(footer_text)
         .style(Style::default().fg(Color::DarkGray))
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray)),
+        );
     f.render_widget(footer, chunks[2]);
 
     if let Some((msg, is_err)) = &state.message {
@@ -608,7 +649,11 @@ fn ui(f: &mut Frame, state: &mut WizardState) {
         let msg_para = Paragraph::new(msg.as_str())
             .style(Style::default().fg(color))
             .alignment(ratatui::layout::Alignment::Center)
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(color)));
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(color)),
+            );
         f.render_widget(Clear, msg_area);
         f.render_widget(msg_para, msg_area);
     }
@@ -619,7 +664,9 @@ fn draw_welcome(f: &mut Frame, area: Rect) {
         Line::from(""),
         Line::from(Span::styled(
             "欢迎使用 MotdTracker!",
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
         Line::from("此向导将引导你完成首次配置。"),
@@ -633,7 +680,11 @@ fn draw_welcome(f: &mut Frame, area: Rect) {
     let para = Paragraph::new(text)
         .alignment(ratatui::layout::Alignment::Center)
         .wrap(Wrap { trim: true })
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray)),
+        );
     f.render_widget(para, area);
 }
 
@@ -649,8 +700,7 @@ fn draw_text_input(f: &mut Frame, area: Rect, label: &str, value: &str, cursor: 
         .margin(1)
         .split(area);
 
-    let hint_para = Paragraph::new(hint)
-        .style(Style::default().fg(Color::DarkGray));
+    let hint_para = Paragraph::new(hint).style(Style::default().fg(Color::DarkGray));
     f.render_widget(hint_para, chunks[2]);
 
     let input_block = Block::default()
@@ -700,7 +750,11 @@ fn draw_nodes(f: &mut Frame, area: Rect, state: &mut WizardState) {
         let empty = Paragraph::new("暂无节点，按 'n' 添加第一个节点")
             .style(Style::default().fg(Color::DarkGray))
             .alignment(ratatui::layout::Alignment::Center)
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)));
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::DarkGray)),
+            );
         f.render_widget(empty, chunks[1]);
     } else {
         let items: Vec<ListItem> = state
@@ -733,7 +787,11 @@ fn draw_nodes(f: &mut Frame, area: Rect, state: &mut WizardState) {
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::Cyan)),
             )
-            .highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD))
+            .highlight_style(
+                Style::default()
+                    .bg(Color::DarkGray)
+                    .add_modifier(Modifier::BOLD),
+            )
             .highlight_symbol("▶ ");
 
         f.render_stateful_widget(list, chunks[1], &mut state.node_list_state);
@@ -767,20 +825,31 @@ fn draw_node_edit(f: &mut Frame, area: Rect, state: &mut WizardState) {
         .margin(1)
         .split(area);
 
-    let title = Paragraph::new("编辑节点配置")
-        .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+    let title = Paragraph::new("编辑节点配置").style(
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    );
     f.render_widget(title, chunks[0]);
 
     let fields = [
         ("节点名称", &edit.name, edit.field == NodeField::Name),
         ("节点地址", &edit.host, edit.field == NodeField::Host),
         ("端口", &edit.port, edit.field == NodeField::Port),
-        ("版本类型", &format!("{:?}", edit.edition), edit.field == NodeField::Edition),
+        (
+            "版本类型",
+            &format!("{:?}", edit.edition),
+            edit.field == NodeField::Edition,
+        ),
         ("颜色 (可选)", &edit.color, edit.field == NodeField::Color),
     ];
 
     for (i, (label, value, active)) in fields.iter().enumerate() {
-        let border_color = if *active { Color::Cyan } else { Color::DarkGray };
+        let border_color = if *active {
+            Color::Cyan
+        } else {
+            Color::DarkGray
+        };
         let block = Block::default()
             .title(format!(" {} ", label))
             .borders(Borders::ALL)
@@ -825,8 +894,11 @@ fn draw_review(f: &mut Frame, area: Rect, state: &WizardState) {
         .margin(1)
         .split(area);
 
-    let header = Paragraph::new("配置确认 - 按 s 保存并启动")
-        .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+    let header = Paragraph::new("配置确认 - 按 s 保存并启动").style(
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    );
     f.render_widget(header, chunks[0]);
 
     let mut lines = vec![
@@ -840,7 +912,10 @@ fn draw_review(f: &mut Frame, area: Rect, state: &WizardState) {
         ]),
         Line::from(vec![
             Span::styled("轮询间隔:   ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{} 秒", state.poll_interval), Style::default().fg(Color::White)),
+            Span::styled(
+                format!("{} 秒", state.poll_interval),
+                Style::default().fg(Color::White),
+            ),
         ]),
         Line::from(vec![
             Span::styled("数据库路径: ", Style::default().fg(Color::DarkGray)),
@@ -860,22 +935,24 @@ fn draw_review(f: &mut Frame, area: Rect, state: &WizardState) {
         };
         lines.push(Line::from(vec![
             Span::raw(format!("  • {} ", node.name)),
-            Span::styled(format!("[{:?}]", node.edition), Style::default().fg(edition_color)),
+            Span::styled(
+                format!("[{:?}]", node.edition),
+                Style::default().fg(edition_color),
+            ),
             Span::raw(format!(" {}:{} ", node.host, node.port)),
         ]));
     }
 
-    let review = Paragraph::new(lines)
-        .block(
-            Block::default()
-                .title(" 配置概览 ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)),
-        );
+    let review = Paragraph::new(lines).block(
+        Block::default()
+            .title(" 配置概览 ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan)),
+    );
     f.render_widget(review, chunks[1]);
 
-    let tip = Paragraph::new("配置将保存到 config.toml")
-        .style(Style::default().fg(Color::DarkGray));
+    let tip =
+        Paragraph::new("配置将保存到 config.toml").style(Style::default().fg(Color::DarkGray));
     f.render_widget(tip, chunks[2]);
 }
 

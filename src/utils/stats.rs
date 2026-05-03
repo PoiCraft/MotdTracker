@@ -1,24 +1,25 @@
-﻿//! 统计计算模块
+//! 统计计算模块
 
-use crate::models::{StatusLog, LatencyStats};
+use crate::models::{LatencyStats, StatusLog};
 
 /// 计算延迟统计
 pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
     let total_checks = history.len() as u32;
     let online_checks = history.iter().filter(|h| h.online).count() as u32;
-    
+
     let uptime_percentage = if total_checks > 0 {
         (online_checks as f64 / total_checks as f64) * 100.0
     } else {
         0.0
     };
-    
+
     // 收集有效延迟值
-    let latencies: Vec<f64> = history.iter()
+    let latencies: Vec<f64> = history
+        .iter()
         .filter(|h| h.online && h.latency.is_some())
         .map(|h| h.latency.unwrap())
         .collect();
-    
+
     if latencies.is_empty() {
         return LatencyStats {
             uptime_percentage,
@@ -32,38 +33,37 @@ pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
             online_checks,
         };
     }
-    
+
     // 计算平均值
     let sum: f64 = latencies.iter().sum();
     let avg = sum / latencies.len() as f64;
-    
+
     // 计算标准差
     let std_dev = if latencies.len() > 1 {
-        let variance: f64 = latencies.iter()
-            .map(|x| (x - avg).powi(2))
-            .sum::<f64>() / (latencies.len() - 1) as f64;
+        let variance: f64 =
+            latencies.iter().map(|x| (x - avg).powi(2)).sum::<f64>() / (latencies.len() - 1) as f64;
         Some(variance.sqrt())
     } else {
         Some(0.0)
     };
-    
+
     // 计算最小/最大值
     let min = latencies.iter().cloned().fold(f64::INFINITY, f64::min);
     let max = latencies.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    
+
     // 计算 P95
     let mut sorted = latencies.clone();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let p95_index = ((sorted.len() as f64 * 0.95).ceil() as usize).saturating_sub(1);
     let p95 = sorted.get(p95_index).copied().unwrap_or(max);
-    
+
     // 计算变异系数
     let cv = if avg > 0.0 && std_dev.is_some() {
         Some((std_dev.unwrap() / avg) * 100.0)
     } else {
         None
     };
-    
+
     LatencyStats {
         uptime_percentage,
         avg_latency: Some(avg),
@@ -115,7 +115,7 @@ pub fn get_latency_color(latency: f64) -> &'static str {
 mod tests {
     use super::*;
     use crate::utils::time::now_gmt8;
-    
+
     fn create_status_log(online: bool, latency: Option<f64>) -> StatusLog {
         StatusLog {
             id: 0,
@@ -134,7 +134,7 @@ mod tests {
             edition: None,
         }
     }
-    
+
     #[test]
     fn test_calculate_latency_stats() {
         let history = vec![
@@ -145,9 +145,9 @@ mod tests {
             create_status_log(true, Some(50.0)),
             create_status_log(false, None),
         ];
-        
+
         let stats = calculate_latency_stats(&history);
-        
+
         assert_eq!(stats.total_checks, 6);
         assert_eq!(stats.online_checks, 5);
         assert!((stats.uptime_percentage - 83.333).abs() < 0.1);
@@ -155,7 +155,7 @@ mod tests {
         assert_eq!(stats.min_latency, Some(10.0));
         assert_eq!(stats.max_latency, Some(50.0));
     }
-    
+
     #[test]
     fn test_get_uptime_color() {
         assert_eq!(get_uptime_color(99.5), "#4c1");

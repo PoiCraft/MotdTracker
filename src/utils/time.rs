@@ -34,7 +34,7 @@ pub fn format_duration(seconds: i64) -> String {
     let hours = (seconds % 86400) / 3600;
     let minutes = (seconds % 3600) / 60;
     let secs = seconds % 60;
-    
+
     if days > 0 {
         format!("{}天 {}小时", days, hours)
     } else if hours > 0 {
@@ -51,8 +51,7 @@ pub fn parse_rfc3339(s: &str) -> Option<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(s)
         .map(|dt| dt.with_timezone(&Utc))
         .or_else(|_| {
-            NaiveDateTime::parse_from_str(s, GMT8_NAIVE_FORMAT)
-                .map(|dt| Utc.from_utc_datetime(&dt))
+            NaiveDateTime::parse_from_str(s, GMT8_NAIVE_FORMAT).map(|dt| Utc.from_utc_datetime(&dt))
         })
         .ok()
 }
@@ -106,8 +105,7 @@ pub mod serde_gmt8 {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        parse_gmt8_naive(&s)
-            .ok_or_else(|| serde::de::Error::custom("invalid GMT+8 naive datetime"))
+        parse_gmt8_naive(&s).ok_or_else(|| serde::de::Error::custom("invalid GMT+8 naive datetime"))
     }
 }
 
@@ -144,7 +142,7 @@ pub mod serde_gmt8_opt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_format_duration() {
         assert_eq!(format_duration(90061), "1天 1小时");
@@ -152,7 +150,7 @@ mod tests {
         assert_eq!(format_duration(61), "1分钟 1秒");
         assert_eq!(format_duration(30), "30秒");
     }
-    
+
     #[test]
     fn test_hours_ago() {
         let now = now_gmt8();

@@ -1,16 +1,15 @@
 use axum::{
+    extract::{Path, State},
     routing::get,
-    Router,
-    extract::{State, Path},
-    Json,
+    Json, Router,
 };
 use serde::Deserialize;
 use std::collections::HashMap;
 
 use super::AppState;
-use crate::models::{NodeWithStats, NodeStatus, LatencyStats};
+use crate::models::{LatencyStats, NodeStatus, NodeWithStats};
 use crate::utils::calculate_latency_stats;
-use crate::utils::time::{now_gmt8, format_gmt8_naive};
+use crate::utils::time::{format_gmt8_naive, now_gmt8};
 
 #[derive(Deserialize)]
 struct HoursQuery {
@@ -18,7 +17,9 @@ struct HoursQuery {
     hours: u32,
 }
 
-fn default_hours() -> u32 { 12 }
+fn default_hours() -> u32 {
+    12
+}
 
 pub fn create_router() -> Router<AppState> {
     Router::new()
@@ -28,7 +29,14 @@ pub fn create_router() -> Router<AppState> {
         .route("/node/:id/head", get(get_web_node_head))
 }
 
-async fn build_nodes_with_stats(state: &AppState, hours: u32) -> (Vec<NodeWithStats>, HashMap<i32, LatencyStats>, HashMap<i32, Vec<crate::models::StatusLog>>) {
+async fn build_nodes_with_stats(
+    state: &AppState,
+    hours: u32,
+) -> (
+    Vec<NodeWithStats>,
+    HashMap<i32, LatencyStats>,
+    HashMap<i32, Vec<crate::models::StatusLog>>,
+) {
     let servers = state.db.get_all_servers().await.unwrap_or_default();
     let history_map = state.db.get_all_history(hours).await.unwrap_or_default();
     let latest_status = state.db.get_all_latest_status().await.unwrap_or_default();
@@ -49,7 +57,9 @@ async fn build_nodes_with_stats(state: &AppState, hours: u32) -> (Vec<NodeWithSt
         .iter()
         .map(|server| {
             let latest = latest_map.get(&server.id);
-            let enabled = state.config.get_node(server.id)
+            let enabled = state
+                .config
+                .get_node(server.id)
                 .map(|n| n.enable)
                 .unwrap_or(true);
 
@@ -109,10 +119,11 @@ fn build_aggregated_history(
 
         for node in nodes {
             let node_record = records.iter().find(|r| r.server_id == node.server.id);
-            let latency_val = node_record
-                .filter(|r| r.online)
-                .and_then(|r| r.latency);
-            latencies.get_mut(&node.server.name).unwrap().push(latency_val);
+            let latency_val = node_record.filter(|r| r.online).and_then(|r| r.latency);
+            latencies
+                .get_mut(&node.server.name)
+                .unwrap()
+                .push(latency_val);
         }
     }
 
@@ -154,15 +165,15 @@ fn build_status_timeline(
 }
 
 fn build_server_head(_state: &AppState, nodes: &[NodeWithStats]) -> serde_json::Value {
-    let nodes_with_status: Vec<&NodeWithStats> = nodes.iter()
-        .filter(|n| n.latest_status.is_some())
-        .collect();
+    let nodes_with_status: Vec<&NodeWithStats> =
+        nodes.iter().filter(|n| n.latest_status.is_some()).collect();
 
     if nodes_with_status.is_empty() {
         return serde_json::json!({});
     }
 
-    let online_nodes: Vec<&&NodeWithStats> = nodes_with_status.iter()
+    let online_nodes: Vec<&&NodeWithStats> = nodes_with_status
+        .iter()
         .filter(|n| n.latest_status.as_ref().map(|s| s.online).unwrap_or(false))
         .collect();
 
@@ -174,7 +185,8 @@ fn build_server_head(_state: &AppState, nodes: &[NodeWithStats]) -> serde_json::
 
     let selected_status = selected.latest_status.as_ref().unwrap();
 
-    let latencies: HashMap<String, Option<f64>> = nodes_with_status.iter()
+    let latencies: HashMap<String, Option<f64>> = nodes_with_status
+        .iter()
         .map(|n| {
             let lat = if n.latest_status.as_ref().map(|s| s.online).unwrap_or(false) {
                 n.latest_status.as_ref().and_then(|s| s.latency)
@@ -185,17 +197,20 @@ fn build_server_head(_state: &AppState, nodes: &[NodeWithStats]) -> serde_json::
         })
         .collect();
 
-    let online = nodes_with_status.iter().any(|n| {
-        n.latest_status.as_ref().map(|s| s.online).unwrap_or(false)
-    });
+    let online = nodes_with_status
+        .iter()
+        .any(|n| n.latest_status.as_ref().map(|s| s.online).unwrap_or(false));
 
-    let nodes_json: Vec<serde_json::Value> = nodes_with_status.iter().map(|n| {
-        serde_json::json!({
-            "id": n.server.id,
-            "name": n.server.name,
-            "latest_status": n.latest_status,
+    let nodes_json: Vec<serde_json::Value> = nodes_with_status
+        .iter()
+        .map(|n| {
+            serde_json::json!({
+                "id": n.server.id,
+                "name": n.server.name,
+                "latest_status": n.latest_status,
+            })
         })
-    }).collect();
+        .collect();
 
     serde_json::json!({
         "timestamp": format_gmt8_naive(selected_status.timestamp),
@@ -214,7 +229,11 @@ async fn get_online_players_aggregated(state: &AppState) -> Vec<serde_json::Valu
     let mut aggregated: HashMap<String, serde_json::Value> = HashMap::new();
 
     for server in &servers {
-        let sessions = state.db.get_all_player_sessions(server.id).await.unwrap_or_default();
+        let sessions = state
+            .db
+            .get_all_player_sessions(server.id)
+            .await
+            .unwrap_or_default();
         for s in &sessions {
             if !s.online {
                 continue;
@@ -225,14 +244,17 @@ async fn get_online_players_aggregated(state: &AppState) -> Vec<serde_json::Valu
             let first_iso = format_gmt8_naive(s.first_seen);
 
             if !aggregated.contains_key(&name) {
-                aggregated.insert(name.clone(), serde_json::json!({
-                    "player_name": name,
-                    "online": true,
-                    "first_seen": first_iso,
-                    "session_start": start_iso,
-                    "last_seen": last_iso,
-                    "duration_seconds": s.duration_seconds,
-                }));
+                aggregated.insert(
+                    name.clone(),
+                    serde_json::json!({
+                        "player_name": name,
+                        "online": true,
+                        "first_seen": first_iso,
+                        "session_start": start_iso,
+                        "last_seen": last_iso,
+                        "duration_seconds": s.duration_seconds,
+                    }),
+                );
             } else {
                 let entry = aggregated.get_mut(&name).unwrap();
                 if let Some(existing_last) = entry.get("last_seen").and_then(|v| v.as_str()) {
@@ -241,7 +263,11 @@ async fn get_online_players_aggregated(state: &AppState) -> Vec<serde_json::Valu
                     }
                 }
                 if let Some(start) = &start_iso {
-                    if entry.get("session_start").and_then(|v| v.as_str()).is_none() {
+                    if entry
+                        .get("session_start")
+                        .and_then(|v| v.as_str())
+                        .is_none()
+                    {
                         entry["session_start"] = serde_json::json!(start);
                     }
                 }
@@ -312,13 +338,16 @@ async fn get_web_server_head(
     ) {
         if let Some(last_ts) = ts_arr.last() {
             let idx = ts_arr.len() - 1;
-            let latencies = history.get("latencies")
+            let latencies = history
+                .get("latencies")
                 .and_then(|v| v.as_object())
                 .map(|obj| {
-                    obj.iter().map(|(k, v)| {
-                        let val = v.as_array().and_then(|arr| arr.get(idx)).cloned();
-                        (k.clone(), val.unwrap_or(serde_json::Value::Null))
-                    }).collect::<serde_json::Map<String, serde_json::Value>>()
+                    obj.iter()
+                        .map(|(k, v)| {
+                            let val = v.as_array().and_then(|arr| arr.get(idx)).cloned();
+                            (k.clone(), val.unwrap_or(serde_json::Value::Null))
+                        })
+                        .collect::<serde_json::Map<String, serde_json::Value>>()
                 })
                 .unwrap_or_default();
 
@@ -364,11 +393,15 @@ async fn get_web_node(
     };
 
     let latest_status = state.db.get_server_latest_status(id).await.ok().flatten();
-    let history_raw = state.db.get_server_history_range(
-        id,
-        now_gmt8() - chrono::Duration::hours(hours as i64),
-        now_gmt8(),
-    ).await.unwrap_or_default();
+    let history_raw = state
+        .db
+        .get_server_history_range(
+            id,
+            now_gmt8() - chrono::Duration::hours(hours as i64),
+            now_gmt8(),
+        )
+        .await
+        .unwrap_or_default();
 
     let mut sorted_history = history_raw;
     sorted_history.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
@@ -424,11 +457,15 @@ async fn get_web_node_head(
 
     let latest_status = state.db.get_server_latest_status(id).await.ok().flatten();
 
-    let history_raw = state.db.get_server_history_range(
-        id,
-        now_gmt8() - chrono::Duration::hours(hours as i64),
-        now_gmt8(),
-    ).await.unwrap_or_default();
+    let history_raw = state
+        .db
+        .get_server_history_range(
+            id,
+            now_gmt8() - chrono::Duration::hours(hours as i64),
+            now_gmt8(),
+        )
+        .await
+        .unwrap_or_default();
 
     let mut sorted_history = history_raw;
     sorted_history.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
