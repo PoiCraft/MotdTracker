@@ -23,6 +23,7 @@ import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import M3StatusTag from "../components/M3StatusTag";
 import { api } from "../api";
+import HeatCell from "../components/HeatCell";
 import { useWsEvent } from "../utils/ws";
 import { formatDuration, formatTime } from "../utils/format";
 
@@ -42,15 +43,13 @@ function to24hBlocks(heatmap) {
   return blocks;
 }
 
-function HeatStrip({ blocks }) {
+function HeatStripRow({ blocks }) {
   const theme = useTheme();
   const c = theme.gemini?.colors;
   const max = Math.max(...blocks, 1);
-
   return (
-    <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-      <Stack direction="row" spacing={0.5} sx={{ minWidth: { xs: 200, sm: "auto" } }}>
-        {blocks.map((sec, i) => {
+    <HeatStrip minWidth={{ xs: 200, sm: "auto" }}>
+      {blocks.map((sec, i) => {
           const ratio = sec / max;
           const bg =
             ratio > 0.7
@@ -61,23 +60,12 @@ function HeatStrip({ blocks }) {
               ? alpha("#188038", 0.2)
               : "#E0E2E0";
           return (
-            <Tooltip key={i} title={sec > 0 ? formatDuration(sec) : "无数据"} arrow>
-              <Box
-                sx={{
-                  flex: 1,
-                  height: 8,
-                  borderRadius: 100,
-                  bgcolor: bg,
-                  cursor: "pointer",
-                  transition: "transform 150ms cubic-bezier(0.2,0,0,1)",
-                  "&:hover": { transform: "scaleY(2)" },
-                }}
-              />
-            </Tooltip>
+            <Box key={i} sx={{ flex: 1 }}>
+              <HeatCell color={bg} title={sec > 0 ? formatDuration(sec) : "无数据"} height={8} />
+            </Box>
           );
         })}
-      </Stack>
-    </Box>
+    </HeatStrip>
   );
 }
 
@@ -97,7 +85,7 @@ function PlayerCard({ player }) {
       <Box sx={{ position: "absolute", top: 16, right: 16, zIndex: 1 }}>
         <M3StatusTag online={player.online} size="small" />
       </Box>
-      <CardContent sx={{ p: 3, "&:last-child": { pb: 3 } }}>
+      <CardContent sx={{ p: 4, "&:last-child": { pb: 4 } }}>
         <Stack spacing={2}>
           <Stack direction="row" alignItems="center" spacing={1}>
             <Box
@@ -147,7 +135,7 @@ function PlayerCard({ player }) {
             </Typography>
           </Stack>
 
-          <HeatStrip blocks={player.heatBlocks || Array(24).fill(0)} />
+          <HeatStripRow blocks={player.heatBlocks || Array(24).fill(0)} />
 
           <Stack direction="row" justifyContent="space-between">
             <Typography variant="caption" sx={{ color: c?.outline, fontSize: "0.625rem" }}>24h前</Typography>
@@ -244,7 +232,7 @@ export default function PlayersPage() {
 
       <Grid container spacing={3}>
         {filtered.map((player) => (
-          <Grid item xs={12} sm={6} lg={3} key={player.player_name}>
+          <Grid item xs={12} sm={6} lg={4} key={player.player_name}>
             <PlayerCard player={player} />
           </Grid>
         ))}

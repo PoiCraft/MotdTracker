@@ -33,6 +33,8 @@ import WifiOffRoundedIcon from "@mui/icons-material/WifiOffRounded";
 import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import PercentRoundedIcon from "@mui/icons-material/PercentRounded";
 import MetricCard from "../components/MetricCard";
+import HeatCell from "../components/HeatCell";
+import HeatStrip from "../components/HeatStrip";
 import { api } from "../api";
 import { useWsEvent } from "../utils/ws";
 import { recreateChart, destroyChart } from "../utils/charts";
@@ -266,15 +268,13 @@ export default function NodeDetailPage() {
       <Card elevation={0}>
         <CardContent>
           <SectionTitle>24 小时可用性</SectionTitle>
-          <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-            <Stack direction="row" spacing={0.5} sx={{ minWidth: { xs: 480, sm: "auto" } }}>
-              {heatmap.map((cell) => (
-                <Tooltip key={cell.key} title={`${cell.hour}:00 - ${cell.level === "high" ? "在线" : cell.level === "mid" ? "部分在线" : cell.level === "low" ? "离线" : "无数据"}`} arrow>
-                  <Box sx={{ flex: 1, height: 16, borderRadius: 100, bgcolor: heatColor(cell.level), cursor: "pointer", transition: "transform 150ms cubic-bezier(0.2,0,0,1)", "&:hover": { transform: "scaleY(1.5)" } }} />
-                </Tooltip>
-              ))}
-            </Stack>
-          </Box>
+          <HeatStrip minWidth={{ xs: 480, sm: "auto" }} alignItems="end">
+            {heatmap.map((cell) => (
+              <Box key={cell.key} sx={{ flex: 1 }}>
+                <HeatCell color={heatColor(cell.level)} title={`${cell.hour}:00 - ${cell.level === "high" ? "在线" : cell.level === "mid" ? "部分在线" : cell.level === "low" ? "离线" : "无数据"}`} />
+              </Box>
+            ))}
+          </HeatStrip>
         </CardContent>
       </Card>
 

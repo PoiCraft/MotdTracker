@@ -42,7 +42,7 @@ function NodeCard({ node }) {
       <Box sx={{ position: "absolute", top: 16, right: 16, zIndex: 1 }}>
         <M3StatusTag online={online} size="small" />
       </Box>
-      <CardContent sx={{ p: 3, "&:last-child": { pb: 3 } }}>
+          <CardContent sx={{ p: 4, "&:last-child": { pb: 4 } }}>
         <Stack spacing={2}>
           <Stack direction="row" alignItems="center">
             <Box>
@@ -53,7 +53,7 @@ function NodeCard({ node }) {
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
-                  maxWidth: 160,
+                  maxWidth: 200,
                 }}
               >
                 {node.name}
@@ -251,7 +251,7 @@ export default function NodesPage() {
 
       <Grid container spacing={3}>
         {nodes.map((node) => (
-          <Grid key={node.id} item xs={12} sm={6} lg={3}>
+          <Grid key={node.id} item xs={12} sm={6} lg={4}>
             <NodeCard node={node} />
           </Grid>
         ))}

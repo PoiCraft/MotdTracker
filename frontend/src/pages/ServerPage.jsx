@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Alert,
-  Box,
   Button,
   Card,
+  Box,
   CardContent,
   Chip,
   IconButton,
@@ -31,6 +31,8 @@ import DnsRoundedIcon from "@mui/icons-material/DnsRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import ScheduleRoundedIcon from "@mui/icons-material/ScheduleRounded";
 import MetricCard from "../components/MetricCard";
+import HeatCell from "../components/HeatCell";
+import HeatStrip from "../components/HeatStrip";
 import M3StatusTag, { StatusDot } from "../components/M3StatusTag";
 import { api } from "../api";
 import { useWsEvent } from "../utils/ws";
@@ -462,37 +464,24 @@ export default function ServerPage() {
           >
             24 小时可用性
           </SectionTitle>
-          <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-            <Stack direction="row" spacing={0.5} sx={{ minWidth: { xs: 480, sm: "auto" } }}>
+          <HeatStrip minWidth={{ xs: 480, sm: "auto" }} alignItems="end">
               {heatmap.map((cell) => (
-                <Tooltip
-                  key={cell.key}
-                  title={`${cell.hour}:00 - ${
-                    cell.level === "high"
-                      ? "全部在线"
-                      : cell.level === "mid"
-                      ? "部分在线"
-                      : cell.level === "low"
-                      ? "全部离线"
-                      : "无数据"
-                  }`}
-                  arrow
-                >
-                  <Box
-                    sx={{
-                      flex: 1,
-                      height: 16,
-                      borderRadius: 100,
-                      bgcolor: heatColor(cell.level),
-                      cursor: "pointer",
-                      transition: "transform 150ms cubic-bezier(0.2,0,0,1)",
-                      "&:hover": { transform: "scaleY(1.5)" },
-                    }}
+                <Box key={cell.key} sx={{ flex: 1 }}>
+                  <HeatCell
+                    color={heatColor(cell.level)}
+                    title={`${cell.hour}:00 - ${
+                      cell.level === "high"
+                        ? "全部在线"
+                        : cell.level === "mid"
+                        ? "部分在线"
+                        : cell.level === "low"
+                        ? "全部离线"
+                        : "无数据"
+                    }`}
                   />
-                </Tooltip>
+                </Box>
               ))}
-            </Stack>
-          </Box>
+          </HeatStrip>
         </CardContent>
       </Card>
 

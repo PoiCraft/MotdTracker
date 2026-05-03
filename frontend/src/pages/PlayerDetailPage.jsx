@@ -16,6 +16,8 @@ import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
 import MetricCard from "../components/MetricCard";
 import { api } from "../api";
 import { useWsEvent } from "../utils/ws";
+import HeatCell from "../components/HeatCell";
+import HeatStrip from "../components/HeatStrip";
 import { recreateChart, destroyChart } from "../utils/charts";
 import { formatDuration, formatTime } from "../utils/format";
 
@@ -207,14 +209,14 @@ export default function PlayerDetailPage() {
       {/* 24h heatmap - pill nodes */}
       <Card elevation={0}>
         <CardContent>
-          <SectionTitle>过去 24 小时活跃</SectionTitle>
-          <Stack direction="row" spacing={0.5}>
-            {blocks24h.map((sec, i) => (
-              <Tooltip key={i} title={sec > 0 ? formatDuration(sec) : "离线"} arrow>
-                <Box sx={{ flex: 1, height: 16, borderRadius: 100, bgcolor: heatColor(sec, max24h), cursor: "pointer", transition: "transform 150ms cubic-bezier(0.2,0,0,1)", "&:hover": { transform: "scaleY(1.5)" } }} />
-              </Tooltip>
-            ))}
-          </Stack>
+            <SectionTitle>过去 24 小时活跃</SectionTitle>
+            <HeatStrip minWidth={{ xs: 480, sm: "auto" }}>
+              {blocks24h.map((sec, i) => (
+                <Box key={i} sx={{ flex: 1 }}>
+                  <HeatCell color={heatColor(sec, max24h)} title={sec > 0 ? formatDuration(sec) : "离线"} height={16} />
+                </Box>
+              ))}
+            </HeatStrip>
           <Stack direction="row" justifyContent="space-between" mt={0.5}>
             <Typography variant="caption" sx={{ color: c?.outline, fontSize: "0.625rem" }}>24h前</Typography>
             <Typography variant="caption" sx={{ color: c?.outline, fontSize: "0.625rem" }}>现在</Typography>
@@ -261,7 +263,7 @@ export default function PlayerDetailPage() {
       <Card elevation={0}>
         <CardContent>
           <SectionTitle>周活跃热力图</SectionTitle>
-          <Box sx={{ overflowX: "auto" }}>
+            <Box sx={{ overflowX: "auto", overflowY: 'hidden' }}>
             <Box sx={{ minWidth: 700, display: "grid", gridTemplateColumns: "48px repeat(24, 1fr)", gap: 0.5 }}>
               <Box />
               {Array.from({ length: 24 }).map((_, h) => (
@@ -273,9 +275,9 @@ export default function PlayerDetailPage() {
                   {Array.from({ length: 24 }).map((_, hour) => {
                     const val = weeklyMap?.[row.day]?.[hour] || 0;
                     return (
-                      <Tooltip key={`${row.day}-${hour}`} title={val > 0 ? formatDuration(val) : "无数据"} arrow>
-                        <Box sx={{ height: 18, borderRadius: 0.75, bgcolor: heatColor(val, weeklyMax), cursor: "pointer", transition: "transform 150ms cubic-bezier(0.2,0,0,1)", "&:hover": { transform: "scale(1.15)" } }} />
-                      </Tooltip>
+                      <Box key={`${row.day}-${hour}`} sx={{ width: '100%' }}>
+                        <HeatCell color={heatColor(val, weeklyMax)} title={val > 0 ? formatDuration(val) : "无数据"} height={18} innerSx={{ borderRadius: 0.75 }} />
+                      </Box>
                     );
                   })}
                 </Box>

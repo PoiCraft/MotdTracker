@@ -15,7 +15,6 @@ import {
   Paper,
   Stack,
   Toolbar,
-  Tooltip,
   Typography,
   useMediaQuery,
 } from "@mui/material";
@@ -31,7 +30,7 @@ import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
 import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
 import { useColorMode } from "../color-mode";
 import { useWsEvent } from "../utils/ws";
-import M3StatusTag from "./M3StatusTag";
+import { StatusDot } from "./M3StatusTag";
 import { LayoutContext } from "./LayoutContext";
 
 const navItems = [
@@ -62,13 +61,10 @@ function NavItem({ item, onClick, open }) {
   const neutralColor = "#444746";
   const inactiveHover = alpha(c?.onSurface || "#000", 0.04);
 
-  const capsuleTransition = theme.transitions.create(
-    ["width", "height", "border-radius", "background-color"],
-    {
-      duration: theme.transitions.duration.standard,
-      easing: theme.transitions.easing.emphasized,
-    }
-  );
+  const capsuleTransition = theme.transitions.create(["background-color"], {
+    duration: theme.transitions.duration.standard,
+    easing: theme.transitions.easing.emphasized,
+  });
 
   return (
     <ListItem disablePadding sx={{ my: "4px" }}>
@@ -78,12 +74,11 @@ function NavItem({ item, onClick, open }) {
         onClick={onClick}
         sx={{
           height: INDICATOR_HEIGHT,
-          width: open ? undefined : COLLAPSED_INDICATOR_WIDTH,
-          mx: open ? "12px" : "auto",
+          width: "100%",
           borderRadius: INDICATOR_BORDER_RADIUS,
           overflow: "hidden",
-          px: open ? INDICATOR_HORIZONTAL_PADDING : 0,
-          justifyContent: open ? "flex-start" : "center",
+          px: "8px",
+          justifyContent: "flex-start",
           backgroundColor: isActive ? activeBg : "transparent",
           color: isActive ? activeColor : neutralColor,
           transition: capsuleTransition,
@@ -107,7 +102,22 @@ function NavItem({ item, onClick, open }) {
           {item.icon}
         </ListItemIcon>
 
-        {open && (
+        <Box
+          sx={{
+            minWidth: 0,
+            overflow: "hidden",
+            maxWidth: open ? 96 : 0,
+            opacity: open ? 1 : 0,
+            transform: open ? "translateX(0)" : "translateX(-6px)",
+            transition: theme.transitions.create(
+              ["opacity", "max-width", "transform"],
+              {
+                duration: theme.transitions.duration.standard,
+                easing: theme.transitions.easing.emphasized,
+              }
+            ),
+          }}
+        >
           <Typography
             component="span"
             sx={{
@@ -120,7 +130,7 @@ function NavItem({ item, onClick, open }) {
           >
             {item.label}
           </Typography>
-        )}
+        </Box>
       </ListItemButton>
     </ListItem>
   );
@@ -132,11 +142,19 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
   const isDark = theme.gemini?.isDark;
   const { toggleMode } = useColorMode();
   const wsState = useWsEvent(() => {});
+  const isConnected = wsState === "connected";
+  const statusLabel = isConnected ? "在线" : "离线";
+  const statusColor = isConnected
+    ? theme.palette.success.main
+    : theme.palette.error.main;
+  const statusTextColor = isConnected
+    ? theme.palette.success.dark || theme.palette.success.main
+    : theme.palette.error.dark || theme.palette.error.main;
 
   const showText = isMobile ? true : open;
 
   return (
-    <Stack sx={{ height: "100%", px: 2 }}>
+    <Stack sx={{ height: "100%", px: 2, overflowX: "hidden", whiteSpace: "nowrap" }}>
       {/* Header area with toggle */}
       <Box
         sx={{
@@ -165,6 +183,7 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
                 width: 40,
                 height: 40,
                 color: c?.onSurfaceVariant,
+                ml: open ? "8px" : 0,
                 "&:hover": {
                   backgroundColor: alpha(c?.onSurface || "#000", 0.08),
                 },
@@ -226,114 +245,164 @@ function SidebarContent({ onNavClick, open, onToggle, isMobile }) {
         ))}
       </List>
 
-      <Box sx={{ pb: 1, position: "relative", height: INDICATOR_HEIGHT, overflow: "hidden" }}>
-        {/* Collapsed: centered dot-only */}
-        <Tooltip
-          title={wsState === "connected" ? "已连接" : "未连接"}
-          placement="right"
-          arrow
-        >
+      <Box sx={{ pb: 1, flexShrink: 0 }}>
+        <ListItem disablePadding sx={{ my: "4px" }}>
           <Box
             sx={{
-              position: "absolute",
-              inset: 0,
+              height: INDICATOR_HEIGHT,
+              width: "100%",
+              borderRadius: INDICATOR_BORDER_RADIUS,
+              overflow: "hidden",
+              px: "8px",
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              opacity: isMobile ? 0 : open ? 0 : 1,
-              pointerEvents: isMobile ? "none" : open ? "none" : "auto",
-              transition: theme.transitions.create("opacity", {
-                duration: theme.transitions.duration.standard,
-                easing: theme.transitions.easing.emphasized,
-              }),
+              justifyContent: "flex-start",
+              color: "#444746",
             }}
           >
-            <M3StatusTag online={wsState === "connected"} size="small" hideText />
-          </Box>
-        </Tooltip>
-
-        {/* Expanded: left-aligned with text */}
-        <Box
-          sx={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            pl: INDICATOR_HORIZONTAL_PADDING,
-            opacity: isMobile ? 1 : open ? 1 : 0,
-            pointerEvents: isMobile ? "auto" : open ? "auto" : "none",
-            transition: theme.transitions.create("opacity", {
-              duration: theme.transitions.duration.standard,
-              easing: theme.transitions.easing.emphasized,
-            }),
-          }}
-        >
-          <Box sx={{ minWidth: "15px", flexShrink: 0 }} />
-          <M3StatusTag online={wsState === "connected"} size={isMobile ? "small" : open ? "large" : "small"} />
-        </Box>
-      </Box>
-
-      <Box sx={{ pb: 1, flexShrink: 0 }}>
-        <Tooltip
-          title={isDark ? "浅色模式" : "深色模式"}
-          placement={showText ? "top" : "right"}
-          arrow
-        >
-          <ListItem disablePadding sx={{ my: "4px" }}>
-            <ListItemButton
-              onClick={toggleMode}
+            <Box
               sx={{
-                height: INDICATOR_HEIGHT,
-                width: showText ? undefined : COLLAPSED_INDICATOR_WIDTH,
-                mx: showText ? "12px" : "auto",
-                borderRadius: INDICATOR_BORDER_RADIUS,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "flex-start",
+                maxWidth: showText ? "132px" : "24px",
+                height: "24px",
+                borderRadius: showText ? 100 : "50%",
+                bgcolor: alpha(statusColor, 0.12),
+                color: statusTextColor,
+                ml: 0.5,
+                pr: showText ? 1.25 : 0,
                 overflow: "hidden",
-                px: showText ? INDICATOR_HORIZONTAL_PADDING : 0,
-                justifyContent: showText ? "flex-start" : "center",
-                color: "#444746",
-                transition: theme.transitions.create(
-                  ["width"],
-                  {
-                    duration: theme.transitions.duration.standard,
-                    easing: theme.transitions.easing.emphasized,
-                  }
-                ),
-                "& .MuiTouchRipple-root": {
-                  borderRadius: INDICATOR_BORDER_RADIUS,
-                },
-                "&:hover": {
-                  backgroundColor: alpha(c?.onSurface || "#000", 0.04),
-                },
+                whiteSpace: "nowrap",
+                transition: `${theme.transitions.create("max-width", {
+                  duration: theme.transitions.duration.standard,
+                  easing: theme.transitions.easing.emphasized,
+                })}, ${theme.transitions.create("border-radius", {
+                  duration: theme.transitions.duration.standard,
+                  easing: theme.transitions.easing.emphasized,
+                })}, ${theme.transitions.create("padding-right", {
+                  duration: theme.transitions.duration.standard,
+                  easing: theme.transitions.easing.emphasized,
+                })}`,
+                transitionDelay: showText ? "40ms" : "120ms",
               }}
             >
-              <ListItemIcon
+              <Box
                 sx={{
-                  minWidth: "40px",
-                  color: "inherit",
+                  width: "24px",
+                  flexShrink: 0,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                {isDark ? <LightModeRoundedIcon /> : <DarkModeRoundedIcon />}
-              </ListItemIcon>
+                <StatusDot online={isConnected} size={isMobile ? 8 : 10} />
+              </Box>
 
-              {showText && (
+              <Box
+                sx={{
+                  minWidth: 0,
+                  overflow: "hidden",
+                  maxWidth: showText ? 86 : 0,
+                  opacity: showText ? 1 : 0,
+                  transform: showText ? "translateX(0)" : "translateX(-6px)",
+                  transition: theme.transitions.create(
+                    ["opacity", "max-width", "transform"],
+                    {
+                      duration: theme.transitions.duration.shorter,
+                      easing: theme.transitions.easing.emphasized,
+                    }
+                  ),
+                }}
+              >
                 <Typography
                   component="span"
                   sx={{
-                    fontSize: "0.875rem",
-                    fontWeight: 500,
                     display: "block",
+                    ml: 0.25,
+                    fontSize: "0.875rem",
+                    fontWeight: 700,
+                    lineHeight: 1.2,
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {isDark ? "浅色模式" : "深色模式"}
+                  {statusLabel}
                 </Typography>
-              )}
-            </ListItemButton>
-          </ListItem>
-        </Tooltip>
+              </Box>
+            </Box>
+          </Box>
+        </ListItem>
+      </Box>
+
+      <Box sx={{ pb: 1, flexShrink: 0 }}>
+        <ListItem disablePadding sx={{ my: "4px" }}>
+          <ListItemButton
+            onClick={toggleMode}
+            sx={{
+              height: INDICATOR_HEIGHT,
+              width: "100%",
+              borderRadius: INDICATOR_BORDER_RADIUS,
+              overflow: "hidden",
+              px: "8px",
+              justifyContent: "flex-start",
+              color: "#444746",
+              transition: theme.transitions.create(
+                ["background-color"],
+                {
+                  duration: theme.transitions.duration.standard,
+                  easing: theme.transitions.easing.emphasized,
+                }
+              ),
+              "& .MuiTouchRipple-root": {
+                borderRadius: INDICATOR_BORDER_RADIUS,
+              },
+              "&:hover": {
+                backgroundColor: alpha(c?.onSurface || "#000", 0.04),
+              },
+            }}
+          >
+            <ListItemIcon
+              sx={{
+                minWidth: "40px",
+                color: "inherit",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {isDark ? <LightModeRoundedIcon /> : <DarkModeRoundedIcon />}
+            </ListItemIcon>
+
+            <Box
+              sx={{
+                minWidth: 0,
+                overflow: "hidden",
+                maxWidth: showText ? 120 : 0,
+                opacity: showText ? 1 : 0,
+                transform: showText ? "translateX(0)" : "translateX(-6px)",
+                transition: theme.transitions.create(
+                  ["opacity", "max-width", "transform"],
+                  {
+                    duration: theme.transitions.duration.standard,
+                    easing: theme.transitions.easing.emphasized,
+                  }
+                ),
+              }}
+            >
+              <Typography
+                component="span"
+                sx={{
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                  display: "block",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {isDark ? "浅色模式" : "深色模式"}
+              </Typography>
+            </Box>
+          </ListItemButton>
+        </ListItem>
       </Box>
     </Stack>
   );
@@ -444,7 +513,12 @@ export default function Layout({ children }) {
     [drawerWidth, isMobile, isTablet, isDesktop]
   );
 
-  const paperTransition = theme.transitions.create("width", {
+  const layoutTransition = theme.transitions.create(["margin", "width"], {
+    easing: theme.transitions.easing.emphasized,
+    duration: theme.transitions.duration.standard,
+  });
+
+  const sidebarTransition = theme.transitions.create("width", {
     easing: theme.transitions.easing.emphasized,
     duration: theme.transitions.duration.standard,
   });
@@ -454,7 +528,10 @@ export default function Layout({ children }) {
       <Box
         sx={{
           display: "flex",
-          minHeight: "100vh",
+          flexDirection: "row",
+          height: "100vh",
+          width: "100vw",
+          overflow: "hidden",
           bgcolor: c?.background,
         }}
       >
@@ -504,48 +581,43 @@ export default function Layout({ children }) {
           />
         </Drawer>
 
-        {/* ─── Desktop/Tablet permanent drawer ────────────────────────── */}
-        <Drawer
-          variant="permanent"
+        {/* ─── Desktop/Tablet sidebar with flex push ──────────────────── */}
+        <Box
+          component="aside"
           sx={{
             display: { xs: "none", sm: "block" },
             width: drawerWidth,
             flexShrink: 0,
-            "& .MuiDrawer-paper": {
-              width: drawerWidth,
-              bgcolor: c?.background,
-              borderRight: "none",
-              boxShadow: "none",
-              overflowX: "hidden",
-              paddingLeft: 0,
-              paddingRight: 0,
-              transition: paperTransition,
-            },
+            overflow: "hidden",
+            transition: sidebarTransition,
+            willChange: "width",
+            bgcolor: c?.background,
           }}
         >
-          <SidebarContent
-            onNavClick={handleNavClick}
-            open={open}
-            onToggle={handleToggle}
-            isMobile={false}
-          />
-        </Drawer>
+          <Box sx={{ height: "100%", overflow: "hidden" }}>
+            <SidebarContent
+              onNavClick={handleNavClick}
+              open={open}
+              onToggle={handleToggle}
+              isMobile={false}
+            />
+          </Box>
+        </Box>
 
         {/* ─── Main content ───────────────────────────────────────────── */}
         <Box
           component="main"
           sx={{
             flexGrow: 1,
+            minWidth: 0,
             display: "flex",
             flexDirection: "column",
             minHeight: "100vh",
             bgcolor: c?.background,
             overflowX: "hidden",
-            willChange: "width",
-            transition: theme.transitions.create(["width", "margin"], {
-              easing: theme.transitions.easing.emphasized,
-              duration: theme.transitions.duration.standard,
-            }),
+            overflowY: "auto",
+            willChange: "margin, width",
+            transition: layoutTransition,
           }}
         >
           <Box sx={{ display: { xs: "block", sm: "none" }, height: 64 }} />
@@ -596,10 +668,8 @@ function ThemeToggle() {
   const isDark = mode === "dark";
 
   return (
-    <Tooltip title={isDark ? "浅色模式" : "深色模式"} arrow>
-      <IconButton onClick={toggleMode}>
-        {isDark ? <LightModeRoundedIcon /> : <DarkModeRoundedIcon />}
-      </IconButton>
-    </Tooltip>
+    <IconButton onClick={toggleMode}>
+      {isDark ? <LightModeRoundedIcon /> : <DarkModeRoundedIcon />}
+    </IconButton>
   );
 }
