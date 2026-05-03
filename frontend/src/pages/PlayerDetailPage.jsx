@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   Alert, Box, Button, Card, CardContent, Chip, LinearProgress,
+  Grid,
   Stack, Table, TableBody, TableCell, TableHead, TableRow,
   Tooltip, Typography,
 } from "@mui/material";
@@ -193,18 +194,20 @@ export default function PlayerDetailPage() {
       {error && <Alert severity="error">{error}</Alert>}
 
       {/* Metrics */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(min(220px, 100%), 1fr))",
-          gap: 2,
-        }}
-      >
-        <MetricCard title="当前状态" value={summary?.online ? "在线" : "离线"} icon={<AccessTimeRoundedIcon />} color={summary?.online ? "success" : "error"} />
-        <MetricCard title="当前会话" value={summary?.online ? formatDuration(summary.duration_seconds || 0) : "—"} icon={<ScheduleRoundedIcon />} color="primary" hint={summary?.online ? "正在游戏" : undefined} />
-        <MetricCard title="最后在线" value={formatTime(summary?.last_seen)} icon={<HistoryRoundedIcon />} color="primary" />
-        <MetricCard title="样本天数" value={weekly?.total_sample_days ?? 0} icon={<CalendarMonthRoundedIcon />} color="primary" hint="统计数据范围" />
-      </Box>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <MetricCard title="当前状态" value={summary?.online ? "在线" : "离线"} icon={<AccessTimeRoundedIcon />} color={summary?.online ? "success" : "error"} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <MetricCard title="当前会话" value={summary?.online ? formatDuration(summary.duration_seconds || 0) : "—"} icon={<ScheduleRoundedIcon />} color="primary" hint={summary?.online ? "正在游戏" : undefined} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <MetricCard title="最后在线" value={formatTime(summary?.last_seen)} icon={<HistoryRoundedIcon />} color="primary" />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <MetricCard title="样本天数" value={weekly?.total_sample_days ?? 0} icon={<CalendarMonthRoundedIcon />} color="primary" hint="统计数据范围" />
+        </Grid>
+      </Grid>
 
       {/* 24h heatmap - pill nodes */}
       <Card elevation={0}>
@@ -225,39 +228,32 @@ export default function PlayerDetailPage() {
       </Card>
 
       {/* Charts */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-          gridTemplateRows: { md: "1fr 1fr" },
-          gap: 2,
-        }}
-      >
-        <Box>
-          <Card elevation={0} sx={{ height: "100%" }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 6 }} sx={{ minWidth: 0 }}>
+          <Card elevation={0} sx={{ height: "100%", minWidth: 0 }}>
+            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", minWidth: 0 }}>
               <SectionTitle>每小时平均在线</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={hourlyCanvas} /></Box>
+              <Box sx={{ height: { xs: 220, md: 280 }, width: "100%", minWidth: 0, overflow: "hidden" }}><canvas ref={hourlyCanvas} /></Box>
             </CardContent>
           </Card>
-        </Box>
-        <Box>
-          <Card elevation={0} sx={{ height: "100%" }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }} sx={{ minWidth: 0 }}>
+          <Card elevation={0} sx={{ height: "100%", minWidth: 0 }}>
+            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", minWidth: 0 }}>
               <SectionTitle>星期偏好</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={weekdayCanvas} /></Box>
+              <Box sx={{ height: { xs: 220, md: 280 }, width: "100%", minWidth: 0, overflow: "hidden" }}><canvas ref={weekdayCanvas} /></Box>
             </CardContent>
           </Card>
-        </Box>
-        <Box sx={{ gridColumn: "1 / -1" }}>
-          <Card elevation={0} sx={{ height: "100%" }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        </Grid>
+        <Grid size={{ xs: 12 }} sx={{ minWidth: 0 }}>
+          <Card elevation={0} sx={{ height: "100%", minWidth: 0 }}>
+            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", minWidth: 0 }}>
               <SectionTitle>30 天在线趋势</SectionTitle>
-              <Box sx={{ flex: 1, minHeight: 0 }}><canvas ref={dailyCanvas} /></Box>
+              <Box sx={{ height: { xs: 220, md: 280 }, width: "100%", minWidth: 0, overflow: "hidden" }}><canvas ref={dailyCanvas} /></Box>
             </CardContent>
           </Card>
-        </Box>
-      </Box>
+        </Grid>
+      </Grid>
 
       {/* Weekly heatmap */}
       <Card elevation={0}>
@@ -289,15 +285,15 @@ export default function PlayerDetailPage() {
 
       {/* Recent sessions */}
       <Card elevation={0}>
-        <CardContent>
+        <CardContent sx={{ overflowX: "auto" }}>
           <SectionTitle>最近会话（20 条）</SectionTitle>
           <Table size="small">
             <TableHead>
               <TableRow>
                 <TableCell>开始时间</TableCell>
-                <TableCell>结束时间</TableCell>
+                <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>结束时间</TableCell>
                 <TableCell>时长</TableCell>
-                <TableCell>分组</TableCell>
+                <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}>分组</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -306,9 +302,9 @@ export default function PlayerDetailPage() {
                 return (
                   <TableRow key={`${s.start}-${idx}`}>
                     <TableCell>{formatTime(s.start)}</TableCell>
-                    <TableCell>{formatTime(s.end)}</TableCell>
+                    <TableCell sx={{ display: { xs: "none", sm: "table-cell" } }}>{formatTime(s.end)}</TableCell>
                     <TableCell><Chip label={formatDuration(sec)} size="small" sx={{ borderRadius: 1, height: 24 }} /></TableCell>
-                    <TableCell><Typography variant="body2" sx={{ color: c?.onSurfaceVariant }}>{s.server_name}</Typography></TableCell>
+                    <TableCell sx={{ display: { xs: "none", md: "table-cell" } }}><Typography variant="body2" sx={{ color: c?.onSurfaceVariant }}>{s.server_name}</Typography></TableCell>
                   </TableRow>
                 );
               })}

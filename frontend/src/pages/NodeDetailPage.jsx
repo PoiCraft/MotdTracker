@@ -248,21 +248,20 @@ export default function NodeDetailPage() {
       {error && <Alert severity="error">{error}</Alert>}
 
       {/* Metrics */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "repeat(auto-fill, minmax(min(160px, 100%), 1fr))",
-            sm: "repeat(auto-fill, minmax(min(220px, 100%), 1fr))",
-          },
-          gap: 2,
-        }}
-      >
-        <MetricCard title="服务状态" value={status?.online ? "在线" : "离线"} icon={status?.online ? <WifiRoundedIcon /> : <WifiOffRoundedIcon />} color={status?.online ? "success" : "error"} />
-        <MetricCard title="当前延迟" value={status?.latency ? `${Math.round(status.latency)}ms` : "—"} icon={<SpeedRoundedIcon />} color="primary" />
-        <MetricCard title="在线玩家" value={`${status?.players_online ?? 0}/${status?.players_max ?? 0}`} icon={<PeopleRoundedIcon />} color="success" />
-        <MetricCard title="最近采样" value={formatTime(status?.timestamp)} icon={<ScheduleRoundedIcon />} color="primary" />
-      </Box>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <MetricCard title="服务状态" value={status?.online ? "在线" : "离线"} icon={status?.online ? <WifiRoundedIcon /> : <WifiOffRoundedIcon />} color={status?.online ? "success" : "error"} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <MetricCard title="当前延迟" value={status?.latency ? `${Math.round(status.latency)}ms` : "—"} icon={<SpeedRoundedIcon />} color="primary" />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <MetricCard title="在线玩家" value={`${status?.players_online ?? 0}/${status?.players_max ?? 0}`} icon={<PeopleRoundedIcon />} color="success" />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+          <MetricCard title="最近采样" value={formatTime(status?.timestamp)} icon={<ScheduleRoundedIcon />} color="primary" />
+        </Grid>
+      </Grid>
 
       {/* Heatmap - pill nodes */}
       <Card elevation={0}>
@@ -279,39 +278,32 @@ export default function NodeDetailPage() {
       </Card>
 
       {/* Charts */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "repeat(12, 1fr)" },
-          gridTemplateRows: { md: "auto 1fr" },
-          gap: 2,
-        }}
-      >
-        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 8" } }}>
-          <Card elevation={0}>
-            <CardContent sx={{ display: "flex", flexDirection: "column" }}>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 8 }} sx={{ minWidth: 0 }}>
+          <Card elevation={0} sx={{ minWidth: 0 }}>
+            <CardContent sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
               <SectionTitle>延迟趋势</SectionTitle>
-              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%" }}><canvas ref={latencyCanvas} /></Box>
+              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%", minWidth: 0, overflow: "hidden" }}><canvas ref={latencyCanvas} /></Box>
             </CardContent>
           </Card>
-        </Box>
-        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 4" } }}>
-          <Card elevation={0}>
-            <CardContent sx={{ display: "flex", flexDirection: "column" }}>
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }} sx={{ minWidth: 0 }}>
+          <Card elevation={0} sx={{ minWidth: 0 }}>
+            <CardContent sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
               <SectionTitle>在线状态</SectionTitle>
-              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%" }}><canvas ref={statusCanvas} /></Box>
+              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%", minWidth: 0, overflow: "hidden" }}><canvas ref={statusCanvas} /></Box>
             </CardContent>
           </Card>
-        </Box>
-        <Box sx={{ gridColumn: "1 / -1" }}>
-          <Card elevation={0}>
-            <CardContent sx={{ display: "flex", flexDirection: "column" }}>
+        </Grid>
+        <Grid size={{ xs: 12 }} sx={{ minWidth: 0 }}>
+          <Card elevation={0} sx={{ minWidth: 0 }}>
+            <CardContent sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
               <SectionTitle>玩家数量趋势</SectionTitle>
-              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%" }}><canvas ref={playersCanvas} /></Box>
+              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%", minWidth: 0, overflow: "hidden" }}><canvas ref={playersCanvas} /></Box>
             </CardContent>
           </Card>
-        </Box>
-      </Box>
+        </Grid>
+      </Grid>
 
       {/* Stats summary */}
       <Card elevation={0}>
@@ -324,7 +316,7 @@ export default function NodeDetailPage() {
               { label: "P95 延迟", value: stats.p95_latency ? `${Math.round(stats.p95_latency)}ms` : "—", icon: <SpeedRoundedIcon sx={{ fontSize: 16 }} />, color: c?.warning },
               { label: "波动系数 CV", value: stats.cv != null ? `${Number(stats.cv).toFixed(1)}%` : "—", icon: <TrendingUpRoundedIcon sx={{ fontSize: 16 }} />, color: "#7B61FF" },
             ].map((item) => (
-              <Grid key={item.label} item xs={12} sm={6} md={3}>
+              <Grid key={item.label} size={{ xs: 12, sm: 6, lg: 3 }}>
                 <Box sx={{ p: 2, borderRadius: 3, bgcolor: alpha(c?.onSurface || "#000", 0.04) }}>
                   <Stack direction="row" alignItems="center" spacing={0.75} mb={0.5}>
                     <Box sx={{ color: item.color }}>{item.icon}</Box>
