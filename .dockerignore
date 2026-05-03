@@ -1,0 +1,33 @@
+# Rust build output
+target/
+
+# Frontend build output and dependencies
+frontend/node_modules/
+frontend/dist/
+
+# SQLite database files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Config file (must be mounted at runtime, never baked into the image)
+config.toml
+
+# Version control
+.git/
+.github/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS artefacts
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
