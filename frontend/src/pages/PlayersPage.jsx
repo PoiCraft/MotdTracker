@@ -7,12 +7,10 @@ import {
   Card,
   CardContent,
   Chip,
-  Grid,
   InputAdornment,
   LinearProgress,
   Stack,
   TextField,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
@@ -22,8 +20,10 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import M3StatusTag from "../components/M3StatusTag";
+import MetricGrid from "../components/MetricGrid";
 import { api } from "../api";
 import HeatCell from "../components/HeatCell";
+import HeatStrip from "../components/HeatStrip";
 import { useWsEvent } from "../utils/ws";
 import { formatDuration, formatTime } from "../utils/format";
 
@@ -69,9 +69,97 @@ function HeatStripRow({ blocks }) {
   );
 }
 
+function StatPill({ icon, label, value, color, emphasis = false, muted = false }) {
+  return (
+    <Box
+      sx={{
+        p: 1,
+        borderRadius: 999,
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+        minWidth: 0,
+        bgcolor: alpha(color || "#000", 0.06),
+        border: `1px solid ${alpha(color || "#000", 0.14)}`,
+        boxShadow: emphasis
+          ? `0 0 0 1px ${alpha(color || "#000", 0.2)} inset`
+          : "none",
+        filter: muted ? "saturate(0.55)" : "none",
+        opacity: muted ? 0.9 : 1,
+      }}
+    >
+      <Box
+        sx={{
+          width: 30,
+          height: 30,
+          borderRadius: "50%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: alpha(color || "#000", 0.12),
+          color: color || "inherit",
+          flexShrink: 0,
+          "& svg": { fontSize: 16 },
+        }}
+      >
+        {icon}
+      </Box>
+
+      <Box sx={{ minWidth: 0, lineHeight: 1.1 }}>
+        <Typography
+          variant="caption"
+          sx={{ color: "text.secondary", display: "block" }}
+        >
+          {label}
+        </Typography>
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: 700,
+            fontFeatureSettings: '"tnum"',
+            letterSpacing: "0.01em",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {value}
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function getSessionTone(durationSeconds, online, c) {
+  if (!online) {
+    return { color: c?.outline || "#5F6368", emphasis: false };
+  }
+  const sec = Number(durationSeconds || 0);
+  if (sec >= 4 * 3600) {
+    return { color: c?.warning || "#B05D00", emphasis: true };
+  }
+  return { color: c?.success || "#188038", emphasis: false };
+}
+
+function getActivityTone(duration24h, c) {
+  const sec = Number(duration24h || 0);
+  if (sec >= 4 * 3600) {
+    return { color: c?.success || "#188038", emphasis: true };
+  }
+  if (sec >= 3600) {
+    return { color: c?.primary || "#1A73E8", emphasis: false };
+  }
+  if (sec > 0) {
+    return { color: c?.warning || "#B05D00", emphasis: false };
+  }
+  return { color: c?.outline || "#5F6368", emphasis: false };
+}
+
 function PlayerCard({ player }) {
   const theme = useTheme();
   const c = theme.gemini?.colors;
+  const sessionTone = getSessionTone(player.duration_seconds, player.online, c);
+  const activityTone = getActivityTone(player.duration24h, c);
 
   return (
     <Card
@@ -80,6 +168,7 @@ function PlayerCard({ player }) {
         height: "100%",
         position: "relative",
         backgroundColor: player.online ? c?.successContainer : c?.surface,
+        filter: player.online ? "none" : "saturate(0.62)",
       }}
     >
       <Box sx={{ position: "absolute", top: 16, right: 16, zIndex: 1 }}>
@@ -121,18 +210,31 @@ function PlayerCard({ player }) {
             </Typography>
           </Stack>
 
-          <Stack spacing={0.5}>
-            <Stack direction="row" alignItems="center" spacing={0.75}>
-              <AccessTimeRoundedIcon sx={{ fontSize: 14, color: c?.outline }} />
-              <Typography variant="body2" sx={{ color: c?.onSurfaceVariant }}>
-                {player.online
-                  ? `在线 ${formatDuration(player.duration_seconds || 0)}`
-                  : `最后在线 ${formatTime(player.last_seen)}`}
-              </Typography>
-            </Stack>
-            <Typography variant="body2" sx={{ color: c?.outline, pl: 2.5 }}>
-              24h: {formatDuration(player.duration24h || 0)}
-            </Typography>
+          <Stack direction="row" spacing={1} sx={{ width: "100%" }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <StatPill
+                icon={<AccessTimeRoundedIcon />}
+                label={player.online ? "当前会话" : "最后在线"}
+                value={
+                  player.online
+                    ? formatDuration(player.duration_seconds || 0)
+                    : formatTime(player.last_seen)
+                }
+                color={sessionTone.color}
+                emphasis={sessionTone.emphasis}
+                muted={!player.online}
+              />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <StatPill
+                icon={<GroupsRoundedIcon />}
+                label="24h活跃"
+                value={formatDuration(player.duration24h || 0)}
+                color={activityTone.color}
+                emphasis={activityTone.emphasis}
+                muted={!player.online && !(player.duration24h > 0)}
+              />
+            </Box>
           </Stack>
 
           <HeatStripRow blocks={player.heatBlocks || Array(24).fill(0)} />
@@ -230,13 +332,11 @@ export default function PlayersPage() {
       {loading && <LinearProgress />}
       {error && <Alert severity="error">{error}</Alert>}
 
-      <Grid container spacing={3}>
+      <MetricGrid itemSize={{ xs: 12, sm: 6, lg: 4 }}>
         {filtered.map((player) => (
-          <Grid item xs={12} sm={6} lg={4} key={player.player_name}>
-            <PlayerCard player={player} />
-          </Grid>
+          <PlayerCard key={player.player_name} player={player} />
         ))}
-      </Grid>
+      </MetricGrid>
 
       {!loading && filtered.length === 0 && (
         <Card elevation={0}>

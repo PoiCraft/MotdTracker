@@ -31,6 +31,8 @@ import DnsRoundedIcon from "@mui/icons-material/DnsRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import ScheduleRoundedIcon from "@mui/icons-material/ScheduleRounded";
 import MetricCard from "../components/MetricCard";
+import MetricGrid from "../components/MetricGrid";
+import ResponsiveChartCard from "../components/ResponsiveChartCard";
 import HeatCell from "../components/HeatCell";
 import HeatStrip from "../components/HeatStrip";
 import M3StatusTag, { StatusDot } from "../components/M3StatusTag";
@@ -388,42 +390,34 @@ export default function ServerPage() {
       {error && <Alert severity="error">{error}</Alert>}
 
       {/* Metric cards */}
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard
-            title="服务状态"
-            value={head.online ? "在线" : "离线"}
-            hint={`WebSocket: ${wsStatus}`}
-            icon={head.online ? <WifiRoundedIcon /> : <WifiOffRoundedIcon />}
-            color={head.online ? "success" : "error"}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard
-            title="在线节点"
-            value={`${onlineNodes}/${nodes.length}`}
-            icon={<DnsRoundedIcon />}
-            color="primary"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard
-            title="在线玩家"
-            value={head.players_online ?? 0}
-            hint={`玩家池: ${players.length}`}
-            icon={<GroupsRoundedIcon />}
-            color="success"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard
-            title="最后更新"
-            value={formatTime(head.timestamp)}
-            icon={<ScheduleRoundedIcon />}
-            color="primary"
-          />
-        </Grid>
-      </Grid>
+      <MetricGrid>
+        <MetricCard
+          title="服务状态"
+          value={head.online ? "在线" : "离线"}
+          hint={`WebSocket: ${wsStatus}`}
+          icon={head.online ? <WifiRoundedIcon /> : <WifiOffRoundedIcon />}
+          color={head.online ? "success" : "error"}
+        />
+        <MetricCard
+          title="在线节点"
+          value={`${onlineNodes}/${nodes.length}`}
+          icon={<DnsRoundedIcon />}
+          color="primary"
+        />
+        <MetricCard
+          title="在线玩家"
+          value={head.players_online ?? 0}
+          hint={`玩家池: ${players.length}`}
+          icon={<GroupsRoundedIcon />}
+          color="success"
+        />
+        <MetricCard
+          title="最后更新"
+          value={formatTime(head.timestamp)}
+          icon={<ScheduleRoundedIcon />}
+          color="primary"
+        />
+      </MetricGrid>
 
       {/* Uptime Timeline - pill-shaped nodes */}
       <Card elevation={0}>
@@ -555,29 +549,20 @@ export default function ServerPage() {
           gap: 2,
         }}
       >
-        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 8" } }}>
-          <Card elevation={0}>
-            <CardContent sx={{ display: "flex", flexDirection: "column" }}>
-              <SectionTitle>节点延迟趋势</SectionTitle>
-              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%" }}><canvas ref={latencyCanvas} /></Box>
-            </CardContent>
-          </Card>
+        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 8" }, minWidth: 0 }}>
+          <ResponsiveChartCard sectionTitle={<SectionTitle>节点延迟趋势</SectionTitle>}>
+            <canvas ref={latencyCanvas} />
+          </ResponsiveChartCard>
         </Box>
-        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 4" } }}>
-          <Card elevation={0}>
-            <CardContent sx={{ display: "flex", flexDirection: "column" }}>
-              <SectionTitle>在线状态趋势</SectionTitle>
-              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%" }}><canvas ref={statusCanvas} /></Box>
-            </CardContent>
-          </Card>
+        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 4" }, minWidth: 0 }}>
+          <ResponsiveChartCard sectionTitle={<SectionTitle>在线状态趋势</SectionTitle>}>
+            <canvas ref={statusCanvas} />
+          </ResponsiveChartCard>
         </Box>
-        <Box sx={{ gridColumn: "1 / -1" }}>
-          <Card elevation={0}>
-            <CardContent sx={{ display: "flex", flexDirection: "column" }}>
-              <SectionTitle>玩家数量趋势</SectionTitle>
-              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%" }}><canvas ref={playersCanvas} /></Box>
-            </CardContent>
-          </Card>
+        <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
+          <ResponsiveChartCard sectionTitle={<SectionTitle>玩家数量趋势</SectionTitle>}>
+            <canvas ref={playersCanvas} />
+          </ResponsiveChartCard>
         </Box>
       </Box>
 

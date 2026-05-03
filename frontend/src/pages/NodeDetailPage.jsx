@@ -33,6 +33,8 @@ import WifiOffRoundedIcon from "@mui/icons-material/WifiOffRounded";
 import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import PercentRoundedIcon from "@mui/icons-material/PercentRounded";
 import MetricCard from "../components/MetricCard";
+import MetricGrid from "../components/MetricGrid";
+import ResponsiveChartCard from "../components/ResponsiveChartCard";
 import HeatCell from "../components/HeatCell";
 import HeatStrip from "../components/HeatStrip";
 import { api } from "../api";
@@ -248,20 +250,12 @@ export default function NodeDetailPage() {
       {error && <Alert severity="error">{error}</Alert>}
 
       {/* Metrics */}
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard title="服务状态" value={status?.online ? "在线" : "离线"} icon={status?.online ? <WifiRoundedIcon /> : <WifiOffRoundedIcon />} color={status?.online ? "success" : "error"} />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard title="当前延迟" value={status?.latency ? `${Math.round(status.latency)}ms` : "—"} icon={<SpeedRoundedIcon />} color="primary" />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard title="在线玩家" value={`${status?.players_online ?? 0}/${status?.players_max ?? 0}`} icon={<PeopleRoundedIcon />} color="success" />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard title="最近采样" value={formatTime(status?.timestamp)} icon={<ScheduleRoundedIcon />} color="primary" />
-        </Grid>
-      </Grid>
+      <MetricGrid>
+        <MetricCard title="服务状态" value={status?.online ? "在线" : "离线"} icon={status?.online ? <WifiRoundedIcon /> : <WifiOffRoundedIcon />} color={status?.online ? "success" : "error"} />
+        <MetricCard title="当前延迟" value={status?.latency ? `${Math.round(status.latency)}ms` : "—"} icon={<SpeedRoundedIcon />} color="primary" />
+        <MetricCard title="在线玩家" value={`${status?.players_online ?? 0}/${status?.players_max ?? 0}`} icon={<PeopleRoundedIcon />} color="success" />
+        <MetricCard title="最近采样" value={formatTime(status?.timestamp)} icon={<ScheduleRoundedIcon />} color="primary" />
+      </MetricGrid>
 
       {/* Heatmap - pill nodes */}
       <Card elevation={0}>
@@ -280,28 +274,19 @@ export default function NodeDetailPage() {
       {/* Charts */}
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }} sx={{ minWidth: 0 }}>
-          <Card elevation={0} sx={{ minWidth: 0 }}>
-            <CardContent sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-              <SectionTitle>延迟趋势</SectionTitle>
-              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%", minWidth: 0, overflow: "hidden" }}><canvas ref={latencyCanvas} /></Box>
-            </CardContent>
-          </Card>
+          <ResponsiveChartCard sectionTitle={<SectionTitle>延迟趋势</SectionTitle>}>
+            <canvas ref={latencyCanvas} />
+          </ResponsiveChartCard>
         </Grid>
         <Grid size={{ xs: 12, md: 4 }} sx={{ minWidth: 0 }}>
-          <Card elevation={0} sx={{ minWidth: 0 }}>
-            <CardContent sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-              <SectionTitle>在线状态</SectionTitle>
-              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%", minWidth: 0, overflow: "hidden" }}><canvas ref={statusCanvas} /></Box>
-            </CardContent>
-          </Card>
+          <ResponsiveChartCard sectionTitle={<SectionTitle>在线状态</SectionTitle>}>
+            <canvas ref={statusCanvas} />
+          </ResponsiveChartCard>
         </Grid>
         <Grid size={{ xs: 12 }} sx={{ minWidth: 0 }}>
-          <Card elevation={0} sx={{ minWidth: 0 }}>
-            <CardContent sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-              <SectionTitle>玩家数量趋势</SectionTitle>
-              <Box sx={{ height: { xs: 200, md: 280 }, width: "100%", minWidth: 0, overflow: "hidden" }}><canvas ref={playersCanvas} /></Box>
-            </CardContent>
-          </Card>
+          <ResponsiveChartCard sectionTitle={<SectionTitle>玩家数量趋势</SectionTitle>}>
+            <canvas ref={playersCanvas} />
+          </ResponsiveChartCard>
         </Grid>
       </Grid>
 

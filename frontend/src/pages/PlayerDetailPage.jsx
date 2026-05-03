@@ -15,6 +15,8 @@ import ScheduleRoundedIcon from "@mui/icons-material/ScheduleRounded";
 import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
 import HistoryRoundedIcon from "@mui/icons-material/HistoryRounded";
 import MetricCard from "../components/MetricCard";
+import MetricGrid from "../components/MetricGrid";
+import ResponsiveChartCard from "../components/ResponsiveChartCard";
 import { api } from "../api";
 import { useWsEvent } from "../utils/ws";
 import HeatCell from "../components/HeatCell";
@@ -194,20 +196,12 @@ export default function PlayerDetailPage() {
       {error && <Alert severity="error">{error}</Alert>}
 
       {/* Metrics */}
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard title="当前状态" value={summary?.online ? "在线" : "离线"} icon={<AccessTimeRoundedIcon />} color={summary?.online ? "success" : "error"} />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard title="当前会话" value={summary?.online ? formatDuration(summary.duration_seconds || 0) : "—"} icon={<ScheduleRoundedIcon />} color="primary" hint={summary?.online ? "正在游戏" : undefined} />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard title="最后在线" value={formatTime(summary?.last_seen)} icon={<HistoryRoundedIcon />} color="primary" />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard title="样本天数" value={weekly?.total_sample_days ?? 0} icon={<CalendarMonthRoundedIcon />} color="primary" hint="统计数据范围" />
-        </Grid>
-      </Grid>
+      <MetricGrid>
+        <MetricCard title="当前状态" value={summary?.online ? "在线" : "离线"} icon={<AccessTimeRoundedIcon />} color={summary?.online ? "success" : "error"} />
+        <MetricCard title="当前会话" value={summary?.online ? formatDuration(summary.duration_seconds || 0) : "—"} icon={<ScheduleRoundedIcon />} color="primary" hint={summary?.online ? "正在游戏" : undefined} />
+        <MetricCard title="最后在线" value={formatTime(summary?.last_seen)} icon={<HistoryRoundedIcon />} color="primary" />
+        <MetricCard title="样本天数" value={weekly?.total_sample_days ?? 0} icon={<CalendarMonthRoundedIcon />} color="primary" hint="统计数据范围" />
+      </MetricGrid>
 
       {/* 24h heatmap - pill nodes */}
       <Card elevation={0}>
@@ -230,28 +224,19 @@ export default function PlayerDetailPage() {
       {/* Charts */}
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 6 }} sx={{ minWidth: 0 }}>
-          <Card elevation={0} sx={{ height: "100%", minWidth: 0 }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", minWidth: 0 }}>
-              <SectionTitle>每小时平均在线</SectionTitle>
-              <Box sx={{ height: { xs: 220, md: 280 }, width: "100%", minWidth: 0, overflow: "hidden" }}><canvas ref={hourlyCanvas} /></Box>
-            </CardContent>
-          </Card>
+          <ResponsiveChartCard sectionTitle={<SectionTitle>每小时平均在线</SectionTitle>} height={{ xs: 220, md: 280 }} cardSx={{ height: "100%" }}>
+            <canvas ref={hourlyCanvas} />
+          </ResponsiveChartCard>
         </Grid>
         <Grid size={{ xs: 12, md: 6 }} sx={{ minWidth: 0 }}>
-          <Card elevation={0} sx={{ height: "100%", minWidth: 0 }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", minWidth: 0 }}>
-              <SectionTitle>星期偏好</SectionTitle>
-              <Box sx={{ height: { xs: 220, md: 280 }, width: "100%", minWidth: 0, overflow: "hidden" }}><canvas ref={weekdayCanvas} /></Box>
-            </CardContent>
-          </Card>
+          <ResponsiveChartCard sectionTitle={<SectionTitle>星期偏好</SectionTitle>} height={{ xs: 220, md: 280 }} cardSx={{ height: "100%" }}>
+            <canvas ref={weekdayCanvas} />
+          </ResponsiveChartCard>
         </Grid>
         <Grid size={{ xs: 12 }} sx={{ minWidth: 0 }}>
-          <Card elevation={0} sx={{ height: "100%", minWidth: 0 }}>
-            <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column", minWidth: 0 }}>
-              <SectionTitle>30 天在线趋势</SectionTitle>
-              <Box sx={{ height: { xs: 220, md: 280 }, width: "100%", minWidth: 0, overflow: "hidden" }}><canvas ref={dailyCanvas} /></Box>
-            </CardContent>
-          </Card>
+          <ResponsiveChartCard sectionTitle={<SectionTitle>30 天在线趋势</SectionTitle>} height={{ xs: 220, md: 280 }} cardSx={{ height: "100%" }}>
+            <canvas ref={dailyCanvas} />
+          </ResponsiveChartCard>
         </Grid>
       </Grid>
 

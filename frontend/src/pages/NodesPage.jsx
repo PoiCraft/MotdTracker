@@ -7,7 +7,6 @@ import {
   Card,
   CardContent,
   Chip,
-  Grid,
   LinearProgress,
   Stack,
   Typography,
@@ -19,16 +18,111 @@ import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
 import PeopleRoundedIcon from "@mui/icons-material/PeopleRounded";
 import M3StatusTag from "../components/M3StatusTag";
+import MetricGrid from "../components/MetricGrid";
 import { api } from "../api";
 import { useWsEvent } from "../utils/ws";
 import { formatTime } from "../utils/format";
 
+function StatPill({ icon, label, value, color, emphasis = false, muted = false }) {
+  return (
+    <Box
+      sx={{
+        p: 1,
+        borderRadius: 999,
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+        minWidth: 0,
+        bgcolor: alpha(color || "#000", 0.06),
+        border: `1px solid ${alpha(color || "#000", 0.14)}`,
+        boxShadow: emphasis
+          ? `0 0 0 1px ${alpha(color || "#000", 0.2)} inset`
+          : "none",
+        filter: muted ? "saturate(0.55)" : "none",
+        opacity: muted ? 0.9 : 1,
+      }}
+    >
+      <Box
+        sx={{
+          width: 30,
+          height: 30,
+          borderRadius: "50%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: alpha(color || "#000", 0.12),
+          color: color || "inherit",
+          flexShrink: 0,
+          "& svg": { fontSize: 16 },
+        }}
+      >
+        {icon}
+      </Box>
+
+      <Box sx={{ minWidth: 0, lineHeight: 1.1 }}>
+        <Typography
+          variant="caption"
+          sx={{ color: "text.secondary", display: "block" }}
+        >
+          {label}
+        </Typography>
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: 700,
+            fontFeatureSettings: '"tnum"',
+            letterSpacing: "0.01em",
+          }}
+        >
+          {value}
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function getLatencyTone(latency, online, c) {
+  if (!online || latency == null) {
+    return { color: c?.outline || "#5F6368", emphasis: false };
+  }
+  if (latency <= 80) {
+    return { color: c?.success || "#188038", emphasis: false };
+  }
+  if (latency <= 180) {
+    return { color: c?.warning || "#B05D00", emphasis: false };
+  }
+  return { color: c?.error || "#B3261E", emphasis: true };
+}
+
+function getPlayerLoadTone(currentPlayers, maxPlayers, online, c) {
+  if (!online) {
+    return { color: c?.outline || "#5F6368", emphasis: false };
+  }
+  const max = Number(maxPlayers || 0);
+  const cur = Number(currentPlayers || 0);
+  const ratio = max > 0 ? cur / max : 0;
+
+  if (ratio >= 0.85) {
+    return { color: c?.error || "#B3261E", emphasis: true };
+  }
+  if (ratio >= 0.6) {
+    return { color: c?.warning || "#B05D00", emphasis: true };
+  }
+  return { color: c?.primary || "#1A73E8", emphasis: false };
+}
+
 function NodeCard({ node }) {
   const theme = useTheme();
   const c = theme.gemini?.colors;
-  const isDark = theme.gemini?.isDark;
   const status = node.latest_status;
   const online = Boolean(status?.online);
+  const latencyTone = getLatencyTone(status?.latency, online, c);
+  const playerLoadTone = getPlayerLoadTone(
+    status?.players_online,
+    status?.players_max,
+    online,
+    c
+  );
 
   return (
     <Card
@@ -37,6 +131,7 @@ function NodeCard({ node }) {
         height: "100%",
         position: "relative",
         backgroundColor: online ? c?.successContainer : c?.errorContainer,
+        filter: online ? "none" : "saturate(0.62)",
       }}
     >
       <Box sx={{ position: "absolute", top: 16, right: 16, zIndex: 1 }}>
@@ -70,68 +165,28 @@ function NodeCard({ node }) {
             </Box>
           </Stack>
 
-          <Grid container spacing={1}>
-            <Grid item xs={6}>
-              <Box
-                sx={{
-                  p: 1.5,
-                  borderRadius: 3,
-                  bgcolor: alpha(c?.onSurface || "#000", 0.04),
-                }}
-              >
-                <Stack direction="row" alignItems="center" spacing={0.5} mb={0.5}>
-                  <SpeedRoundedIcon
-                    sx={{ fontSize: 14, color: c?.onSurfaceVariant }}
-                  />
-                  <Typography
-                    variant="caption"
-                    sx={{ color: c?.onSurfaceVariant }}
-                  >
-                    延迟
-                  </Typography>
-                </Stack>
-                <Typography
-                  variant="subtitle2"
-                  sx={{
-                    fontWeight: 600,
-                    fontFeatureSettings: '"tnum"',
-                  }}
-                >
-                  {status?.latency ? `${Math.round(status.latency)}ms` : "—"}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={6}>
-              <Box
-                sx={{
-                  p: 1.5,
-                  borderRadius: 3,
-                  bgcolor: alpha(c?.onSurface || "#000", 0.04),
-                }}
-              >
-                <Stack direction="row" alignItems="center" spacing={0.5} mb={0.5}>
-                  <PeopleRoundedIcon
-                    sx={{ fontSize: 14, color: c?.onSurfaceVariant }}
-                  />
-                  <Typography
-                    variant="caption"
-                    sx={{ color: c?.onSurfaceVariant }}
-                  >
-                    玩家
-                  </Typography>
-                </Stack>
-                <Typography
-                  variant="subtitle2"
-                  sx={{
-                    fontWeight: 600,
-                    fontFeatureSettings: '"tnum"',
-                  }}
-                >
-                  {status?.players_online ?? 0}/{status?.players_max ?? 0}
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
+          <Stack direction="row" spacing={1} sx={{ width: "100%" }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <StatPill
+                icon={<SpeedRoundedIcon />}
+                label="延迟"
+                value={status?.latency ? `${Math.round(status.latency)}ms` : "—"}
+                color={latencyTone.color}
+                emphasis={latencyTone.emphasis}
+                muted={!online}
+              />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <StatPill
+                icon={<PeopleRoundedIcon />}
+                label="玩家"
+                value={`${status?.players_online ?? 0}/${status?.players_max ?? 0}`}
+                color={playerLoadTone.color}
+                emphasis={playerLoadTone.emphasis}
+                muted={!online}
+              />
+            </Box>
+          </Stack>
 
           <Stack spacing={0.5}>
             <Stack direction="row" alignItems="center" spacing={0.75}>
@@ -249,13 +304,11 @@ export default function NodesPage() {
       {loading && <LinearProgress />}
       {error && <Alert severity="error">{error}</Alert>}
 
-      <Grid container spacing={3}>
+      <MetricGrid itemSize={{ xs: 12, sm: 6, lg: 4 }}>
         {nodes.map((node) => (
-          <Grid key={node.id} item xs={12} sm={6} lg={4}>
-            <NodeCard node={node} />
-          </Grid>
+          <NodeCard key={node.id} node={node} />
         ))}
-      </Grid>
+      </MetricGrid>
 
       {!loading && nodes.length === 0 && (
         <Card elevation={0}>
