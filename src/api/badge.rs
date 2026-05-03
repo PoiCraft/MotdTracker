@@ -1,13 +1,13 @@
 use axum::{
+    extract::{Path, State},
+    response::Response,
     routing::get,
     Router,
-    extract::{State, Path},
-    response::Response,
 };
 use serde::Deserialize;
 
 use super::AppState;
-use crate::utils::{get_uptime_color, get_latency_color, now_gmt8};
+use crate::utils::{get_latency_color, get_uptime_color, now_gmt8};
 
 #[derive(Deserialize)]
 struct HoursQuery {
@@ -15,7 +15,9 @@ struct HoursQuery {
     hours: u32,
 }
 
-fn default_hours() -> u32 { 24 }
+fn default_hours() -> u32 {
+    24
+}
 
 #[derive(Deserialize)]
 struct StatQuery {
@@ -25,7 +27,9 @@ struct StatQuery {
     hours: u32,
 }
 
-fn default_stat() -> String { "avg".to_string() }
+fn default_stat() -> String {
+    "avg".to_string()
+}
 
 pub fn create_router() -> Router<AppState> {
     Router::new()
@@ -38,8 +42,14 @@ pub fn create_router() -> Router<AppState> {
         .route("/node/:id/latency-stats", get(badge_node_latency_stats))
         .route("/node/:id/players", get(badge_node_players))
         .route("/player/:name/status", get(badge_player_status))
-        .route("/player/:name/current-session", get(badge_player_current_session))
-        .route("/player/:name/period-playtime", get(badge_player_period_playtime))
+        .route(
+            "/player/:name/current-session",
+            get(badge_player_current_session),
+        )
+        .route(
+            "/player/:name/period-playtime",
+            get(badge_player_period_playtime),
+        )
         .route("/player/:name/live", get(badge_player_live))
 }
 
@@ -52,7 +62,7 @@ const VERDANA_11PX_WIDTHS: [f64; 95] = [
     5.05,  // 34  "
     9.00,  // 35  #
     6.99,  // 36  $
-   11.84,  // 37  %
+    11.84, // 37  %
     7.99,  // 38  &
     2.95,  // 39  '
     5.00,  // 40  (
@@ -79,7 +89,7 @@ const VERDANA_11PX_WIDTHS: [f64; 95] = [
     9.00,  // 61  =
     9.00,  // 62  >
     6.00,  // 63  ?
-   11.00,  // 64  @
+    11.00, // 64  @
     7.52,  // 65  A
     7.54,  // 66  B
     7.68,  // 67  C
@@ -102,7 +112,7 @@ const VERDANA_11PX_WIDTHS: [f64; 95] = [
     6.78,  // 84  T
     8.05,  // 85  U
     7.52,  // 86  V
-   10.88,  // 87  W
+    10.88, // 87  W
     7.54,  // 88  X
     6.77,  // 89  Y
     7.54,  // 90  Z
@@ -124,7 +134,7 @@ const VERDANA_11PX_WIDTHS: [f64; 95] = [
     3.79,  // 106 j
     6.51,  // 107 k
     3.02,  // 108 l
-   10.70,  // 109 m
+    10.70, // 109 m
     6.96,  // 110 n
     6.68,  // 111 o
     6.85,  // 112 p
@@ -198,7 +208,11 @@ fn is_cjk_punctuation(ch: char) -> bool {
 fn preferred_width_of(text: &str) -> u32 {
     let raw: f64 = text.chars().map(char_width).sum();
     let truncated = raw as u32;
-    if truncated % 2 == 0 { truncated + 1 } else { truncated }
+    if truncated % 2 == 0 {
+        truncated + 1
+    } else {
+        truncated
+    }
 }
 
 fn xml_escape(s: &str) -> String {
@@ -216,8 +230,16 @@ fn generate_badge(label: &str, value: &str, color: &str) -> String {
 
     let label_color = "#555";
 
-    let label_width = if label.is_empty() { 0 } else { preferred_width_of(label) };
-    let left_width = if label.is_empty() { 0 } else { label_width + 2 * HORIZ_PADDING };
+    let label_width = if label.is_empty() {
+        0
+    } else {
+        preferred_width_of(label)
+    };
+    let left_width = if label.is_empty() {
+        0
+    } else {
+        label_width + 2 * HORIZ_PADDING
+    };
     let value_width = preferred_width_of(value);
     let value_margin = if left_width > 0 { left_width - 1 } else { 1 };
     let right_width = value_width + 2 * HORIZ_PADDING;
@@ -290,7 +312,9 @@ fn generate_badge(label: &str, value: &str, color: &str) -> String {
 fn push_text_elements(svg: &mut String, x: u32, text_len: u32, content: &str) {
     svg.push_str(r##"<text aria-hidden="true" x=""##);
     push_u32(svg, x);
-    svg.push_str(r##"" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength=""##);
+    svg.push_str(
+        r##"" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength=""##,
+    );
     push_u32(svg, text_len);
     svg.push_str(r##"">"##);
     svg.push_str(content);
@@ -363,7 +387,10 @@ async fn badge_server_uptime(
         "N/A".to_string()
     };
 
-    let uptime_value = uptime_text.trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
+    let uptime_value = uptime_text
+        .trim_end_matches('%')
+        .parse::<f64>()
+        .unwrap_or(0.0);
     let color = get_uptime_color(uptime_value);
 
     svg_response(generate_badge("uptime", &uptime_text, color))
@@ -373,10 +400,12 @@ async fn badge_server_players(State(state): State<AppState>) -> Response {
     let latest_status = state.db.get_all_latest_status().await.ok();
 
     let players_text = if let Some(statuses) = latest_status {
-        let online: u32 = statuses.iter()
+        let online: u32 = statuses
+            .iter()
             .filter_map(|s| s.players_online.map(|n| n as u32))
             .sum();
-        let max: u32 = statuses.iter()
+        let max: u32 = statuses
+            .iter()
             .filter_map(|s| s.players_max.map(|n| n as u32))
             .sum();
 
@@ -392,7 +421,11 @@ async fn badge_node_status(State(state): State<AppState>, Path(id): Path<i32>) -
     let latest_status = state.db.get_server_latest_status(id).await.ok().flatten();
 
     let (status_text, color) = if let Some(status) = latest_status {
-        if status.online { ("online", "#4c1") } else { ("offline", "#e05d44") }
+        if status.online {
+            ("online", "#4c1")
+        } else {
+            ("offline", "#e05d44")
+        }
     } else {
         ("unknown", "#9f9f9f")
     };
@@ -424,7 +457,10 @@ async fn badge_node_uptime(
         "N/A".to_string()
     };
 
-    let uptime_value = uptime_text.trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
+    let uptime_value = uptime_text
+        .trim_end_matches('%')
+        .parse::<f64>()
+        .unwrap_or(0.0);
     let color = get_uptime_color(uptime_value);
 
     svg_response(generate_badge("uptime", &uptime_text, color))
@@ -436,7 +472,10 @@ async fn badge_node_latency(State(state): State<AppState>, Path(id): Path<i32>) 
     let (latency_text, color) = if let Some(status) = latest_status {
         if status.online {
             if let Some(lat) = status.latency {
-                (format!("{}ms", lat.round() as u32), get_latency_color(lat).to_string())
+                (
+                    format!("{}ms", lat.round() as u32),
+                    get_latency_color(lat).to_string(),
+                )
             } else {
                 ("N/A".to_string(), "#9f9f9f".to_string())
             }
@@ -459,37 +498,69 @@ async fn badge_node_latency_stats(
     let start = now_gmt8() - chrono::Duration::hours(hours as i64);
     let end = now_gmt8();
 
-    let history = state.db.get_server_history_range(id, start, end).await.unwrap_or_default();
+    let history = state
+        .db
+        .get_server_history_range(id, start, end)
+        .await
+        .unwrap_or_default();
     let stats = crate::utils::calculate_latency_stats(&history);
 
     let (label, value, color) = match query.stat.as_str() {
         "avg" => {
             let v = stats.avg_latency.unwrap_or(0.0);
-            ("avg latency".to_string(), format!("{}ms", v.round() as u32), get_latency_color(v).to_string())
+            (
+                "avg latency".to_string(),
+                format!("{}ms", v.round() as u32),
+                get_latency_color(v).to_string(),
+            )
         }
         "min" => {
             let v = stats.min_latency.unwrap_or(0.0);
-            ("min latency".to_string(), format!("{}ms", v.round() as u32), get_latency_color(v).to_string())
+            (
+                "min latency".to_string(),
+                format!("{}ms", v.round() as u32),
+                get_latency_color(v).to_string(),
+            )
         }
         "max" => {
             let v = stats.max_latency.unwrap_or(0.0);
-            ("max latency".to_string(), format!("{}ms", v.round() as u32), get_latency_color(v).to_string())
+            (
+                "max latency".to_string(),
+                format!("{}ms", v.round() as u32),
+                get_latency_color(v).to_string(),
+            )
         }
         "std" => {
             let v = stats.std_dev.unwrap_or(0.0);
-            ("std dev".to_string(), format!("{}ms", v.round() as u32), "#007ec6".to_string())
+            (
+                "std dev".to_string(),
+                format!("{}ms", v.round() as u32),
+                "#007ec6".to_string(),
+            )
         }
         "cv" => {
             let v = stats.cv.unwrap_or(0.0);
-            ("cv".to_string(), format!("{:.1}%", v), "#007ec6".to_string())
+            (
+                "cv".to_string(),
+                format!("{:.1}%", v),
+                "#007ec6".to_string(),
+            )
         }
         "p95" => {
             let v = stats.p95_latency.unwrap_or(0.0);
-            ("p95".to_string(), format!("{}ms", v.round() as u32), get_latency_color(v).to_string())
+            (
+                "p95".to_string(),
+                format!("{}ms", v.round() as u32),
+                get_latency_color(v).to_string(),
+            )
         }
         _ => {
             let v = stats.avg_latency.unwrap_or(0.0);
-            ("avg latency".to_string(), format!("{}ms", v.round() as u32), get_latency_color(v).to_string())
+            (
+                "avg latency".to_string(),
+                format!("{}ms", v.round() as u32),
+                get_latency_color(v).to_string(),
+            )
         }
     };
 
@@ -514,7 +585,11 @@ async fn badge_player_status(State(state): State<AppState>, Path(name): Path<Str
     let detail = state.db.get_player_detail(&name).await.ok().flatten();
 
     let (status_text, color) = if let Some(d) = detail {
-        if d.online { ("online", "#4c1") } else { ("offline", "#e05d44") }
+        if d.online {
+            ("online", "#4c1")
+        } else {
+            ("offline", "#e05d44")
+        }
     } else {
         ("unknown", "#9f9f9f")
     };
@@ -522,7 +597,10 @@ async fn badge_player_status(State(state): State<AppState>, Path(name): Path<Str
     svg_response(generate_badge("status", status_text, color))
 }
 
-async fn badge_player_current_session(State(state): State<AppState>, Path(name): Path<String>) -> Response {
+async fn badge_player_current_session(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> Response {
     let detail = state.db.get_player_detail(&name).await.ok().flatten();
 
     let (text, color) = if let Some(d) = detail {
@@ -555,7 +633,11 @@ async fn badge_player_period_playtime(
 ) -> Response {
     let hours = query.hours.clamp(1, 720);
     let days = (hours + 23) / 24;
-    let history = state.db.get_player_history(&name, Some(days)).await.unwrap_or_default();
+    let history = state
+        .db
+        .get_player_history(&name, Some(days))
+        .await
+        .unwrap_or_default();
 
     let cutoff = now_gmt8() - chrono::Duration::hours(hours as i64);
     let mut total_secs = 0i64;
@@ -564,7 +646,11 @@ async fn badge_player_period_playtime(
         if h.session_end <= h.session_start {
             continue;
         }
-        let start = if h.session_start < cutoff { cutoff } else { h.session_start };
+        let start = if h.session_start < cutoff {
+            cutoff
+        } else {
+            h.session_start
+        };
         let dur = (h.session_end - start).num_seconds();
         if dur > 0 {
             total_secs += dur;
@@ -576,7 +662,11 @@ async fn badge_player_period_playtime(
     } else {
         let h = total_secs / 3600;
         let m = (total_secs % 3600) / 60;
-        if h > 0 { format!("{}h {}m", h, m) } else { format!("{}m", m) }
+        if h > 0 {
+            format!("{}h {}m", h, m)
+        } else {
+            format!("{}m", m)
+        }
     };
 
     svg_response(generate_badge("playtime", &text, "#007ec6"))
@@ -587,7 +677,9 @@ async fn badge_player_live(State(state): State<AppState>, Path(name): Path<Strin
 
     let (text, color) = if let Some(d) = detail {
         if d.online {
-            let server_names: Vec<String> = d.servers.iter()
+            let server_names: Vec<String> = d
+                .servers
+                .iter()
                 .filter(|s| s.online)
                 .map(|s| s.server_name.clone())
                 .collect();
@@ -600,9 +692,13 @@ async fn badge_player_live(State(state): State<AppState>, Path(name): Path<Strin
             let ago = if d.last_seen.timestamp() > 0 {
                 let diff = now_gmt8() - d.last_seen;
                 let mins = diff.num_minutes();
-                if mins < 60 { format!("{}m ago", mins) }
-                else if mins < 1440 { format!("{}h ago", mins / 60) }
-                else { format!("{}d ago", mins / 1440) }
+                if mins < 60 {
+                    format!("{}m ago", mins)
+                } else if mins < 1440 {
+                    format!("{}h ago", mins / 60)
+                } else {
+                    format!("{}d ago", mins / 1440)
+                }
             } else {
                 "offline".to_string()
             };
@@ -661,7 +757,10 @@ mod tests {
     #[test]
     fn test_generate_badge_matches_shields_io() {
         let svg = generate_badge("build", "passing", "#4c1");
-        assert_eq!(svg, r##"<svg xmlns="http://www.w3.org/2000/svg" width="88" height="20" role="img" aria-label="build: passing"><title>build: passing</title><linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><clipPath id="r"><rect width="88" height="20" rx="3" fill="#fff"/></clipPath><g clip-path="url(#r)"><rect width="37" height="20" fill="#555"/><rect x="37" width="51" height="20" fill="#4c1"/><rect width="88" height="20" fill="url(#s)"/></g><g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110"><text aria-hidden="true" x="195" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="270">build</text><text x="195" y="140" transform="scale(.1)" fill="#fff" textLength="270">build</text><text aria-hidden="true" x="615" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="410">passing</text><text x="615" y="140" transform="scale(.1)" fill="#fff" textLength="410">passing</text></g></svg>"##);
+        assert_eq!(
+            svg,
+            r##"<svg xmlns="http://www.w3.org/2000/svg" width="88" height="20" role="img" aria-label="build: passing"><title>build: passing</title><linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient><clipPath id="r"><rect width="88" height="20" rx="3" fill="#fff"/></clipPath><g clip-path="url(#r)"><rect width="37" height="20" fill="#555"/><rect x="37" width="51" height="20" fill="#4c1"/><rect width="88" height="20" fill="url(#s)"/></g><g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" text-rendering="geometricPrecision" font-size="110"><text aria-hidden="true" x="195" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="270">build</text><text x="195" y="140" transform="scale(.1)" fill="#fff" textLength="270">build</text><text aria-hidden="true" x="615" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="410">passing</text><text x="615" y="140" transform="scale(.1)" fill="#fff" textLength="410">passing</text></g></svg>"##
+        );
     }
 
     #[test]

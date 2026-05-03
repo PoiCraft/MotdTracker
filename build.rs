@@ -30,7 +30,10 @@ fn main() {
         let duration = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let secs = duration.as_secs();
         let tm = time_from_epoch(secs);
-        format!("{:04}{:02}{:02}{:02}{:02}{:02}", tm.0, tm.1, tm.2, tm.3, tm.4, tm.5)
+        format!(
+            "{:04}{:02}{:02}{:02}{:02}{:02}",
+            tm.0, tm.1, tm.2, tm.3, tm.4, tm.5
+        )
     };
     let app_version = format!("v{}-{}-{}", pkg_version, now, git_hash);
     println!("cargo:rustc-env=APP_VERSION={}", app_version);

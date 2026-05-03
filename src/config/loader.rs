@@ -1,4 +1,4 @@
-﻿//! 配置加载器
+//! 配置加载器
 
 use std::collections::HashSet;
 use std::path::Path;
@@ -11,10 +11,10 @@ use thiserror::Error;
 pub enum ConfigError {
     #[error("配置文件未找到: {0}")]
     NotFound(String),
-    
+
     #[error("配置文件解析错误: {0}")]
     ParseError(#[from] toml::de::Error),
-    
+
     #[error("IO 错误: {0}")]
     IoError(#[from] std::io::Error),
 

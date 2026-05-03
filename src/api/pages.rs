@@ -4,7 +4,8 @@ use axum::response::Html;
 
 /// 监控总览页面
 pub async fn server_page() -> Html<&'static str> {
-    Html(r#"
+    Html(
+        r#"
 <!DOCTYPE html>
 <html>
 <head>
@@ -21,12 +22,14 @@ pub async fn server_page() -> Html<&'static str> {
     <script src="/static/js/app.js"></script>
 </body>
 </html>
-"#)
+"#,
+    )
 }
 
 /// 节点列表页面
 pub async fn nodes_page() -> Html<&'static str> {
-    Html(r#"
+    Html(
+        r#"
 <!DOCTYPE html>
 <html>
 <head>
@@ -40,12 +43,14 @@ pub async fn nodes_page() -> Html<&'static str> {
     </div>
 </body>
 </html>
-"#)
+"#,
+    )
 }
 
 /// 玩家列表页面
 pub async fn players_page() -> Html<&'static str> {
-    Html(r#"
+    Html(
+        r#"
 <!DOCTYPE html>
 <html>
 <head>
@@ -59,14 +64,16 @@ pub async fn players_page() -> Html<&'static str> {
     </div>
 </body>
 </html>
-"#)
+"#,
+    )
 }
 
 /// 玩家详情页面
 pub async fn player_detail_page(
     axum::extract::Path(_name): axum::extract::Path<String>,
 ) -> Html<&'static str> {
-    Html(r#"
+    Html(
+        r#"
 <!DOCTYPE html>
 <html>
 <head>
@@ -80,12 +87,14 @@ pub async fn player_detail_page(
     </div>
 </body>
 </html>
-"#)
+"#,
+    )
 }
 
 /// Badge 展示页面
 pub async fn badges_page() -> Html<&'static str> {
-    Html(r#"
+    Html(
+        r#"
 <!DOCTYPE html>
 <html>
 <head>
@@ -99,5 +108,6 @@ pub async fn badges_page() -> Html<&'static str> {
     </div>
 </body>
 </html>
-"#)
+"#,
+    )
 }

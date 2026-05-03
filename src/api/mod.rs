@@ -1,16 +1,16 @@
 //! API 模块
 
-pub mod server;
-pub mod node;
-pub mod player;
-pub mod web;
 pub mod badge;
 pub mod exporter;
-pub mod query;
+pub mod node;
 pub mod pages;
+pub mod player;
+pub mod query;
+pub mod server;
+pub mod web;
 
-use std::sync::Arc;
 use axum::response::Response;
+use std::sync::Arc;
 use tokio::sync::watch;
 
 use crate::config::AppConfig;

@@ -1,10 +1,9 @@
 //! 类 SQL 查询 API
 
 use axum::{
-    routing::{get, post},
-    Router,
     extract::State,
-    Json,
+    routing::{get, post},
+    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 
@@ -53,48 +52,129 @@ async fn get_schema() -> Json<SchemaResponse> {
             TableInfo {
                 name: "servers".to_string(),
                 columns: vec![
-                    ColumnInfo { name: "id".to_string(), r#type: "INTEGER".to_string() },
-                    ColumnInfo { name: "name".to_string(), r#type: "TEXT".to_string() },
-                    ColumnInfo { name: "host".to_string(), r#type: "TEXT".to_string() },
-                    ColumnInfo { name: "port".to_string(), r#type: "INTEGER".to_string() },
-                    ColumnInfo { name: "color".to_string(), r#type: "TEXT".to_string() },
+                    ColumnInfo {
+                        name: "id".to_string(),
+                        r#type: "INTEGER".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "name".to_string(),
+                        r#type: "TEXT".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "host".to_string(),
+                        r#type: "TEXT".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "port".to_string(),
+                        r#type: "INTEGER".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "color".to_string(),
+                        r#type: "TEXT".to_string(),
+                    },
                 ],
             },
             TableInfo {
                 name: "status_logs".to_string(),
                 columns: vec![
-                    ColumnInfo { name: "id".to_string(), r#type: "INTEGER".to_string() },
-                    ColumnInfo { name: "server_id".to_string(), r#type: "INTEGER".to_string() },
-                    ColumnInfo { name: "timestamp".to_string(), r#type: "DATETIME".to_string() },
-                    ColumnInfo { name: "online".to_string(), r#type: "BOOLEAN".to_string() },
-                    ColumnInfo { name: "latency".to_string(), r#type: "REAL".to_string() },
-                    ColumnInfo { name: "players_online".to_string(), r#type: "INTEGER".to_string() },
-                    ColumnInfo { name: "players_max".to_string(), r#type: "INTEGER".to_string() },
-                    ColumnInfo { name: "version".to_string(), r#type: "TEXT".to_string() },
-                    ColumnInfo { name: "motd".to_string(), r#type: "TEXT".to_string() },
+                    ColumnInfo {
+                        name: "id".to_string(),
+                        r#type: "INTEGER".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "server_id".to_string(),
+                        r#type: "INTEGER".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "timestamp".to_string(),
+                        r#type: "DATETIME".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "online".to_string(),
+                        r#type: "BOOLEAN".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "latency".to_string(),
+                        r#type: "REAL".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "players_online".to_string(),
+                        r#type: "INTEGER".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "players_max".to_string(),
+                        r#type: "INTEGER".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "version".to_string(),
+                        r#type: "TEXT".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "motd".to_string(),
+                        r#type: "TEXT".to_string(),
+                    },
                 ],
             },
             TableInfo {
                 name: "player_sessions".to_string(),
                 columns: vec![
-                    ColumnInfo { name: "id".to_string(), r#type: "INTEGER".to_string() },
-                    ColumnInfo { name: "server_id".to_string(), r#type: "INTEGER".to_string() },
-                    ColumnInfo { name: "player_name".to_string(), r#type: "TEXT".to_string() },
-                    ColumnInfo { name: "first_seen".to_string(), r#type: "DATETIME".to_string() },
-                    ColumnInfo { name: "session_start".to_string(), r#type: "DATETIME".to_string() },
-                    ColumnInfo { name: "last_seen".to_string(), r#type: "DATETIME".to_string() },
-                    ColumnInfo { name: "online".to_string(), r#type: "BOOLEAN".to_string() },
-                    ColumnInfo { name: "duration_seconds".to_string(), r#type: "INTEGER".to_string() },
+                    ColumnInfo {
+                        name: "id".to_string(),
+                        r#type: "INTEGER".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "server_id".to_string(),
+                        r#type: "INTEGER".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "player_name".to_string(),
+                        r#type: "TEXT".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "first_seen".to_string(),
+                        r#type: "DATETIME".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "session_start".to_string(),
+                        r#type: "DATETIME".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "last_seen".to_string(),
+                        r#type: "DATETIME".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "online".to_string(),
+                        r#type: "BOOLEAN".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "duration_seconds".to_string(),
+                        r#type: "INTEGER".to_string(),
+                    },
                 ],
             },
             TableInfo {
                 name: "player_session_history".to_string(),
                 columns: vec![
-                    ColumnInfo { name: "id".to_string(), r#type: "INTEGER".to_string() },
-                    ColumnInfo { name: "server_id".to_string(), r#type: "INTEGER".to_string() },
-                    ColumnInfo { name: "player_name".to_string(), r#type: "TEXT".to_string() },
-                    ColumnInfo { name: "session_start".to_string(), r#type: "DATETIME".to_string() },
-                    ColumnInfo { name: "session_end".to_string(), r#type: "DATETIME".to_string() },
+                    ColumnInfo {
+                        name: "id".to_string(),
+                        r#type: "INTEGER".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "server_id".to_string(),
+                        r#type: "INTEGER".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "player_name".to_string(),
+                        r#type: "TEXT".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "session_start".to_string(),
+                        r#type: "DATETIME".to_string(),
+                    },
+                    ColumnInfo {
+                        name: "session_end".to_string(),
+                        r#type: "DATETIME".to_string(),
+                    },
                 ],
             },
         ],

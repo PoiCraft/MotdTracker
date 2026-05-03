@@ -1,20 +1,19 @@
 //! Minecraft 服务器查询模块
 
+use serde_json::Value;
 use std::time::Duration;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::net::UdpSocket;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::time::timeout;
 use tracing::{debug, warn};
-use serde_json::Value;
 
 use crate::config::ServerEdition;
 use crate::models::ServerStatus;
 
 /// RakNet Unconnected Ping Magic bytes
 const RAKNET_MAGIC: [u8; 16] = [
-    0x00, 0xFF, 0xFF, 0x00, 0xFE, 0xFE, 0xFE, 0xFE,
-    0xFD, 0xFD, 0xFD, 0xFD, 0x12, 0x34, 0x56, 0x78,
+    0x00, 0xFF, 0xFF, 0x00, 0xFE, 0xFE, 0xFE, 0xFE, 0xFD, 0xFD, 0xFD, 0xFD, 0x12, 0x34, 0x56, 0x78,
 ];
 
 /// Minecraft 服务器查询器
@@ -39,11 +38,7 @@ impl MinecraftQuerier {
     /// 查询 Java 版服务器状态
     ///
     /// 参考: https://wiki.vg/Server_List_Ping
-    async fn query_java_server(
-        host: &str,
-        port: u16,
-        query_timeout: Duration,
-    ) -> ServerStatus {
+    async fn query_java_server(host: &str, port: u16, query_timeout: Duration) -> ServerStatus {
         let address = format!("{}:{}", host, port);
 
         debug!("正在查询 Java 服务器: {}", address);
@@ -125,19 +120,14 @@ impl MinecraftQuerier {
     ///
     /// 使用 RakNet Unconnected Ping 协议 (UDP)
     /// 参考: https://wiki.vg/Raknet_Protocol#Unconnected_Ping
-    async fn query_bedrock_server(
-        host: &str,
-        port: u16,
-        query_timeout: Duration,
-    ) -> ServerStatus {
+    async fn query_bedrock_server(host: &str, port: u16, query_timeout: Duration) -> ServerStatus {
         let address = format!("{}:{}", host, port);
 
         debug!("正在查询基岩版服务器: {}", address);
 
         // 绑定本地 UDP socket
-        let bind_result = timeout(query_timeout, async {
-            UdpSocket::bind("0.0.0.0:0").await
-        }).await;
+        let bind_result =
+            timeout(query_timeout, async { UdpSocket::bind("0.0.0.0:0").await }).await;
 
         let socket = match bind_result {
             Ok(Ok(s)) => s,
@@ -258,7 +248,9 @@ impl MinecraftQuerier {
     ///
     /// Server ID String 字段:
     ///   Edition;Motd;Protocol;VersionName;PlayersOnline;PlayersMax;ServerUniqueId;WorldName;GameMode;...
-    fn parse_bedrock_pong(data: &[u8]) -> Result<ServerStatus, Box<dyn std::error::Error + Send + Sync>> {
+    fn parse_bedrock_pong(
+        data: &[u8],
+    ) -> Result<ServerStatus, Box<dyn std::error::Error + Send + Sync>> {
         if data.len() < 35 {
             return Err("响应数据过短".into());
         }
@@ -467,26 +459,31 @@ impl MinecraftQuerier {
 
     /// 解析状态 JSON
     fn parse_status_json(json: &Value) -> ServerStatus {
-        let version = json.get("version")
+        let version = json
+            .get("version")
             .and_then(|v| v.get("name"))
             .and_then(|n| n.as_str())
             .map(|s| s.to_string());
 
-        let motd = json.get("description")
+        let motd = json
+            .get("description")
             .and_then(|d| Self::extract_motd(d))
             .map(|s| s.to_string());
 
-        let players_online = json.get("players")
+        let players_online = json
+            .get("players")
             .and_then(|p| p.get("online"))
             .and_then(|o| o.as_u64())
             .map(|n| n as u32);
 
-        let players_max = json.get("players")
+        let players_max = json
+            .get("players")
             .and_then(|p| p.get("max"))
             .and_then(|m| m.as_u64())
             .map(|n| n as u32);
 
-        let sample_players = json.get("players")
+        let sample_players = json
+            .get("players")
             .and_then(|p| p.get("sample"))
             .and_then(|s| s.as_array())
             .map(|arr| {
@@ -514,16 +511,18 @@ impl MinecraftQuerier {
             value.as_str().map(|s| s.to_string())
         } else if value.is_object() {
             // 处理 {"text": "motd"} 格式
-            value.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
+            value
+                .get("text")
+                .and_then(|t| t.as_str())
+                .map(|s| s.to_string())
         } else if value.is_array() {
             // 处理 [{"text": "line1"}, {"text": "line2"}] 格式
-            value.as_array()
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|item| item.get("text").and_then(|t| t.as_str()))
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                })
+            value.as_array().map(|arr| {
+                arr.iter()
+                    .filter_map(|item| item.get("text").and_then(|t| t.as_str()))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
         } else {
             None
         }
@@ -560,7 +559,9 @@ impl MinecraftQuerier {
     }
 
     /// 从流读取变长整数
-    async fn read_var_int(stream: &mut TcpStream) -> Result<i32, Box<dyn std::error::Error + Send + Sync>> {
+    async fn read_var_int(
+        stream: &mut TcpStream,
+    ) -> Result<i32, Box<dyn std::error::Error + Send + Sync>> {
         let mut result = 0;
         let mut shift = 0;
 
@@ -637,11 +638,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_query_java_server() {
-        let status = MinecraftQuerier::query_java_server(
-            "mc.hypixel.net",
-            25565,
-            Duration::from_secs(5),
-        ).await;
+        let status =
+            MinecraftQuerier::query_java_server("mc.hypixel.net", 25565, Duration::from_secs(5))
+                .await;
 
         println!("Java 查询结果: {:?}", status);
     }
@@ -652,7 +651,8 @@ mod tests {
             "play.nethergames.org",
             19132,
             Duration::from_secs(5),
-        ).await;
+        )
+        .await;
 
         println!("Bedrock 查询结果: {:?}", status);
     }
