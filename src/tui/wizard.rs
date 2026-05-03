@@ -800,14 +800,14 @@ fn draw_node_edit(f: &mut Frame, area: Rect, state: &mut WizardState) {
             ));
             f.render_widget(text, inner);
         } else if *active {
-            let display = if value.is_empty() {
+            let display_value = state.input.as_str();
+            let display = if display_value.is_empty() {
                 Span::styled("_", Style::default().fg(Color::DarkGray))
             } else {
-                Span::raw(value.as_str())
+                Span::raw(display_value)
             };
             f.render_widget(Paragraph::new(display), inner);
-            let cursor_offset = if *active { state.cursor_pos } else { value.len() };
-            f.set_cursor_position((inner.x + cursor_offset as u16, inner.y));
+            f.set_cursor_position((inner.x + state.cursor_pos as u16, inner.y));
         } else {
             f.render_widget(Paragraph::new(value.as_str()), inner);
         }
