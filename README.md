@@ -224,6 +224,26 @@ MotdTracker/
 
 ---
 
+## Git 钩子（开发提示）
+
+本仓库包含用于在本地阻止未格式化或存在 Clippy 警告的提交的钩子脚本，位于 `.githooks/`：
+
+- `.githooks/pre-commit` — Bash 脚本（Linux/macOS）
+- `.githooks/pre-commit.ps1` — PowerShell 脚本（Windows）
+
+要在本地启用这些钩子（仅需运行一次）：
+
+```bash
+git config core.hooksPath .githooks
+```
+
+启用后，`git commit` 会先运行 `cargo fmt --all -- --check` 和 `cargo clippy --all-targets -- -D warnings`，若任一失败会阻止提交并打印错误信息。
+
+如果你不想启用仓库级钩子，也可手动在本地 `.git/hooks/pre-commit` 中复制相应脚本。
+
+
+---
+
 ## API 端点
 
 ### Web 前端专用

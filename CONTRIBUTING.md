@@ -80,6 +80,27 @@ Rust 后端源码在 `src/`，React 前端在 `frontend/`。
 - **Rust**: 遵循 `rustfmt` 和 `clippy` 规范
 - **JavaScript/React**: 使用 ESLint 默认配置
 
+### 本地 Git 钩子（可选，但推荐）
+
+仓库包含预置的本地钩子脚本以在提交前运行格式化和静态检查，路径：`.githooks/`，包含：
+
+- `.githooks/pre-commit`（Bash，适用于 Linux/macOS）
+- `.githooks/pre-commit.ps1`（PowerShell，适用于 Windows）
+
+启用方法（一次性，本地设置）：
+
+```bash
+git config core.hooksPath .githooks
+```
+
+启用后，`git commit` 将会运行：
+
+- `cargo fmt --all -- --check` — 检查代码是否已格式化
+- `cargo clippy --all-targets -- -D warnings` — 将 Clippy 警告视为错误，防止提交含有警告的代码
+
+如果你需要临时绕过钩子，可以使用 `git commit --no-verify`，但在 PR 合并前请确保本地已通过这些检查。
+
+
 ## 问题反馈
 
 如有任何问题，欢迎：
