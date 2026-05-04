@@ -28,21 +28,24 @@ RUN cargo build --release
 FROM debian:bookworm-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates \
+        ca-certificates gosu \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy only the compiled binary
+# Copy only the compiled binary and the entrypoint helper
 COPY --from=builder /app/target/release/motdtracker .
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Create the default data directory for the SQLite database
 RUN mkdir -p data
 
-# Run as a non-root user for better security
+# Create the unprivileged runtime user.
+# chown the data dir so anonymous Docker volumes are initialised with the
+# correct ownership; the entrypoint.sh re-applies chown for bind mounts.
 RUN useradd -r -u 10001 -s /bin/false motdtracker \
     && chown motdtracker:motdtracker /app/data
-USER motdtracker
 
 # Persist the SQLite database across container restarts
 VOLUME ["/app/data"]
@@ -50,9 +53,13 @@ VOLUME ["/app/data"]
 # Default listen port (matches the default in AppConfig)
 EXPOSE 5011
 
+# entrypoint.sh runs as root, fixes /app/data ownership, then drops to the
+# motdtracker user via gosu before executing the application.
+#
 # Mount your config.toml at /app/config.toml before starting.
 # Example:
 #   docker run -v ./config.toml:/app/config.toml \
 #              -v motdtracker_data:/app/data \
 #              -p 5011:5011 ghcr.io/poicraft/motdtracker
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["./motdtracker"]
