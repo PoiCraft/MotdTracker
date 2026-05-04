@@ -154,7 +154,11 @@ mod tests {
         let diff_duration = now - two_hours_ago;
 
         let seconds = diff_duration.num_seconds();
-        assert!((7140..=7260).contains(&seconds), "Expected ~7200s, got {}", seconds);
+        assert!(
+            (7140..=7260).contains(&seconds),
+            "Expected ~7200s, got {}",
+            seconds
+        );
     }
 
     #[test]
