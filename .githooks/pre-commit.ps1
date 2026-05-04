@@ -6,6 +6,14 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
+Write-Host "Running cargo check..."
+$check = & cargo check --all 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host $check
+    Write-Host "`nERROR: cargo check failed. Fix compilation errors before committing.`n"
+    exit 1
+}
+
 Write-Host "Running cargo clippy..."
 $clippy = & cargo clippy --all-targets -- -D warnings 2>&1
 if ($LASTEXITCODE -ne 0) {

@@ -7,6 +7,12 @@ if ! cargo fmt --all -- --check; then
   exit 1
 fi
 
+echo "Running cargo check..."
+if ! cargo check --all; then
+  echo "\nERROR: cargo check failed. Fix compilation errors before committing.\n"
+  exit 1
+fi
+
 echo "Running cargo clippy..."
 if ! cargo clippy --all-targets -- -D warnings; then
   echo "\nERROR: cargo clippy failed. Fix clippy warnings before committing.\n"
