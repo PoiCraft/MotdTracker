@@ -2,14 +2,15 @@
 # Uses a Rust image with Node.js installed so that build.rs can run
 # `npm ci` + `npm run build` to compile the React frontend, which is
 # then embedded into the binary via rust-embed at compile time.
-FROM rust:1-slim-bookworm AS builder
+FROM rust:alpine3.22 AS builder
 
 # Install Node.js LTS
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        curl ca-certificates \
-    && curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
+#RUN apt-get update && apt-get install -y --no-install-recommends \
+#        curl ca-certificates \
+#    && curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+#    && apt-get install -y --no-install-recommends nodejs \
+#    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache nodejs npm
 
 WORKDIR /app
 
@@ -30,26 +31,24 @@ ARG GIT_COMMIT_TIME=
 RUN GIT_COMMIT_HASH=${GIT_COMMIT_HASH} GIT_COMMIT_TIME=${GIT_COMMIT_TIME} cargo build --release
 
 # ---- Stage 2: Runtime ----
-FROM debian:bookworm-slim AS runtime
+FROM alpine:3.22 AS runtime
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates gosu \
-    && rm -rf /var/lib/apt/lists/*
+# Install minimal runtime packages. `su-exec` is a tiny substitute for `gosu` on Alpine.
+RUN apk add --no-cache ca-certificates su-exec
 
 WORKDIR /app
 
 # Copy only the compiled binary and the entrypoint helper
 COPY --from=builder /app/target/release/motdtracker .
 COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # Create the default data directory for the SQLite database
 RUN mkdir -p data
 
-# Create the unprivileged runtime user.
-# chown the data dir so anonymous Docker volumes are initialised with the
-# correct ownership; the entrypoint.sh re-applies chown for bind mounts.
-RUN useradd -r -u 10001 -s /bin/false motdtracker \
+# Create the unprivileged runtime user (busybox addgroup/adduser available in Alpine)
+RUN addgroup -S motdtracker \
+    && adduser -S -u 10001 -G motdtracker -h /app -s /bin/false motdtracker \
     && chown motdtracker:motdtracker /app/data
 
 # Persist the SQLite database across container restarts

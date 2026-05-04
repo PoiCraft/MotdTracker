@@ -10,4 +10,4 @@ if [ "$(stat -c '%u:%g' /app/data 2>/dev/null)" != "10001:10001" ]; then
         echo "Warning: could not chown /app/data – database writes may fail if the directory is root-owned"
 fi
 
-exec gosu motdtracker "$@"
+exec su-exec motdtracker "$@"
