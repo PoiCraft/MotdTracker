@@ -640,7 +640,7 @@ impl Database for SqliteDatabase {
             .map(|h| (h.session_start, h.session_end))
             .collect();
 
-        intervals.sort_by(|a, b| a.0.cmp(&b.0));
+        intervals.sort_by_key(|a| a.0);
         let mut merged: Vec<(DateTime<Utc>, DateTime<Utc>)> = Vec::new();
         for (start, end) in intervals {
             if let Some(last) = merged.last_mut() {

@@ -118,7 +118,7 @@ async fn get_player_sessions(
         }
     }
 
-    all_intervals.sort_by(|a, b| a.0.cmp(&b.0));
+    all_intervals.sort_by_key(|a| a.0);
     let merged = merge_intervals(all_intervals);
 
     let mut daily: HashMap<chrono::NaiveDate, DailyAccum> = HashMap::new();
@@ -289,7 +289,7 @@ async fn get_player_weekly_stats(
         }
     }
 
-    all_intervals.sort_by(|a, b| a.0.cmp(&b.0));
+    all_intervals.sort_by_key(|a| a.0);
     let merged = merge_intervals_opt(all_intervals);
 
     let weekday_names = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
@@ -324,15 +324,14 @@ async fn get_player_weekly_stats(
 
     for d in 0..7 {
         let day_count = weekday_totals[d].days.len() as f64;
-        for h in 0..24 {
-            weekday_hours[d][h].count = day_count;
+        for hour in weekday_hours[d].iter_mut().take(24) {
+            hour.count = day_count;
         }
     }
 
     let mut weekly_heatmap = Vec::new();
     for d in 0..7 {
-        for h in 0..24 {
-            let data = &weekday_hours[d][h];
+        for (h, data) in weekday_hours[d].iter().enumerate().take(24) {
             let avg = if data.count > 0.0 {
                 data.total / data.count
             } else {
@@ -423,7 +422,7 @@ fn merge_intervals(
     if intervals.is_empty() {
         return vec![];
     }
-    intervals.sort_by(|a, b| a.0.cmp(&b.0));
+    intervals.sort_by_key(|a| a.0);
     let mut merged = vec![intervals[0]];
     for (start, end, server_id) in intervals.into_iter().skip(1) {
         let last = merged.last_mut().unwrap();
@@ -444,7 +443,7 @@ fn merge_intervals_opt(
     if intervals.is_empty() {
         return vec![];
     }
-    intervals.sort_by(|a, b| a.0.cmp(&b.0));
+    intervals.sort_by_key(|a| a.0);
     let mut merged = vec![intervals[0]];
     for (start, end, server_id) in intervals.into_iter().skip(1) {
         let last = merged.last_mut().unwrap();

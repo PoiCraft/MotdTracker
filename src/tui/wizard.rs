@@ -186,13 +186,11 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                     _ => {}
                 },
                 Step::ServerName => match key.code {
-                    KeyCode::Enter => {
-                        if !state.input.trim().is_empty() {
-                            state.server_name = state.input.trim().to_string();
-                            state.step = Step::Port;
-                            state.input = state.port.clone();
-                            state.cursor_pos = state.input.len();
-                        }
+                    KeyCode::Enter if !state.input.trim().is_empty() => {
+                        state.server_name = state.input.trim().to_string();
+                        state.step = Step::Port;
+                        state.input = state.port.clone();
+                        state.cursor_pos = state.input.len();
                     }
                     KeyCode::Esc => {
                         state.step = Step::Welcome;
@@ -296,13 +294,11 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
                     _ => {}
                 },
                 Step::DatabasePath => match key.code {
-                    KeyCode::Enter => {
-                        if !state.input.trim().is_empty() {
-                            state.db_path = state.input.trim().to_string();
-                            state.step = Step::Nodes;
-                            state.input.clear();
-                            state.cursor_pos = 0;
-                        }
+                    KeyCode::Enter if !state.input.trim().is_empty() => {
+                        state.db_path = state.input.trim().to_string();
+                        state.step = Step::Nodes;
+                        state.input.clear();
+                        state.cursor_pos = 0;
                     }
                     KeyCode::Esc => {
                         state.step = Step::PollInterval;

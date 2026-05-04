@@ -96,6 +96,7 @@ impl Default for WsBroadcaster {
 }
 
 /// 处理 WebSocket 连接
+#[allow(clippy::collapsible_match)]
 pub async fn handle_socket(
     socket: WebSocket,
     broadcaster: Arc<WsBroadcaster>,

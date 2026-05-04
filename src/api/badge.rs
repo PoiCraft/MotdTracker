@@ -208,7 +208,7 @@ fn is_cjk_punctuation(ch: char) -> bool {
 fn preferred_width_of(text: &str) -> u32 {
     let raw: f64 = text.chars().map(char_width).sum();
     let truncated = raw as u32;
-    if truncated % 2 == 0 {
+    if truncated.is_multiple_of(2) {
         truncated + 1
     } else {
         truncated

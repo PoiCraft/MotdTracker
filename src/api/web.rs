@@ -404,7 +404,7 @@ async fn get_web_node(
         .unwrap_or_default();
 
     let mut sorted_history = history_raw;
-    sorted_history.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+    sorted_history.sort_by_key(|a| a.timestamp);
 
     let stats = if !sorted_history.is_empty() {
         Some(calculate_latency_stats(&sorted_history))
@@ -468,7 +468,7 @@ async fn get_web_node_head(
         .unwrap_or_default();
 
     let mut sorted_history = history_raw;
-    sorted_history.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+    sorted_history.sort_by_key(|a| a.timestamp);
 
     let stats = if !sorted_history.is_empty() {
         Some(calculate_latency_stats(&sorted_history))

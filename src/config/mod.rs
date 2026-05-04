@@ -7,20 +7,17 @@ pub use loader::*;
 use serde::{Deserialize, Serialize};
 
 /// 服务器版本类型
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ServerEdition {
     /// Java 版
+    #[default]
     Java,
     /// 基岩版
     Bedrock,
 }
 
-impl Default for ServerEdition {
-    fn default() -> Self {
-        Self::Java
-    }
-}
+// Default is derived on the enum using `#[default]` on the `Java` variant.
 
 impl std::fmt::Display for ServerEdition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
