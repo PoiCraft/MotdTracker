@@ -6,8 +6,8 @@
 
 Rust 高性能后端 + React 前端 · 单文件部署 · 前端内嵌
 
-[![CI](https://github.com/PoiCraft/motdtracker-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/PoiCraft/motdtracker-rs/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/PoiCraft/motdtracker-rs?label=Latest)](https://github.com/PoiCraft/motdtracker-rs/releases/latest)
+[![CI](https://github.com/PoiCraft/MotdTracker/actions/workflows/ci.yml/badge.svg)](https://github.com/PoiCraft/MotdTracker/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/PoiCraft/MotdTracker?label=Latest)](https://github.com/PoiCraft/MotdTracker/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-orange.svg)](https://www.rust-lang.org/)
 
@@ -36,7 +36,7 @@ MotdTracker 是一个专为 Minecraft 服务器设计的多入口点实时监控
 
 ## 下载预编译版本
 
-前往 [GitHub Releases](https://github.com/PoiCraft/motdtracker-rs/releases/latest) 下载对应平台的预编译二进制：
+前往 [GitHub Releases](https://github.com/PoiCraft/MotdTracker/releases/latest) 下载对应平台的预编译二进制：
 
 | 平台 | 文件 |
 |------|------|
@@ -45,7 +45,7 @@ MotdTracker 是一个专为 Minecraft 服务器设计的多入口点实时监控
 | macOS x86_64 | `motdtracker-x86_64-apple-darwin.tar.gz` |
 | macOS ARM64 | `motdtracker-aarch64-apple-darwin.tar.gz` |
 
-> 每次 push 到 main 分支会自动构建，可在 [Actions](https://github.com/PoiCraft/motdtracker-rs/actions/workflows/ci.yml) 页面下载最新开发版 artifact。
+> 每次 push 到 main 分支会自动构建，可在 [Actions](https://github.com/PoiCraft/MotdTracker/actions/workflows/ci.yml) 页面下载最新开发版 artifact。
 
 下载解压后直接运行：
 
@@ -307,7 +307,7 @@ git config core.hooksPath .githooks
 
 ## CI / CD
 
-- **push / PR** → 自动 check + test + 多平台构建，产物上传到 [Actions](https://github.com/PoiCraft/motdtracker-rs/actions)
+- **push / PR** → 自动 check + test + 多平台构建，产物上传到 [Actions](https://github.com/PoiCraft/MotdTracker/actions)
 - **打 tag（`v*`）** → 自动构建 + 生成 GitHub Release + 上传预编译二进制 + SHA256 校验和
 
 ```bash
@@ -326,15 +326,15 @@ git push origin v0.1.0
 ### 直接运行（Docker）
 
 ```bash
-# 拉取镜像（替换为实际 owner/repo）
-docker pull ghcr.io/poicraft/motdtracker-rs:latest
+# 拉取镜像
+docker pull ghcr.io/poicraft/motdtracker:latest
 
 # 以后台模式运行，映射端口并挂载数据目录
 docker run -d --name motdtracker \
-	-p 5011:5011 \
-	-v $(pwd)/data:/app/data \
-	-v $(pwd)/config.toml:/app/config.toml \
-	ghcr.io/poicraft/motdtracker-rs:latest
+    -p 5011:5011 \
+    -v $(pwd)/data:/app/data \
+    -v $(pwd)/config.toml:/app/config.toml \
+    ghcr.io/poicraft/motdtracker:latest
 
 # 查看日志
 docker logs -f motdtracker
@@ -347,17 +347,17 @@ docker logs -f motdtracker
 ```yaml
 version: "3.8"
 services:
-	motdtracker:
-		image: ghcr.io/poicraft/motdtracker-rs:latest
-		container_name: motdtracker
-		restart: unless-stopped
-		ports:
-			- "5011:5011"
-		volumes:
-			- ./data:/app/data
-			- ./config.toml:/app/config.toml
-		environment:
-			- TZ=Asia/Shanghai
+  motdtracker:
+    image: ghcr.io/poicraft/motdtracker:latest
+    container_name: motdtracker
+    restart: unless-stopped
+    ports:
+      - "5011:5011"
+    volumes:
+      - ./data:/app/data
+      - ./config.toml:/app/config.toml
+    environment:
+      - TZ=Asia/Shanghai
 ```
 
 启动服务：
