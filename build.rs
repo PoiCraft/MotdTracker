@@ -14,6 +14,8 @@ fn main() {
             println!("cargo:rerun-if-changed=.git/{}", ref_path);
         }
     }
+    println!("cargo:rerun-if-env-changed=GIT_COMMIT_HASH");
+    println!("cargo:rerun-if-env-changed=GIT_COMMIT_TIME");
 
     // Generate pseudo version: vA.B.C-yyyyMMddhhmmss-{git-hash-short}
     // Falls back to GIT_COMMIT_HASH / GIT_COMMIT_TIME env vars when the .git
@@ -45,6 +47,7 @@ fn main() {
             std::env::var("GIT_COMMIT_TIME")
                 .ok()
                 .and_then(|s| s.parse::<u64>().ok())
+                .filter(|&t| t > 0)
         })
         .unwrap_or_else(|| {
             use std::time::{SystemTime, UNIX_EPOCH};
