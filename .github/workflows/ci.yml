@@ -19,6 +19,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: stable
           components: rustfmt, clippy
 
       - name: Install Node.js
@@ -80,6 +81,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: stable
           targets: ${{ matrix.target }}
 
       - name: Install Node.js
