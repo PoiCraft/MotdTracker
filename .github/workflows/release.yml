@@ -85,12 +85,22 @@ jobs:
           name: motdtracker-${{ matrix.target }}
           path: motdtracker-${{ matrix.target }}.${{ matrix.archive }}
 
-  docker:
-    name: Docker Build & Push
-    runs-on: ubuntu-latest
+  docker-build:
+    name: Docker Build (${{ matrix.suffix }})
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            suffix: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            suffix: arm64
     steps:
       - uses: actions/checkout@v4
 
@@ -100,8 +110,45 @@ jobs:
           echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           echo "time=$(git log -1 --format=%ct)" >> $GITHUB_OUTPUT
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+
+      - name: Build and push platform image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ matrix.suffix }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GIT_COMMIT_HASH=${{ steps.commit.outputs.hash }}
+            GIT_COMMIT_TIME=${{ steps.commit.outputs.time }}
+          cache-from: type=gha,scope=docker-${{ matrix.suffix }}
+          cache-to: type=gha,mode=max,scope=docker-${{ matrix.suffix }}
+
+  docker-manifest:
+    name: Docker Manifest & Push
+    needs: docker-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -124,19 +171,13 @@ jobs:
             type=semver,pattern={{major}}
             type=raw,value=latest
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            GIT_COMMIT_HASH=${{ steps.commit.outputs.hash }}
-            GIT_COMMIT_TIME=${{ steps.commit.outputs.time }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Create and push multi-arch manifest
+        run: |
+          while IFS= read -r tag; do
+            docker buildx imagetools create -t "$tag" \
+              "ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64" \
+              "ghcr.io/${{ github.repository }}:${{ github.sha }}-arm64"
+          done <<< "${{ steps.meta.outputs.tags }}"
 
   release:
     name: Create Release
