@@ -157,6 +157,6 @@ mod tests {
         let two_hours_ago = hours_ago(2);
         let diff = now - two_hours_ago;
         let seconds = diff.num_seconds();
-        assert!(seconds >= 7200 - 60 && seconds <= 7200 + 60);
+        assert!((7200 - 60..=7200 + 60).contains(&seconds));
     }
 }

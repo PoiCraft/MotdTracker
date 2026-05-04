@@ -366,8 +366,8 @@ async fn get_player_weekly_stats(
         .collect();
 
     let mut all_days: HashSet<chrono::NaiveDate> = HashSet::new();
-    for d in 0..7 {
-        all_days.extend(&weekday_totals[d].days);
+    for totals in weekday_totals.iter().take(7) {
+        all_days.extend(&totals.days);
     }
 
     Json(serde_json::json!({

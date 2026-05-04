@@ -58,8 +58,8 @@ pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
     let p95 = sorted.get(p95_index).copied().unwrap_or(max);
 
     // 计算变异系数
-    let cv = if avg > 0.0 && std_dev.is_some() {
-        Some((std_dev.unwrap() / avg) * 100.0)
+    let cv = if avg > 0.0 {
+        std_dev.map(|std_dev| (std_dev / avg) * 100.0)
     } else {
         None
     };

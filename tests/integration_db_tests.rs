@@ -155,7 +155,7 @@ async fn test_get_server_history() {
             timestamp: base_time,
             online: i % 2 == 0,
             latency: Some(40.0 + i as f64),
-            players_online: Some(i as i32 * 2),
+            players_online: Some(i * 2),
             players_max: Some(20),
             version: None,
             motd: None,
@@ -167,7 +167,7 @@ async fn test_get_server_history() {
         };
 
         db.log_status(&entry).await.expect("Failed to log status");
-        base_time = base_time + chrono::Duration::minutes(1);
+        base_time += chrono::Duration::minutes(1);
     }
 
     // 检索历史

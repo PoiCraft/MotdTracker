@@ -91,7 +91,7 @@ fn build_aggregated_history(
 
     let mut by_ts: BTreeMap<String, Vec<&crate::models::StatusLog>> = BTreeMap::new();
 
-    for (_id, logs) in history_map {
+    for logs in history_map.values() {
         for log in logs {
             let ts = format_gmt8_naive(log.timestamp);
             by_ts.entry(ts).or_default().push(log);
@@ -143,7 +143,7 @@ fn build_status_timeline(
 
     let mut by_ts: BTreeMap<String, Vec<bool>> = BTreeMap::new();
 
-    for (_id, logs) in history_map {
+    for logs in history_map.values() {
         for log in logs {
             let ts = format_gmt8_naive(log.timestamp);
             by_ts.entry(ts).or_default().push(log.online);
@@ -239,7 +239,7 @@ async fn get_online_players_aggregated(state: &AppState) -> Vec<serde_json::Valu
                 continue;
             }
             let name = s.player_name.clone();
-            let start_iso = s.session_start.map(|dt| format_gmt8_naive(dt));
+            let start_iso = s.session_start.map(format_gmt8_naive);
             let last_iso = format_gmt8_naive(s.last_seen);
             let first_iso = format_gmt8_naive(s.first_seen);
 
@@ -258,7 +258,7 @@ async fn get_online_players_aggregated(state: &AppState) -> Vec<serde_json::Valu
             } else {
                 let entry = aggregated.get_mut(&name).unwrap();
                 if let Some(existing_last) = entry.get("last_seen").and_then(|v| v.as_str()) {
-                    if last_iso > existing_last.to_string() {
+                    if last_iso.as_str() > existing_last {
                         entry["last_seen"] = serde_json::json!(last_iso);
                     }
                 }

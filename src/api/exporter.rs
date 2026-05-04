@@ -1,7 +1,6 @@
 //! Prometheus 指标导出 API
 
 use axum::{extract::State, response::Response, routing::get, Router};
-use std::collections::HashMap;
 
 use super::AppState;
 use crate::utils::calculate_latency_stats;
@@ -24,20 +23,11 @@ async fn prometheus_metrics(State(state): State<AppState>) -> Response {
         }
     };
 
-    let latest_status = match state.db.get_all_latest_status().await {
-        Ok(s) => s,
-        Err(_) => Vec::new(),
-    };
+    let latest_status = state.db.get_all_latest_status().await.unwrap_or_default();
 
-    let history = match state.db.get_all_history(24).await {
-        Ok(h) => h,
-        Err(_) => HashMap::new(),
-    };
+    let history = state.db.get_all_history(24).await.unwrap_or_default();
 
-    let online_players = match state.db.get_all_online_players().await {
-        Ok(p) => p,
-        Err(_) => Vec::new(),
-    };
+    let online_players = state.db.get_all_online_players().await.unwrap_or_default();
 
     let mut metrics = String::new();
 

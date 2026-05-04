@@ -632,7 +632,7 @@ async fn badge_player_period_playtime(
     axum::extract::Query(query): axum::extract::Query<HoursQuery>,
 ) -> Response {
     let hours = query.hours.clamp(1, 720);
-    let days = (hours + 23) / 24;
+    let days = hours.div_ceil(24);
     let history = state
         .db
         .get_player_history(&name, Some(days))

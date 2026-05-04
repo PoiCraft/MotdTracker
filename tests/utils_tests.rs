@@ -1,7 +1,6 @@
-/// 工具模块单元测试
-///
-/// 测试统计计算、时间处理等工具函数的正确性
-
+//! 工具模块单元测试
+//!
+//! 测试统计计算、时间处理等工具函数的正确性
 #[cfg(test)]
 mod tests {
     use chrono::Timelike;
@@ -155,11 +154,7 @@ mod tests {
         let diff_duration = now - two_hours_ago;
 
         let seconds = diff_duration.num_seconds();
-        assert!(
-            seconds >= 7140 && seconds <= 7260,
-            "Expected ~7200s, got {}",
-            seconds
-        );
+        assert!((7140..=7260).contains(&seconds), "Expected ~7200s, got {}", seconds);
     }
 
     #[test]
@@ -170,7 +165,7 @@ mod tests {
 
         let seconds = diff_duration.num_seconds();
         assert!(
-            seconds >= 604740 && seconds <= 604860,
+            (604740..=604860).contains(&seconds),
             "Expected ~604800s, got {}",
             seconds
         );
@@ -235,7 +230,7 @@ mod tests {
         // P95 应该约为第 95 个值
         assert!(stats.p95_latency.is_some());
         let p95 = stats.p95_latency.unwrap();
-        assert!(p95 >= 94.0 && p95 <= 96.0); // 允许小的浮动
+        assert!((94.0..=96.0).contains(&p95)); // 允许小的浮动
     }
 
     #[test]
