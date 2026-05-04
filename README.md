@@ -326,15 +326,15 @@ git push origin v0.1.0
 ### 直接运行（Docker）
 
 ```bash
-# 拉取镜像（替换为实际 owner/repo）
-docker pull ghcr.io/poicraft/motdtracker-rs:latest
+# 拉取镜像
+docker pull ghcr.io/poicraft/motdtracker:latest
 
 # 以后台模式运行，映射端口并挂载数据目录
 docker run -d --name motdtracker \
-	-p 5011:5011 \
-	-v $(pwd)/data:/app/data \
-	-v $(pwd)/config.toml:/app/config.toml \
-	ghcr.io/poicraft/motdtracker-rs:latest
+    -p 5011:5011 \
+    -v $(pwd)/data:/app/data \
+    -v $(pwd)/config.toml:/app/config.toml \
+    ghcr.io/poicraft/motdtracker:latest
 
 # 查看日志
 docker logs -f motdtracker
@@ -347,17 +347,17 @@ docker logs -f motdtracker
 ```yaml
 version: "3.8"
 services:
-	motdtracker:
-		image: ghcr.io/poicraft/motdtracker-rs:latest
-		container_name: motdtracker
-		restart: unless-stopped
-		ports:
-			- "5011:5011"
-		volumes:
-			- ./data:/app/data
-			- ./config.toml:/app/config.toml
-		environment:
-			- TZ=Asia/Shanghai
+  motdtracker:
+    image: ghcr.io/poicraft/motdtracker:latest
+    container_name: motdtracker
+    restart: unless-stopped
+    ports:
+      - "5011:5011"
+    volumes:
+      - ./data:/app/data
+      - ./config.toml:/app/config.toml
+    environment:
+      - TZ=Asia/Shanghai
 ```
 
 启动服务：
