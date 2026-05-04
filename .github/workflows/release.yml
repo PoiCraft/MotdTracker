@@ -94,6 +94,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Get commit metadata
+        id: commit
+        run: |
+          echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "time=$(git log -1 --format=%ct)" >> $GITHUB_OUTPUT
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -126,6 +132,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GIT_COMMIT_HASH=${{ steps.commit.outputs.hash }}
+            GIT_COMMIT_TIME=${{ steps.commit.outputs.time }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

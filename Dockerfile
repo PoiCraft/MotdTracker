@@ -22,7 +22,12 @@ RUN npm ci --prefix frontend
 # build.rs will run `npm run build` (node_modules already present)
 # and embed the resulting dist/ into the binary.
 COPY . .
-RUN cargo build --release
+
+# Accept git metadata as build args so that build.rs can embed the correct
+# version string even though .git is excluded from the Docker build context.
+ARG GIT_COMMIT_HASH=unknown
+ARG GIT_COMMIT_TIME=0
+RUN GIT_COMMIT_HASH=${GIT_COMMIT_HASH} GIT_COMMIT_TIME=${GIT_COMMIT_TIME} cargo build --release
 
 # ---- Stage 2: Runtime ----
 FROM debian:bookworm-slim AS runtime

@@ -16,20 +16,46 @@ fn main() {
     }
 
     // Generate pseudo version: vA.B.C-yyyyMMddhhmmss-{git-hash-short}
+    // Falls back to GIT_COMMIT_HASH / GIT_COMMIT_TIME env vars when the .git
+    // directory is absent (e.g. Docker builds where .git is in .dockerignore).
     let pkg_version = std::env::var("CARGO_PKG_VERSION").unwrap();
+
     let git_hash = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
         .output()
         .ok()
         .filter(|o| o.status.success())
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .or_else(|| std::env::var("GIT_COMMIT_HASH").ok())
         .unwrap_or_else(|| "unknown".to_string());
 
+    // Use the commit's own timestamp, not the build time.
+    let commit_secs = Command::new("git")
+        .args(["log", "-1", "--format=%ct"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .trim()
+                .parse::<u64>()
+                .ok()
+        })
+        .or_else(|| {
+            std::env::var("GIT_COMMIT_TIME")
+                .ok()
+                .and_then(|s| s.parse::<u64>().ok())
+        })
+        .unwrap_or_else(|| {
+            use std::time::{SystemTime, UNIX_EPOCH};
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        });
+
     let now = {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let duration = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-        let secs = duration.as_secs();
-        let tm = time_from_epoch(secs);
+        let tm = time_from_epoch(commit_secs);
         format!(
             "{:04}{:02}{:02}{:02}{:02}{:02}",
             tm.0, tm.1, tm.2, tm.3, tm.4, tm.5
