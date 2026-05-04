@@ -368,6 +368,7 @@ docker compose up -d
 
 如果你希望使用指定的配置，编辑 `config.toml`（参考 `config.example.toml`）并将其挂载到容器中。
 
+注意：TUI 配置向导在 Docker 部署时暂不可用，请参考 `config.example.toml` 自行配置。
 
 ## 贡献
 
