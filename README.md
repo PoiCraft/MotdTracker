@@ -299,6 +299,56 @@ git push origin v0.1.0
 
 ---
 
+## 使用 Docker
+
+你也可以直接使用由 CI 构建并推送到 GitHub Container Registry (GHCR) 的镜像运行 MotdTracker。下面示例展示如何拉取并运行镜像，以及一个 `docker-compose.yml` 示例：
+
+### 直接运行（Docker）
+
+```bash
+# 拉取镜像（替换为实际 owner/repo）
+docker pull ghcr.io/poicraft/motdtracker-rs:latest
+
+# 以后台模式运行，映射端口并挂载数据目录
+docker run -d --name motdtracker \
+	-p 5011:5011 \
+	-v $(pwd)/data:/app/data \
+	-v $(pwd)/config.toml:/app/config.toml \
+	ghcr.io/poicraft/motdtracker-rs:latest
+
+# 查看日志
+docker logs -f motdtracker
+```
+
+### 使用 docker-compose
+
+将以下内容保存为 `docker-compose.yml`：
+
+```yaml
+version: "3.8"
+services:
+	motdtracker:
+		image: ghcr.io/poicraft/motdtracker-rs:latest
+		container_name: motdtracker
+		restart: unless-stopped
+		ports:
+			- "5011:5011"
+		volumes:
+			- ./data:/app/data
+			- ./config.toml:/app/config.toml
+		environment:
+			- TZ=Asia/Shanghai
+```
+
+启动服务：
+
+```bash
+docker compose up -d
+```
+
+如果你希望使用指定的配置，编辑 `config.toml`（参考 `config.example.toml`）并将其挂载到容器中。
+
+
 ## 贡献
 
 欢迎提交 Issue 与 Pull Request！详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
