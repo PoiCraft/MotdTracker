@@ -181,3 +181,70 @@ pub struct QueryResult {
     /// 总行数
     pub total: usize,
 }
+
+/// Unified Metrics 记录（额外数据源）
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct UnifiedMetricsLog {
+    /// 记录 ID
+    pub id: i64,
+
+    /// 数据源名称
+    pub source_name: String,
+
+    /// 时间戳
+    #[serde(with = "crate::utils::time::serde_gmt8")]
+    pub timestamp: DateTime<Utc>,
+
+    /// TPS
+    pub tps: Option<f64>,
+
+    /// MSPT
+    pub mspt: Option<f64>,
+
+    /// 运行时长（秒）
+    pub uptime_seconds: Option<f64>,
+
+    /// CPU 负载（0-1 或百分比）
+    pub cpu_load: Option<f64>,
+
+    /// 已用内存（字节）
+    pub memory_used_bytes: Option<f64>,
+
+    /// 总内存（字节）
+    pub memory_total_bytes: Option<f64>,
+
+    /// 空闲内存（字节）
+    pub memory_free_bytes: Option<f64>,
+}
+
+/// Unified Metrics 写入条目
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnifiedMetricsEntry {
+    /// 数据源名称
+    pub source_name: String,
+
+    /// 时间戳
+    #[serde(with = "crate::utils::time::serde_gmt8")]
+    pub timestamp: DateTime<Utc>,
+
+    /// TPS
+    pub tps: Option<f64>,
+
+    /// MSPT
+    pub mspt: Option<f64>,
+
+    /// 运行时长（秒）
+    pub uptime_seconds: Option<f64>,
+
+    /// CPU 负载（0-1 或百分比）
+    pub cpu_load: Option<f64>,
+
+    /// 已用内存（字节）
+    pub memory_used_bytes: Option<f64>,
+
+    /// 总内存（字节）
+    pub memory_total_bytes: Option<f64>,
+
+    /// 空闲内存（字节）
+    pub memory_free_bytes: Option<f64>,
+}

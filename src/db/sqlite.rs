@@ -128,6 +128,41 @@ impl Database for SqliteDatabase {
         .await
         .map_err(|e| DbError::MigrationError(e.to_string()))?;
 
+        // 创建 unified_metrics_logs 表
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS unified_metrics_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_name TEXT NOT NULL,
+                timestamp DATETIME NOT NULL,
+                tps REAL,
+                mspt REAL,
+                uptime_seconds REAL,
+                cpu_load REAL,
+                memory_used_bytes REAL,
+                memory_total_bytes REAL,
+                memory_free_bytes REAL
+            )
+            "#,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::MigrationError(e.to_string()))?;
+
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_unified_metrics_timestamp ON unified_metrics_logs(timestamp)",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::MigrationError(e.to_string()))?;
+
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_unified_metrics_source_timestamp ON unified_metrics_logs(source_name, timestamp)",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::MigrationError(e.to_string()))?;
+
         // 创建 player_sessions 表
         sqlx::query(
             r#"
@@ -414,7 +449,80 @@ impl Database for SqliteDatabase {
             .await
             .map_err(|e| DbError::DeleteError(e.to_string()))?;
 
+        let _ = sqlx::query("DELETE FROM unified_metrics_logs WHERE timestamp < ?")
+            .bind(format_gmt8_naive(cutoff))
+            .execute(&self.pool)
+            .await;
+
         Ok(result.rows_affected())
+    }
+
+    async fn log_unified_metrics(&self, entry: &UnifiedMetricsEntry) -> Result<(), DbError> {
+        sqlx::query(
+            r#"
+            INSERT INTO unified_metrics_logs (
+                source_name, timestamp, tps, mspt, uptime_seconds, cpu_load,
+                memory_used_bytes, memory_total_bytes, memory_free_bytes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&entry.source_name)
+        .bind(format_gmt8_naive(entry.timestamp))
+        .bind(entry.tps)
+        .bind(entry.mspt)
+        .bind(entry.uptime_seconds)
+        .bind(entry.cpu_load)
+        .bind(entry.memory_used_bytes)
+        .bind(entry.memory_total_bytes)
+        .bind(entry.memory_free_bytes)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::InsertError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn get_latest_unified_metrics(
+        &self,
+        source_name: &str,
+    ) -> Result<Option<UnifiedMetricsLog>, DbError> {
+        sqlx::query_as::<_, UnifiedMetricsLog>(
+            r#"
+            SELECT id, source_name, timestamp, tps, mspt, uptime_seconds, cpu_load,
+                   memory_used_bytes, memory_total_bytes, memory_free_bytes
+            FROM unified_metrics_logs
+            WHERE source_name = ?
+            ORDER BY timestamp DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(source_name)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::QueryError(e.to_string()))
+    }
+
+    async fn get_unified_metrics_history(
+        &self,
+        source_name: &str,
+        hours: u32,
+    ) -> Result<Vec<UnifiedMetricsLog>, DbError> {
+        let start_time = now_gmt8() - chrono::Duration::hours(hours as i64);
+
+        sqlx::query_as::<_, UnifiedMetricsLog>(
+            r#"
+            SELECT id, source_name, timestamp, tps, mspt, uptime_seconds, cpu_load,
+                   memory_used_bytes, memory_total_bytes, memory_free_bytes
+            FROM unified_metrics_logs
+            WHERE source_name = ? AND timestamp >= ?
+            ORDER BY timestamp ASC
+            "#,
+        )
+        .bind(source_name)
+        .bind(format_gmt8_naive(start_time))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::QueryError(e.to_string()))
     }
 
     async fn update_player_sessions(

@@ -30,6 +30,10 @@ import WifiOffRoundedIcon from "@mui/icons-material/WifiOffRounded";
 import DnsRoundedIcon from "@mui/icons-material/DnsRounded";
 import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
 import ScheduleRoundedIcon from "@mui/icons-material/ScheduleRounded";
+import SpeedRoundedIcon from "@mui/icons-material/SpeedRounded";
+import TimerRoundedIcon from "@mui/icons-material/TimerRounded";
+import MemoryRoundedIcon from "@mui/icons-material/MemoryRounded";
+import DeveloperBoardRoundedIcon from "@mui/icons-material/DeveloperBoardRounded";
 import MetricCard from "../components/MetricCard";
 import MetricGrid from "../components/MetricGrid";
 import ResponsiveChartCard from "../components/ResponsiveChartCard";
@@ -39,7 +43,13 @@ import M3StatusTag, { StatusDot } from "../components/M3StatusTag";
 import { api } from "../api";
 import { useWsEvent } from "../utils/ws";
 import { recreateChart, destroyChart } from "../utils/charts";
-import { formatDuration, formatTime, toTimeLabel } from "../utils/format";
+import {
+  formatBytes,
+  formatDuration,
+  formatTime,
+  formatUptime,
+  toTimeLabel,
+} from "../utils/format";
 
 function mergeLatestPoint(history, latestPoint) {
   if (!history || !latestPoint?.timestamp) return history;
@@ -106,6 +116,57 @@ function buildHeatmap(timeline) {
   return rows;
 }
 
+function mergeUnifiedLatestPoint(unifiedMetrics, latestPoints) {
+  if (!unifiedMetrics || !latestPoints) return unifiedMetrics;
+  const next = {
+    ...(unifiedMetrics || {}),
+    history: { ...(unifiedMetrics.history || {}) },
+    latest: { ...(unifiedMetrics.latest || {}) },
+  };
+
+  Object.entries(latestPoints).forEach(([sourceName, point]) => {
+    if (!point?.timestamp) return;
+    next.latest[sourceName] = point;
+    const oldHistory = next.history[sourceName] || {
+      timestamps: [],
+      tps: [],
+      mspt: [],
+      uptime_seconds: [],
+      cpu_load: [],
+      memory_used_bytes: [],
+      memory_total_bytes: [],
+      memory_free_bytes: [],
+    };
+    const history = {
+      ...oldHistory,
+      timestamps: [...(oldHistory.timestamps || [])],
+      tps: [...(oldHistory.tps || [])],
+      mspt: [...(oldHistory.mspt || [])],
+      uptime_seconds: [...(oldHistory.uptime_seconds || [])],
+      cpu_load: [...(oldHistory.cpu_load || [])],
+      memory_used_bytes: [...(oldHistory.memory_used_bytes || [])],
+      memory_total_bytes: [...(oldHistory.memory_total_bytes || [])],
+      memory_free_bytes: [...(oldHistory.memory_free_bytes || [])],
+    };
+    const idx = history.timestamps.indexOf(point.timestamp);
+    const setAt = (arr, val) => {
+      if (idx >= 0) arr[idx] = val ?? null;
+      else arr.push(val ?? null);
+    };
+    if (idx < 0) history.timestamps.push(point.timestamp);
+    setAt(history.tps, point.tps);
+    setAt(history.mspt, point.mspt);
+    setAt(history.uptime_seconds, point.uptime_seconds);
+    setAt(history.cpu_load, point.cpu_load);
+    setAt(history.memory_used_bytes, point.memory_used_bytes);
+    setAt(history.memory_total_bytes, point.memory_total_bytes);
+    setAt(history.memory_free_bytes, point.memory_free_bytes);
+    next.history[sourceName] = history;
+  });
+
+  return next;
+}
+
 function SectionTitle({ children, action }) {
   return (
     <Stack
@@ -134,9 +195,13 @@ export default function ServerPage() {
   const latencyCanvas = useRef(null);
   const playersCanvas = useRef(null);
   const statusCanvas = useRef(null);
+  const unifiedPerfCanvas = useRef(null);
+  const unifiedMemoryCanvas = useRef(null);
   const latencyChart = useRef(null);
   const playersChart = useRef(null);
   const statusChart = useRef(null);
+  const unifiedPerfChart = useRef(null);
+  const unifiedMemoryChart = useRef(null);
 
   const renderCharts = (data) => {
     const h = data?.history;
@@ -276,6 +341,111 @@ export default function ServerPage() {
         },
       },
     });
+
+    const unifiedHistory = data?.unified_metrics?.history || {};
+    const firstUnified = Object.values(unifiedHistory)[0];
+    if (!firstUnified?.timestamps?.length) {
+      destroyChart(unifiedPerfChart);
+      destroyChart(unifiedMemoryChart);
+      return;
+    }
+
+    const unifiedLabels = firstUnified.timestamps.map((t) => toTimeLabel(t, hours));
+    recreateChart(unifiedPerfChart, unifiedPerfCanvas.current, {
+      type: "line",
+      data: {
+        labels: unifiedLabels,
+        datasets: [
+          {
+            label: "TPS",
+            data: firstUnified.tps || [],
+            borderColor: c?.success || "#188038",
+            backgroundColor: "transparent",
+            pointRadius: 0,
+            borderWidth: 2,
+            tension: 0.35,
+          },
+          {
+            label: "MSPT",
+            data: firstUnified.mspt || [],
+            borderColor: c?.warning || "#B05D00",
+            backgroundColor: "transparent",
+            pointRadius: 0,
+            borderWidth: 2,
+            tension: 0.35,
+          },
+          {
+            label: "CPU Load",
+            data: (firstUnified.cpu_load || []).map((v) =>
+              v === null || v === undefined ? null : v <= 1 ? v * 100 : v
+            ),
+            borderColor: c?.primary || "#1A73E8",
+            backgroundColor: "transparent",
+            pointRadius: 0,
+            borderWidth: 1.8,
+            tension: 0.35,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: "top", labels: legendLabels } },
+        scales: {
+          x: { grid: { display: false } },
+          y: { grid: { color: chartGrid } },
+        },
+      },
+    });
+
+    recreateChart(unifiedMemoryChart, unifiedMemoryCanvas.current, {
+      type: "line",
+      data: {
+        labels: unifiedLabels,
+        datasets: [
+          {
+            label: "Used",
+            data: (firstUnified.memory_used_bytes || []).map((v) => (v == null ? null : v / 1024 / 1024)),
+            borderColor: c?.error || "#B3261E",
+            backgroundColor: alpha(c?.error || "#B3261E", 0.1),
+            fill: true,
+            pointRadius: 0,
+            borderWidth: 2,
+            tension: 0.35,
+          },
+          {
+            label: "Total",
+            data: (firstUnified.memory_total_bytes || []).map((v) => (v == null ? null : v / 1024 / 1024)),
+            borderColor: c?.outline || "#777",
+            backgroundColor: "transparent",
+            pointRadius: 0,
+            borderWidth: 1.6,
+            tension: 0.35,
+          },
+          {
+            label: "Free",
+            data: (firstUnified.memory_free_bytes || []).map((v) => (v == null ? null : v / 1024 / 1024)),
+            borderColor: c?.primary || "#1A73E8",
+            backgroundColor: "transparent",
+            pointRadius: 0,
+            borderWidth: 1.6,
+            tension: 0.35,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: "top", labels: legendLabels } },
+        scales: {
+          x: { grid: { display: false } },
+          y: {
+            grid: { color: chartGrid },
+            title: { display: true, text: "MB" },
+          },
+        },
+      },
+    });
   };
 
   const loadFull = async () => {
@@ -308,6 +478,10 @@ export default function ServerPage() {
             prev.history,
             head.latest_history_point
           ),
+          unified_metrics: mergeUnifiedLatestPoint(
+            prev.unified_metrics,
+            head.latest_unified_points
+          ),
         };
         renderCharts(next);
         return next;
@@ -320,6 +494,8 @@ export default function ServerPage() {
       destroyChart(latencyChart);
       destroyChart(playersChart);
       destroyChart(statusChart);
+      destroyChart(unifiedPerfChart);
+      destroyChart(unifiedMemoryChart);
     };
   }, []);
 
@@ -331,6 +507,8 @@ export default function ServerPage() {
     [payload]
   );
   const onlineNodes = nodes.filter((n) => n.latest_status?.online).length;
+  const unifiedLatestMap = payload?.unified_metrics?.latest || {};
+  const unifiedLatest = Object.values(unifiedLatestMap).find((v) => v && typeof v === "object") || null;
 
   const heatColor = (level) => {
     const map = {
@@ -416,6 +594,41 @@ export default function ServerPage() {
           value={formatTime(head.timestamp)}
           icon={<ScheduleRoundedIcon />}
           color="primary"
+        />
+        <MetricCard
+          title="TPS"
+          value={unifiedLatest?.tps != null ? Number(unifiedLatest.tps).toFixed(2) : "—"}
+          icon={<SpeedRoundedIcon />}
+          color="success"
+        />
+        <MetricCard
+          title="MSPT"
+          value={unifiedLatest?.mspt != null ? `${Number(unifiedLatest.mspt).toFixed(2)} ms` : "—"}
+          icon={<TimerRoundedIcon />}
+          color="warning"
+        />
+        <MetricCard
+          title="CPU Load"
+          value={
+            unifiedLatest?.cpu_load != null
+              ? `${(unifiedLatest.cpu_load <= 1 ? unifiedLatest.cpu_load * 100 : unifiedLatest.cpu_load).toFixed(1)}%`
+              : "—"
+          }
+          icon={<DeveloperBoardRoundedIcon />}
+          color="primary"
+        />
+        <MetricCard
+          title="Uptime"
+          value={formatUptime(unifiedLatest?.uptime_seconds)}
+          icon={<ScheduleRoundedIcon />}
+          color="primary"
+        />
+        <MetricCard
+          title="Memory"
+          value={formatBytes(unifiedLatest?.memory_used_bytes)}
+          hint={`总计 ${formatBytes(unifiedLatest?.memory_total_bytes)} · 空闲 ${formatBytes(unifiedLatest?.memory_free_bytes)}`}
+          icon={<MemoryRoundedIcon />}
+          color="error"
         />
       </MetricGrid>
 
@@ -562,6 +775,16 @@ export default function ServerPage() {
         <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
           <ResponsiveChartCard sectionTitle={<SectionTitle>玩家数量趋势</SectionTitle>}>
             <canvas ref={playersCanvas} />
+          </ResponsiveChartCard>
+        </Box>
+        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 6" }, minWidth: 0 }}>
+          <ResponsiveChartCard sectionTitle={<SectionTitle>Unified Metrics 性能趋势</SectionTitle>}>
+            <canvas ref={unifiedPerfCanvas} />
+          </ResponsiveChartCard>
+        </Box>
+        <Box sx={{ gridColumn: { xs: "1 / -1", md: "span 6" }, minWidth: 0 }}>
+          <ResponsiveChartCard sectionTitle={<SectionTitle>Unified Metrics 内存趋势</SectionTitle>}>
+            <canvas ref={unifiedMemoryCanvas} />
           </ResponsiveChartCard>
         </Box>
       </Box>

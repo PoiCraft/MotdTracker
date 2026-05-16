@@ -8,10 +8,10 @@ use tokio::task::JoinSet;
 use tracing::{debug, error, info, warn};
 
 use crate::alert::AlertManager;
-use crate::config::{AppConfig, NodeConfig};
+use crate::config::{AppConfig, ExtraDataSourceConfig, ExtraDataSourceType, NodeConfig};
 use crate::core::monitor::MinecraftQuerier;
 use crate::db::Database;
-use crate::models::StatusLogEntry;
+use crate::models::{StatusLogEntry, UnifiedMetricsEntry};
 use crate::utils::time::now_gmt8;
 use crate::ws::WsBroadcaster;
 
@@ -134,6 +134,8 @@ impl ServerPoller {
             error!("更新玩家会话失败: {}", e);
         }
 
+        self.poll_extra_data_sources(timestamp).await;
+
         // 发送 WebSocket 通知
         self.broadcaster.broadcast_poll_complete(timestamp).await;
 
@@ -201,6 +203,199 @@ impl ServerPoller {
 
         (node.id, online, players)
     }
+
+    async fn poll_extra_data_sources(&self, timestamp: DateTime<Utc>) {
+        for source in &self.config.extra_data_sources {
+            if !source.enabled {
+                continue;
+            }
+
+            match source.source_type {
+                ExtraDataSourceType::UnifiedMetrics => {
+                    if let Err(e) = self.poll_unified_metrics_source(source, timestamp).await {
+                        warn!("抓取 Unified Metrics 数据源 '{}' 失败: {}", source.name, e);
+                    }
+                }
+            }
+        }
+    }
+
+    async fn poll_unified_metrics_source(
+        &self,
+        source: &ExtraDataSourceConfig,
+        timestamp: DateTime<Utc>,
+    ) -> anyhow::Result<()> {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(source.timeout_seconds.max(1)))
+            .build()?;
+
+        let body = client
+            .get(&source.prometheus_url)
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+
+        let mut entry = parse_unified_metrics_prometheus(&body);
+        entry.source_name = source.name.clone();
+        entry.timestamp = timestamp;
+
+        self.db.log_unified_metrics(&entry).await?;
+        Ok(())
+    }
+}
+
+fn parse_unified_metrics_prometheus(text: &str) -> UnifiedMetricsEntry {
+    let mut values: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+    let mut jvm_used_sum = 0.0_f64;
+    let mut jvm_used_count = 0_u32;
+    let mut jvm_max_sum = 0.0_f64;
+    let mut jvm_max_count = 0_u32;
+
+    for raw_line in text.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        let mut parts = line.split_whitespace();
+        let metric_full = match parts.next() {
+            Some(v) => v,
+            None => continue,
+        };
+        let value_raw = match parts.next() {
+            Some(v) => v,
+            None => continue,
+        };
+        let value = match value_raw.parse::<f64>() {
+            Ok(v) if v.is_finite() => v,
+            _ => continue,
+        };
+
+        let metric_name = metric_full
+            .split('{')
+            .next()
+            .unwrap_or(metric_full)
+            .to_lowercase();
+        values.insert(metric_name.clone(), value);
+
+        if metric_name == "jvm_memory_used_bytes" {
+            jvm_used_sum += value;
+            jvm_used_count += 1;
+        }
+        if metric_name == "jvm_memory_max_bytes" && value >= 0.0 {
+            jvm_max_sum += value;
+            jvm_max_count += 1;
+        }
+    }
+
+    let tps = pick_metric(
+        &values,
+        &[
+            "unifiedmetrics_tps",
+            "unified_metrics_tps",
+            "minecraft_tps",
+            "server_tps",
+            "tps",
+        ],
+    );
+    let mspt = pick_metric(
+        &values,
+        &[
+            "unifiedmetrics_mspt",
+            "unified_metrics_mspt",
+            "minecraft_mspt",
+            "server_mspt",
+            "mspt",
+        ],
+    );
+    let uptime_seconds = pick_metric(
+        &values,
+        &[
+            "unifiedmetrics_uptime_seconds",
+            "unified_metrics_uptime_seconds",
+            "minecraft_uptime_seconds",
+            "process_uptime_seconds",
+            "uptime_seconds",
+            "uptime",
+        ],
+    );
+    let cpu_load = pick_metric(
+        &values,
+        &[
+            "unifiedmetrics_cpu_load",
+            "unified_metrics_cpu_load",
+            "minecraft_cpu_load",
+            "system_cpu_load",
+            "process_cpu_load",
+            "cpu_load",
+        ],
+    );
+
+    let memory_used_bytes = pick_metric(
+        &values,
+        &[
+            "unifiedmetrics_memory_used_bytes",
+            "unified_metrics_memory_used_bytes",
+            "minecraft_memory_used_bytes",
+            "memory_used_bytes",
+        ],
+    )
+    .or_else(|| {
+        if jvm_used_count > 0 {
+            Some(jvm_used_sum)
+        } else {
+            None
+        }
+    });
+
+    let memory_total_bytes = pick_metric(
+        &values,
+        &[
+            "unifiedmetrics_memory_total_bytes",
+            "unified_metrics_memory_total_bytes",
+            "minecraft_memory_total_bytes",
+            "memory_total_bytes",
+        ],
+    )
+    .or_else(|| {
+        if jvm_max_count > 0 {
+            Some(jvm_max_sum)
+        } else {
+            None
+        }
+    });
+
+    let memory_free_bytes = pick_metric(
+        &values,
+        &[
+            "unifiedmetrics_memory_free_bytes",
+            "unified_metrics_memory_free_bytes",
+            "minecraft_memory_free_bytes",
+            "memory_free_bytes",
+        ],
+    )
+    .or_else(|| match (memory_total_bytes, memory_used_bytes) {
+        (Some(total), Some(used)) => Some((total - used).max(0.0)),
+        _ => None,
+    });
+
+    UnifiedMetricsEntry {
+        source_name: String::new(),
+        timestamp: now_gmt8(),
+        tps,
+        mspt,
+        uptime_seconds,
+        cpu_load,
+        memory_used_bytes,
+        memory_total_bytes,
+        memory_free_bytes,
+    }
+}
+
+fn pick_metric(values: &std::collections::HashMap<String, f64>, aliases: &[&str]) -> Option<f64> {
+    aliases.iter().find_map(|name| values.get(*name).copied())
 }
 
 /// 用于克隆的辅助结构

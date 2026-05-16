@@ -76,6 +76,10 @@ pub struct AppConfig {
 
     /// Umami 分析配置（可选）
     pub umami: Option<UmamiConfig>,
+
+    /// 额外数据源配置（可选）
+    #[serde(default)]
+    pub extra_data_sources: Vec<ExtraDataSourceConfig>,
 }
 
 /// 节点配置
@@ -150,6 +154,36 @@ pub struct UmamiConfig {
     pub domains: Option<String>,
 }
 
+/// 额外数据源类型
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ExtraDataSourceType {
+    /// Unified Metrics Prometheus 数据源
+    UnifiedMetrics,
+}
+
+/// 额外数据源配置
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ExtraDataSourceConfig {
+    /// 数据源名称（用于展示）
+    pub name: String,
+
+    /// 数据源类型
+    #[serde(rename = "type")]
+    pub source_type: ExtraDataSourceType,
+
+    /// Prometheus 抓取地址（通常为 /metrics）
+    pub prometheus_url: String,
+
+    /// 请求超时（秒）
+    #[serde(default = "default_extra_source_timeout_seconds")]
+    pub timeout_seconds: u64,
+
+    /// 是否启用
+    #[serde(default = "default_enable")]
+    pub enabled: bool,
+}
+
 // 默认值函数
 fn default_server_name() -> String {
     "MotdTracker".to_string()
@@ -177,6 +211,9 @@ fn default_offline_confirm_frames() -> u32 {
 }
 fn default_online_confirm_frames() -> u32 {
     3
+}
+fn default_extra_source_timeout_seconds() -> u64 {
+    5
 }
 
 impl Default for DatabaseConfig {

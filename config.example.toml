@@ -58,3 +58,13 @@ enable = false
 # group_id = 123456789
 # offline_threshold = 3
 # recovery_threshold = 1
+
+# 额外数据源（可选）
+# 通过 Prometheus 拉取 Unified Metrics 插件指标
+# 常见指标：tps、mspt、uptime、cpu load、memory used/total/free
+[[extra_data_sources]]
+name = "Unified Metrics"
+type = "unified_metrics"
+prometheus_url = "http://127.0.0.1:9100/metrics"
+timeout_seconds = 5
+enabled = false

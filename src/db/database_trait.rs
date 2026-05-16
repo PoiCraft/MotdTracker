@@ -97,6 +97,24 @@ pub trait Database: Send + Sync {
     /// 清理旧记录
     async fn cleanup_old_records(&self, days: u32) -> Result<u64, DbError>;
 
+    // ==================== 额外数据源（Unified Metrics） ====================
+
+    /// 记录 Unified Metrics
+    async fn log_unified_metrics(&self, entry: &UnifiedMetricsEntry) -> Result<(), DbError>;
+
+    /// 获取 Unified Metrics 最新记录
+    async fn get_latest_unified_metrics(
+        &self,
+        source_name: &str,
+    ) -> Result<Option<UnifiedMetricsLog>, DbError>;
+
+    /// 获取 Unified Metrics 历史记录
+    async fn get_unified_metrics_history(
+        &self,
+        source_name: &str,
+        hours: u32,
+    ) -> Result<Vec<UnifiedMetricsLog>, DbError>;
+
     // ==================== 玩家会话 ====================
 
     /// 更新玩家会话

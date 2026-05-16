@@ -29,6 +29,68 @@ pub fn create_router() -> Router<AppState> {
         .route("/node/:id/head", get(get_web_node_head))
 }
 
+async fn build_unified_metrics_payload(
+    state: &AppState,
+    hours: u32,
+) -> (
+    serde_json::Map<String, serde_json::Value>,
+    serde_json::Map<String, serde_json::Value>,
+) {
+    let mut history_map = serde_json::Map::new();
+    let mut latest_map = serde_json::Map::new();
+
+    for source in state
+        .config
+        .extra_data_sources
+        .iter()
+        .filter(|s| s.enabled && matches!(s.source_type, crate::config::ExtraDataSourceType::UnifiedMetrics))
+    {
+        let rows = state
+            .db
+            .get_unified_metrics_history(&source.name, hours)
+            .await
+            .unwrap_or_default();
+        let latest = state
+            .db
+            .get_latest_unified_metrics(&source.name)
+            .await
+            .ok()
+            .flatten();
+
+        let compact = serde_json::json!({
+            "timestamps": rows.iter().map(|r| format_gmt8_naive(r.timestamp)).collect::<Vec<_>>(),
+            "tps": rows.iter().map(|r| r.tps).collect::<Vec<_>>(),
+            "mspt": rows.iter().map(|r| r.mspt).collect::<Vec<_>>(),
+            "uptime_seconds": rows.iter().map(|r| r.uptime_seconds).collect::<Vec<_>>(),
+            "cpu_load": rows.iter().map(|r| r.cpu_load).collect::<Vec<_>>(),
+            "memory_used_bytes": rows.iter().map(|r| r.memory_used_bytes).collect::<Vec<_>>(),
+            "memory_total_bytes": rows.iter().map(|r| r.memory_total_bytes).collect::<Vec<_>>(),
+            "memory_free_bytes": rows.iter().map(|r| r.memory_free_bytes).collect::<Vec<_>>(),
+        });
+        history_map.insert(source.name.clone(), compact);
+
+        if let Some(r) = latest {
+            latest_map.insert(
+                source.name.clone(),
+                serde_json::json!({
+                    "timestamp": format_gmt8_naive(r.timestamp),
+                    "tps": r.tps,
+                    "mspt": r.mspt,
+                    "uptime_seconds": r.uptime_seconds,
+                    "cpu_load": r.cpu_load,
+                    "memory_used_bytes": r.memory_used_bytes,
+                    "memory_total_bytes": r.memory_total_bytes,
+                    "memory_free_bytes": r.memory_free_bytes,
+                }),
+            );
+        } else {
+            latest_map.insert(source.name.clone(), serde_json::Value::Null);
+        }
+    }
+
+    (history_map, latest_map)
+}
+
 async fn build_nodes_with_stats(
     state: &AppState,
     hours: u32,
@@ -303,6 +365,8 @@ async fn get_web_server(
     let status_timeline = build_status_timeline(&history_map);
     let head = build_server_head(&state, &nodes);
     let players = get_online_players_aggregated(&state).await;
+    let (unified_metrics_history, unified_metrics_latest) =
+        build_unified_metrics_payload(&state, hours).await;
 
     Json(serde_json::json!({
         "nodes": nodes,
@@ -312,6 +376,10 @@ async fn get_web_server(
         "status_timeline": status_timeline,
         "players": players,
         "head": head,
+        "unified_metrics": {
+            "history": unified_metrics_history,
+            "latest": unified_metrics_latest,
+        },
         "config": {
             "poll_interval": state.config.poll_interval,
             "server_name": state.config.server_name,
@@ -331,6 +399,8 @@ async fn get_web_server_head(
     let status_timeline = build_status_timeline(&history_map);
     let head = build_server_head(&state, &nodes);
     let players = get_online_players_aggregated(&state).await;
+    let (_unified_metrics_history, unified_metrics_latest) =
+        build_unified_metrics_payload(&state, hours).await;
 
     let latest_history_point = if let (Some(ts_arr), Some(online_arr)) = (
         history.get("timestamps").and_then(|v| v.as_array()),
@@ -365,14 +435,23 @@ async fn get_web_server_head(
         None
     };
 
+    let mut latest_unified_points = serde_json::Map::new();
+    for (source, value) in &unified_metrics_latest {
+        latest_unified_points.insert(source.clone(), value.clone());
+    }
+
     Json(serde_json::json!({
         "nodes": nodes,
         "stats_by_id": stats_by_id,
         "latest_history_point": latest_history_point,
+        "latest_unified_points": latest_unified_points,
         "uptime": {},
         "status_timeline": status_timeline,
         "players": players,
         "head": head,
+        "unified_metrics": {
+            "latest": unified_metrics_latest,
+        },
         "config": {
             "poll_interval": state.config.poll_interval,
             "server_name": state.config.server_name,
