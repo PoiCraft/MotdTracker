@@ -49,7 +49,13 @@ export function formatBytes(bytes) {
     n /= 1024;
     i += 1;
   }
-  return `${n.toFixed(n >= 100 ? 0 : n >= 10 ? 1 : 2)} ${units[i]}`;
+  let digits = 2;
+  if (n >= 100) {
+    digits = 0;
+  } else if (n >= 10) {
+    digits = 1;
+  }
+  return `${n.toFixed(digits)} ${units[i]}`;
 }
 
 export function formatUptime(seconds) {

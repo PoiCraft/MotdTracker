@@ -51,6 +51,8 @@ import {
   toTimeLabel,
 } from "../utils/format";
 
+const BYTES_TO_MB = 1024 * 1024;
+
 function mergeLatestPoint(history, latestPoint) {
   if (!history || !latestPoint?.timestamp) return history;
   const next = {
@@ -405,7 +407,7 @@ export default function ServerPage() {
         datasets: [
           {
             label: "Used",
-            data: (firstUnified.memory_used_bytes || []).map((v) => (v == null ? null : v / 1024 / 1024)),
+            data: (firstUnified.memory_used_bytes || []).map((v) => (v == null ? null : v / BYTES_TO_MB)),
             borderColor: c?.error || "#B3261E",
             backgroundColor: alpha(c?.error || "#B3261E", 0.1),
             fill: true,
@@ -415,7 +417,7 @@ export default function ServerPage() {
           },
           {
             label: "Total",
-            data: (firstUnified.memory_total_bytes || []).map((v) => (v == null ? null : v / 1024 / 1024)),
+            data: (firstUnified.memory_total_bytes || []).map((v) => (v == null ? null : v / BYTES_TO_MB)),
             borderColor: c?.outline || "#777",
             backgroundColor: "transparent",
             pointRadius: 0,
@@ -424,7 +426,7 @@ export default function ServerPage() {
           },
           {
             label: "Free",
-            data: (firstUnified.memory_free_bytes || []).map((v) => (v == null ? null : v / 1024 / 1024)),
+            data: (firstUnified.memory_free_bytes || []).map((v) => (v == null ? null : v / BYTES_TO_MB)),
             borderColor: c?.primary || "#1A73E8",
             backgroundColor: "transparent",
             pointRadius: 0,
