@@ -342,7 +342,7 @@ fn parse_unified_metrics_prometheus(text: &str) -> UnifiedMetricsEntry {
             "memory_used_bytes",
         ],
     )
-    .or_else(|| {
+    .or({
         if jvm_used_count > 0 {
             Some(jvm_used_sum)
         } else {
@@ -359,7 +359,7 @@ fn parse_unified_metrics_prometheus(text: &str) -> UnifiedMetricsEntry {
             "memory_total_bytes",
         ],
     )
-    .or_else(|| {
+    .or({
         if jvm_max_count > 0 {
             Some(jvm_max_sum)
         } else {

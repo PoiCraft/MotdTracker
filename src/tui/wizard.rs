@@ -88,6 +88,7 @@ impl WizardState {
             nodes: self.nodes.clone(),
             napcat_alert: None,
             umami: None,
+            extra_data_sources: vec![],
         }
     }
 
