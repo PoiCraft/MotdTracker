@@ -5,12 +5,12 @@
 
 pub mod alert;
 pub mod api;
+pub mod auth;
 pub mod config;
 pub mod core;
 pub mod db;
 pub mod embedded;
 pub mod models;
-pub mod tui;
 pub mod utils;
 pub mod ws;
 
@@ -18,5 +18,5 @@ pub const APP_VERSION: &str = env!("APP_VERSION");
 pub use config::AppConfig;
 pub use config::ServerEdition;
 pub use core::monitor::MinecraftQuerier;
-pub use core::poller::ServerPoller;
+pub use core::poller::ServerPollerManager;
 pub use db::Database;

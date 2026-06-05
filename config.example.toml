@@ -1,60 +1,9 @@
-# MotdTracker 配置文件示例
-# 复制此文件为 config.toml 并修改相应配置
-# 注意：节点是同一台服务器的不同连接入口，而非不同的服务器
+# MotdTracker 最小启动配置
+# 仅需提供数据库路径和端口，所有业务配置通过 Web 管理面板完成
+# 也可通过环境变量覆盖: MOTDTRACKER_PORT, MOTDTRACKER_DATABASE_PATH
 
-# 服务器配置
-port = 8080
-server_name = "MotdTracker Rust"
-poll_interval = 60
+port = 5011
 
-# 数据库配置（SQLite）
 [database]
 path = "data/motdtracker.db"
 
-# 节点配置（同一服务器的不同连接入口）
-# edition 可选值: java（默认）, bedrock
-# Java 版默认端口: 25565，基岩版默认端口: 19132
-# enable 字段用于临时禁用某个节点的监控，默认为 true
-#
-# ⚠ ID 是标识节点的唯一依据，不同节点必须使用不同的 ID！
-#   - ID 必须为正整数
-#   - 不同节点使用相同 ID 会导致历史数据混乱、统计错误，且无法恢复
-#   - ID 一旦分配请勿随意修改，否则将与已有的监控数据失去关联
-[[nodes]]
-id = 1
-name = "主入口"
-host = "play.example.com"
-port = 25565
-edition = "java"
-enable = true
-
-[[nodes]]
-id = 2
-name = "移动优化入口"
-host = "mobile.example.com"
-port = 25565
-edition = "java"
-enable = true
-
-[[nodes]]
-id = 3
-name = "基岩版入口"
-host = "play.example.com"
-port = 19132
-edition = "bedrock"
-enable = true
-
-[[nodes]]
-id = 4
-name = "教育网入口"
-host = "edu.example.com"
-port = 25565
-enable = false
-
-# NapCat 告警配置（可选）
-# [alert.napcat]
-# enable = true
-# api_url = "http://localhost:3001"
-# group_id = 123456789
-# offline_threshold = 3
-# recovery_threshold = 1

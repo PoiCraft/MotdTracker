@@ -1,6 +1,6 @@
 [package]
 name = "motdtracker"
-version = "1.0.2"
+version = "2.0.0"
 edition = "2021"
 description = "Minecraft single-server multi-entry-point real-time monitoring system"
 license = "MIT"
@@ -62,10 +62,6 @@ byteorder = "1"
 rust-embed = "8"
 mime_guess = "2"
 
-# TUI
-ratatui = "0.29"
-crossterm = { version = "0.28", features = ["event-stream"] }
-
 # Template engine (for HTML rendering)
 askama = "0.12"
 
@@ -75,6 +71,8 @@ async-graphql-axum = { version = "7", optional = true }
 
 # Prometheus metrics (optional)
 prometheus = { version = "0.13", optional = true }
+argon2 = "0.5.3"
+rand = "0.10.1"
 
 [features]
 default = ["sqlite"]

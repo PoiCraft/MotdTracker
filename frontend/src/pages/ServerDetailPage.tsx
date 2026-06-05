@@ -1,0 +1,167 @@
+import { useQuery } from "@tanstack/react-query"
+import { useParams, useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
+import { api } from "@/api/endpoints"
+import { PageHeader } from "@/components/shared/PageHeader"
+import { StatCard, StatGrid } from "@/components/shared/StatCard"
+import { EmptyState } from "@/components/shared/EmptyState"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Network, Users, Gauge, Activity } from "lucide-react"
+
+export default function ServerDetailPage() {
+  const { serverId } = useParams<{ serverId: string }>()
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+
+  const { data: detail, isLoading } = useQuery({
+    queryKey: ["server", serverId],
+    queryFn: () => api.servers.detail(serverId!),
+    enabled: !!serverId,
+  })
+
+  useQuery({
+    queryKey: ["server-history", serverId],
+    queryFn: () => api.servers.history(serverId!, 24),
+    enabled: !!serverId,
+  })
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <StatGrid>
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-lg" />
+          ))}
+        </StatGrid>
+        <Skeleton className="h-64 rounded-lg" />
+      </div>
+    )
+  }
+
+  if (!detail) {
+    return (
+      <EmptyState
+        title={t("dashboard.loadingFailed")}
+        description={t("servers.noServers")}
+      />
+    )
+  }
+
+  const agg = detail.aggregate
+  const onlineN = agg.online_node_count
+  const totalN = agg.total_node_count
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={detail.name}
+        description={`${onlineN}/${totalN} nodes`}
+      />
+
+      <StatGrid>
+        <StatCard
+          title={t("server.onlineNodes")}
+          value={`${onlineN}/${totalN}`}
+          icon={Network}
+          variant={
+            onlineN === totalN && totalN > 0 ? "success" : "warning"
+          }
+          subtitle={totalN > 0 ? `${Math.round((onlineN / totalN) * 100)}%` : undefined}
+        />
+        <StatCard
+          title={t("server.totalPlayers")}
+          value={agg.total_players_online}
+          icon={Users}
+        />
+        <StatCard
+          title={t("servers.avgLatency")}
+          value={
+            agg.avg_latency != null && agg.avg_latency > 0
+              ? `${Math.round(agg.avg_latency)}ms`
+              : "--"
+          }
+          icon={Gauge}
+        />
+        <StatCard
+          title={t("server.onlineRate")}
+          value={totalN > 0 ? `${Math.round((onlineN / totalN) * 100)}%` : "--"}
+          icon={Activity}
+        />
+      </StatGrid>
+
+      <div className="rounded-lg border bg-card">
+        <div className="px-4 py-3 border-b">
+          <h3 className="text-sm font-medium">{t("server.nodeList")}</h3>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("nodes.title")}</TableHead>
+              <TableHead>{t("nodes.status")}</TableHead>
+              <TableHead className="text-right">{t("nodes.latency")}</TableHead>
+              <TableHead className="text-right">{t("servers.players")}</TableHead>
+              <TableHead className="text-right hidden sm:table-cell">
+                {t("nodes.version")}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {detail.nodes.map((n) => {
+              const status = n.latest_status
+              return (
+                <TableRow
+                  key={n.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => navigate(`/nodes/${n.id}`)}
+                >
+                  <TableCell className="font-medium text-sm">{n.name}</TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex items-center gap-1.5 text-xs ${
+                        status?.online
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          status?.online ? "bg-green-500" : "bg-red-500"
+                        }`}
+                      />
+                      {status?.online
+                        ? t("common.online")
+                        : t("common.offline")}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm">
+                    {status?.latency != null
+                      ? `${Math.round(status.latency)}ms`
+                      : "--"}
+                  </TableCell>
+                  <TableCell className="text-right text-sm">
+                    {status?.players_online != null &&
+                    status?.players_max != null
+                      ? `${status.players_online}/${status.players_max}`
+                      : "--"}
+                  </TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground hidden sm:table-cell truncate max-w-[100px]">
+                    {status?.version || "--"}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}

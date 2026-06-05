@@ -1,6 +1,9 @@
 //! 轮询器模块
 
 use chrono::{DateTime, Utc};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::watch;
@@ -8,219 +11,249 @@ use tokio::task::JoinSet;
 use tracing::{debug, error, info, warn};
 
 use crate::alert::AlertManager;
-use crate::config::{AppConfig, NodeConfig};
+use crate::config::WebhookAlertConfig;
 use crate::core::monitor::MinecraftQuerier;
 use crate::db::Database;
-use crate::models::StatusLogEntry;
+use crate::models::*;
 use crate::utils::time::now_gmt8;
 use crate::ws::WsBroadcaster;
 
-/// 服务器轮询器
-pub struct ServerPoller {
-    config: Arc<AppConfig>,
+fn compute_config_hash(interval: u64, nodes: &[Node]) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    interval.hash(&mut hasher);
+    let mut sorted: Vec<_> = nodes.iter().collect();
+    sorted.sort_by_key(|n| &n.id);
+    for n in &sorted {
+        n.id.hash(&mut hasher);
+        n.name.hash(&mut hasher);
+        n.host.hash(&mut hasher);
+        n.port.hash(&mut hasher);
+        n.edition.hash(&mut hasher);
+        n.color.hash(&mut hasher);
+        n.enabled.hash(&mut hasher);
+        n.server_id.hash(&mut hasher);
+    }
+    hasher.finish()
+}
+
+struct ServerPoller {
     db: Arc<dyn Database>,
     broadcaster: Arc<WsBroadcaster>,
-    alert_manager: Option<Arc<AlertManager>>,
-    shutdown_rx: watch::Receiver<bool>,
+    enabled_nodes: Vec<Node>,
+    poll_interval: u64,
 }
 
 impl ServerPoller {
-    /// 创建新的轮询器
-    pub fn new(
-        config: Arc<AppConfig>,
-        db: Arc<dyn Database>,
-        broadcaster: Arc<WsBroadcaster>,
-        shutdown_rx: watch::Receiver<bool>,
-    ) -> Self {
-        let alert_manager = config
-            .napcat_alert
-            .as_ref()
-            .filter(|a| a.enable)
-            .map(|alert_config| Arc::new(AlertManager::new(alert_config.clone())));
-
-        Self {
-            config,
-            db,
-            broadcaster,
-            alert_manager,
-            shutdown_rx,
+    async fn run(self, mut shutdown_rx: watch::Receiver<bool>) {
+        info!(
+            "轮询器启动: interval={}s, nodes={}",
+            self.poll_interval,
+            self.enabled_nodes.len()
+        );
+        self.poll_all().await;
+        let mut interval = tokio::time::interval(Duration::from_secs(self.poll_interval));
+        loop {
+            tokio::select! { _ = interval.tick() => self.poll_all().await, result = shutdown_rx.changed() => { if result.is_ok() || result.is_err() { info!("轮询器收到关闭信号"); break; } } }
         }
     }
 
-    /// 启动轮询器
-    pub async fn start(&self) -> anyhow::Result<()> {
-        info!("轮询器启动，间隔: {}秒", self.config.poll_interval);
-
-        // 首次立即执行
-        self.poll_all_servers().await;
-
-        // 定时轮询（支持优雅关闭）
-        let poll_interval = self.config.poll_interval;
-        let mut poller = self.clone_ref();
-
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(poll_interval));
-            interval.tick().await;
-            loop {
-                tokio::select! {
-                    _ = interval.tick() => {
-                        poller.poll_all_servers().await;
-                    }
-                    result = poller.shutdown_rx.changed() => {
-                        if result.is_ok() || result.is_err() {
-                            info!("轮询器收到关闭信号，停止轮询");
-                            break;
-                        }
-                    }
-                }
-            }
-        });
-
-        Ok(())
-    }
-
-    /// 克隆引用
-    fn clone_ref(&self) -> Self {
-        Self {
-            config: self.config.clone(),
-            db: self.db.clone(),
-            broadcaster: self.broadcaster.clone(),
-            alert_manager: self.alert_manager.clone(),
-            shutdown_rx: self.shutdown_rx.clone(),
-        }
-    }
-
-    /// 轮询所有节点
-    pub async fn poll_all_servers(&self) {
-        let timestamp = now_gmt8();
-        debug!("开始轮询所有节点，时间: {}", timestamp);
-
-        let enabled_nodes: Vec<&NodeConfig> = self.config.enabled_nodes();
-
-        if enabled_nodes.is_empty() {
+    async fn poll_all(&self) {
+        let ts = now_gmt8();
+        if self.enabled_nodes.is_empty() {
             warn!("没有启用任何节点");
             return;
         }
-
         let mut tasks = JoinSet::new();
-
-        for node in enabled_nodes {
+        for node in &self.enabled_nodes {
             let db = self.db.clone();
-            let node = node.clone();
-            let ts = timestamp;
-
-            tasks.spawn(async move { Self::poll_single_node(db, &node, ts).await });
+            let n = node.clone();
+            tasks.spawn(async move { Self::poll_single(db, &n, ts).await });
         }
-
-        let mut online_count = 0;
-        let mut total_count = 0;
-        let mut observations: Vec<(i32, bool, Option<Vec<String>>)> = Vec::new();
-
-        while let Some(result) = tasks.join_next().await {
-            if let Ok((server_id, online, players)) = result {
-                total_count += 1;
-                if online {
-                    online_count += 1;
+        let mut online = 0u32;
+        let mut total = 0u32;
+        let mut obs: Vec<(String, bool, Option<Vec<String>>)> = Vec::new();
+        let mut entries: Vec<StatusLogEntry> = Vec::new();
+        while let Some(r) = tasks.join_next().await {
+            if let Ok((entry, pls)) = r {
+                total += 1;
+                if entry.online {
+                    online += 1;
                 }
-                observations.push((server_id, online, players));
+                obs.push((entry.node_id.clone(), entry.online, pls));
+                entries.push(entry);
             }
         }
-
-        if let Err(e) = self
-            .db
-            .update_player_sessions_aggregate(&observations, timestamp)
-            .await
-        {
+        if let Err(e) = self.db.update_player_sessions_aggregate(&obs, ts).await {
             error!("更新玩家会话失败: {}", e);
         }
-
-        // 发送 WebSocket 通知
-        self.broadcaster.broadcast_poll_complete(timestamp).await;
-
-        // 检查告警
-        if let Some(ref alert_manager) = self.alert_manager {
-            alert_manager
-                .check_and_alert(online_count > 0, online_count, total_count)
-                .await;
+        let snapshots = entries
+            .iter()
+            .map(|e| {
+                let server_id = self
+                    .enabled_nodes
+                    .iter()
+                    .find(|n| n.id == e.node_id)
+                    .map(|n| n.server_id.clone())
+                    .unwrap_or_default();
+                crate::ws::WsNodeSnapshot {
+                    node_id: e.node_id.clone(),
+                    server_id,
+                    online: e.online,
+                    latency: e.latency,
+                    players_online: e.players_online,
+                    players_max: e.players_max,
+                    version: e.version.clone(),
+                    motd: e.motd.clone(),
+                }
+            })
+            .collect();
+        self.broadcaster
+            .broadcast_poll_complete(ts, snapshots)
+            .await;
+        if let Ok(Some(v)) = self.db.get_app_config("webhook_alert").await {
+            if let Ok(cfg) = serde_json::from_str::<WebhookAlertConfig>(&v) {
+                if cfg.enable {
+                    let sn = self
+                        .db
+                        .get_app_config("server_name")
+                        .await
+                        .ok()
+                        .flatten()
+                        .unwrap_or_else(|| "MotdTracker".to_string());
+                    AlertManager::new(cfg, sn)
+                        .check_and_alert(online > 0, online, total)
+                        .await;
+                }
+            }
         }
-
-        debug!("轮询完成，在线: {}/{}", online_count, total_count);
+        debug!("轮询完成: {}/{}", online, total);
     }
 
-    /// 轮询单个节点
-    async fn poll_single_node(
+    async fn poll_single(
         db: Arc<dyn Database>,
-        node: &NodeConfig,
-        timestamp: DateTime<Utc>,
-    ) -> (i32, bool, Option<Vec<String>>) {
-        debug!(
-            "轮询节点 {} ({}:{}) [{}]",
-            node.name, node.host, node.port, node.edition
-        );
-
-        // 查询服务器状态
-        let status = MinecraftQuerier::query_server(
+        node: &Node,
+        ts: DateTime<Utc>,
+    ) -> (StatusLogEntry, Option<Vec<String>>) {
+        let edition: crate::config::ServerEdition = node
+            .edition
+            .as_str()
+            .parse()
+            .unwrap_or(crate::config::ServerEdition::Java);
+        let st = MinecraftQuerier::query_server(
             &node.host,
-            node.port,
+            node.port as u16,
             Duration::from_secs(5),
-            &node.edition,
+            &edition,
         )
         .await;
-
-        let online = status.online;
-        let players = status.sample_players.clone();
-        let sample_players_json = status
+        let spj = st
             .sample_players
             .as_ref()
             .map(|p| serde_json::to_string(p).unwrap_or_default());
-        let edition_str = status.edition.as_ref().map(|e| e.to_string());
-
-        // 构建状态日志条目
+        let ej = st.edition.as_ref().map(|e| e.to_string());
         let entry = StatusLogEntry {
-            server_id: node.id,
-            timestamp,
-            online: status.online,
-            latency: status.latency,
-            players_online: status.players_online.map(|n| n as i32),
-            players_max: status.players_max.map(|n| n as i32),
-            version: status.version,
-            motd: status.motd,
-            sample_players: sample_players_json,
-            software: status.software,
-            plugins: status
+            node_id: node.id.clone(),
+            timestamp: ts,
+            online: st.online,
+            latency: st.latency,
+            players_online: st.players_online.map(|n| n as i32),
+            players_max: st.players_max.map(|n| n as i32),
+            version: st.version,
+            motd: st.motd.clone(),
+            sample_players: spj,
+            software: st.software,
+            plugins: st
                 .plugins
                 .map(|p| serde_json::to_string(&p).unwrap_or_default()),
-            map: status.map,
-            edition: edition_str,
+            map: st.map,
+            edition: ej,
         };
-
-        // 记录状态
         if let Err(e) = db.log_status(&entry).await {
             error!("记录状态失败: {}", e);
         }
-
-        (node.id, online, players)
+        (entry, st.sample_players.clone())
     }
 }
 
-/// 用于克隆的辅助结构
-#[derive(Clone)]
-pub struct PollerState {
-    pub online_count: u32,
-    pub total_count: u32,
-    pub last_online: bool,
-    pub streak: u32,
-    pub last_alert_time: Option<DateTime<Utc>>,
+pub struct ServerPollerManager {
+    db: Arc<dyn Database>,
+    broadcaster: Arc<WsBroadcaster>,
+    restart_tx: watch::Sender<bool>,
+    global_shutdown_rx: watch::Receiver<bool>,
+    active_config_hash: AtomicU64,
 }
 
-impl Default for PollerState {
-    fn default() -> Self {
+impl ServerPollerManager {
+    pub fn new(
+        db: Arc<dyn Database>,
+        broadcaster: Arc<WsBroadcaster>,
+        global_shutdown_rx: watch::Receiver<bool>,
+    ) -> Self {
+        let (rtx, _) = watch::channel(false);
         Self {
-            online_count: 0,
-            total_count: 0,
-            last_online: true,
-            streak: 0,
-            last_alert_time: None,
+            db,
+            broadcaster,
+            restart_tx: rtx,
+            global_shutdown_rx,
+            active_config_hash: AtomicU64::new(0),
+        }
+    }
+    pub fn restart(&self) {
+        let _ = self.restart_tx.send(true);
+    }
+    pub async fn config_synced(&self) -> bool {
+        let db_interval = self
+            .db
+            .get_app_config("poll_interval")
+            .await
+            .ok()
+            .flatten()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(60);
+        let db_nodes = self.db.get_enabled_nodes().await.unwrap_or_default();
+        let db_hash = compute_config_hash(db_interval, &db_nodes);
+        let ah = self.active_config_hash.load(Ordering::Relaxed);
+        if ah == 0 {
+            return false;
+        }
+        ah == db_hash
+    }
+
+    pub async fn run(self: Arc<Self>) -> anyhow::Result<()> {
+        let mut grx = self.global_shutdown_rx.clone();
+        loop {
+            let poll_interval = self
+                .db
+                .get_app_config("poll_interval")
+                .await
+                .ok()
+                .flatten()
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(60);
+            let nodes = self.db.get_enabled_nodes().await.unwrap_or_default();
+            if nodes.is_empty() {
+                self.active_config_hash.store(0, Ordering::Relaxed);
+                warn!("没有启用任何节点");
+                let mut rx = self.restart_tx.subscribe();
+                tokio::select! { _ = rx.changed() => continue, result = grx.changed() => { if result.is_ok() || result.is_err() { return Ok(()); } } }
+            }
+            self.active_config_hash.store(
+                compute_config_hash(poll_interval, &nodes),
+                Ordering::Relaxed,
+            );
+            info!("创建轮询器: {}s, {} nodes", poll_interval, nodes.len());
+            let (tx, rx) = watch::channel(false);
+            let poller = ServerPoller {
+                db: self.db.clone(),
+                broadcaster: self.broadcaster.clone(),
+                enabled_nodes: nodes,
+                poll_interval,
+            };
+            let h = tokio::spawn(async move {
+                poller.run(rx).await;
+            });
+            let mut rrx = self.restart_tx.subscribe();
+            tokio::select! { _ = rrx.changed() => { let _ = tx.send(true); tokio::time::sleep(Duration::from_millis(100)).await; h.abort(); info!("轮询器已终止，准备重建"); continue; } result = grx.changed() => { let _ = tx.send(true); if result.is_ok() || result.is_err() { return Ok(()); } } }
         }
     }
 }
