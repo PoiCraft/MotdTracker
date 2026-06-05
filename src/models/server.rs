@@ -1,102 +1,103 @@
-//! 节点模型
+//! 服务器组、服务器、节点模型 (UUID)
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-/// 服务器节点
+/// 服务器组
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Server {
-    /// 节点 ID
-    pub id: i32,
-
-    /// 节点名称
+pub struct ServerGroup {
+    pub id: String,
     pub name: String,
-
-    /// 节点地址
-    pub host: String,
-
-    /// 节点端口
-    pub port: i32,
-
-    /// 图表颜色
-    pub color: Option<String>,
-
-    /// 服务器版本类型（java / bedrock）
-    pub edition: Option<String>,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
-/// 服务器节点带状态信息
+/// MC 服务器实例
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ServerEntity {
+    pub id: String,
+    pub group_id: Option<String>,
+    pub name: String,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// 添加节点参数
+#[derive(Debug, Clone)]
+pub struct AddNodeParams<'a> {
+    pub name: &'a str,
+    pub host: &'a str,
+    pub port: u16,
+    pub edition: &'a str,
+    pub color: Option<&'a str>,
+    pub enabled: bool,
+    pub server_id: &'a str,
+    pub sort_order: i32,
+}
+
+/// 更新节点参数
+#[derive(Debug, Clone)]
+pub struct UpdateNodeParams<'a> {
+    pub name: &'a str,
+    pub host: &'a str,
+    pub port: u16,
+    pub edition: &'a str,
+    pub color: Option<&'a str>,
+    pub enabled: bool,
+    pub server_id: &'a str,
+    pub sort_order: i32,
+}
+
+/// 连接节点
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct Node {
+    pub id: String,
+    pub server_id: String,
+    pub name: String,
+    pub host: String,
+    pub port: i32,
+    pub edition: String,
+    pub color: Option<String>,
+    pub enabled: bool,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// 节点带状态
 #[derive(Debug, Clone, Serialize)]
 pub struct NodeWithStats {
-    /// 基本信息
     #[serde(flatten)]
-    pub server: Server,
-
-    /// 是否启用
-    pub enabled: bool,
-
-    /// 最新状态
+    pub node: Node,
     pub latest_status: Option<NodeStatus>,
-
-    /// 延迟统计
     pub latency_stats: Option<LatencyStats>,
 }
 
-/// 节点状态（最新状态）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeStatus {
-    /// 时间戳
     #[serde(with = "crate::utils::time::serde_gmt8")]
     pub timestamp: DateTime<Utc>,
-
-    /// 是否在线
     pub online: bool,
-
-    /// 延迟（毫秒）
     pub latency: Option<f64>,
-
-    /// 在线玩家数
     pub players_online: Option<i32>,
-
-    /// 最大玩家数
     pub players_max: Option<i32>,
-
-    /// 服务器版本
     pub version: Option<String>,
-
-    /// MOTD
     pub motd: Option<String>,
 }
 
-/// 延迟统计信息
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LatencyStats {
-    /// 在线率（百分比）
     pub uptime_percentage: f64,
-
-    /// 平均延迟
     pub avg_latency: Option<f64>,
-
-    /// 标准差
     pub std_dev: Option<f64>,
-
-    /// 最小延迟
     pub min_latency: Option<f64>,
-
-    /// 最大延迟
     pub max_latency: Option<f64>,
-
-    /// P95 延迟
     pub p95_latency: Option<f64>,
-
-    /// 变异系数
     pub cv: Option<f64>,
-
-    /// 总检查次数
     pub total_checks: u32,
-
-    /// 在线检查次数
     pub online_checks: u32,
 }
 
@@ -116,40 +117,52 @@ impl Default for LatencyStats {
     }
 }
 
-/// 服务器聚合状态（头部信息）
 #[derive(Debug, Clone, Serialize)]
 pub struct ServerHead {
-    /// 总节点数
     pub total_nodes: u32,
-
-    /// 在线节点数
     pub online_nodes: u32,
-
-    /// 总在线玩家数
     pub total_players_online: u32,
-
-    /// 总最大玩家数
     pub total_players_max: u32,
-
-    /// 是否全部在线
     pub all_online: bool,
-
-    /// 最小延迟
     pub min_latency: Option<f64>,
-
-    /// 最大延迟
     pub max_latency: Option<f64>,
-
-    /// 平均延迟
     pub avg_latency: Option<f64>,
 }
 
-/// 在线率信息
+/// 聚合状态（用于 Server 和 Group 级别）
 #[derive(Debug, Clone, Serialize)]
-pub struct UptimeInfo {
-    /// 节点 ID 到在线率的映射
-    pub by_node: std::collections::HashMap<i32, f64>,
+pub struct AggregateStatus {
+    pub online: bool,
+    pub online_node_count: u32,
+    pub total_node_count: u32,
+    pub total_players_online: u32,
+    pub total_players_max: u32,
+    pub avg_latency: Option<f64>,
+}
 
-    /// 总体在线率
-    pub overall: f64,
+/// 服务器组 + 统计
+#[derive(Debug, Clone, Serialize)]
+pub struct GroupWithStats {
+    #[serde(flatten)]
+    pub group: ServerGroup,
+    pub server_count: u32,
+    pub online_node_count: u32,
+    pub total_node_count: u32,
+    pub total_players_online: u32,
+}
+
+/// 服务器 + 详情（含节点列表 + 聚合状态）
+#[derive(Debug, Clone, Serialize)]
+pub struct ServerWithDetails {
+    #[serde(flatten)]
+    pub server: ServerEntity,
+    pub nodes: Vec<NodeWithStats>,
+    pub aggregate: AggregateStatus,
+}
+
+/// 服务器聚合历史
+#[derive(Debug, Clone, Serialize)]
+pub struct AggregateHistory {
+    pub server_id: String,
+    pub status_logs: Vec<crate::models::StatusLog>,
 }

@@ -28,6 +28,19 @@ pub struct WsMessage {
     pub data: serde_json::Value,
 }
 
+/// 节点状态快照（用于 WebSocket 广播）
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct WsNodeSnapshot {
+    pub node_id: String,
+    pub server_id: String,
+    pub online: bool,
+    pub latency: Option<f64>,
+    pub players_online: Option<i32>,
+    pub players_max: Option<i32>,
+    pub version: Option<String>,
+    pub motd: Option<String>,
+}
+
 impl WsBroadcaster {
     /// 创建新的广播器
     pub fn new() -> Self {
@@ -38,12 +51,17 @@ impl WsBroadcaster {
         }
     }
 
-    /// 广播轮询完成事件
-    pub async fn broadcast_poll_complete(&self, timestamp: DateTime<Utc>) {
+    /// 广播轮询完成事件（带节点状态上下文）
+    pub async fn broadcast_poll_complete(
+        &self,
+        timestamp: DateTime<Utc>,
+        nodes: Vec<WsNodeSnapshot>,
+    ) {
         let message = WsMessage {
             event: "poll_complete".to_string(),
             data: serde_json::json!({
-                "timestamp": format_gmt8_naive(timestamp)
+                "timestamp": format_gmt8_naive(timestamp),
+                "nodes": nodes,
             }),
         };
 

@@ -13,7 +13,7 @@ mod tests {
     fn create_test_log(online: bool, latency: Option<f64>) -> StatusLog {
         StatusLog {
             id: 0,
-            server_id: 1,
+            node_id: "1".to_string(),
             timestamp: now_gmt8(),
             online,
             latency,

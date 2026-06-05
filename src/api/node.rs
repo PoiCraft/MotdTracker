@@ -1,54 +1,111 @@
-//! 节点 API
+//! 节点公开 API
 
+use super::AppState;
+use crate::models::*;
+use crate::utils::calculate_latency_stats;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     routing::get,
     Json, Router,
 };
 use serde::Deserialize;
-
-use super::AppState;
-use crate::models::{LatencyStats, NodeStatus, NodeWithStats, PlayerSession};
-use crate::utils::calculate_latency_stats;
-use crate::utils::time::now_gmt8;
+use std::collections::HashMap;
 
 #[derive(Deserialize)]
-struct HoursQuery {
-    #[serde(default = "default_hours")]
-    hours: u32,
-}
-
-fn default_hours() -> u32 {
-    12
+struct NodeQuery {
+    hours: Option<u32>,
+    group_id: Option<String>,
+    server_id: Option<String>,
 }
 
 pub fn create_router() -> Router<AppState> {
     Router::new()
+        .route("/", get(list_nodes))
         .route("/:id", get(get_node))
         .route("/:id/history", get(get_node_history))
-        .route("/:id/stats", get(get_node_stats))
-        .route("/:id/players", get(get_node_players))
 }
 
-/// 获取单个节点详情
+async fn list_nodes(
+    State(state): State<AppState>,
+    Query(q): Query<NodeQuery>,
+) -> Result<Json<Vec<NodeWithStats>>, axum::http::StatusCode> {
+    let all_nodes = state
+        .db
+        .get_all_nodes()
+        .await
+        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+    let all_servers = state.db.get_all_servers().await.unwrap_or_default();
+    let latest_status = state.db.get_all_latest_status().await.unwrap_or_default();
+    let latest_map: HashMap<&str, &StatusLog> = latest_status
+        .iter()
+        .map(|s| (s.node_id.as_str(), s))
+        .collect();
+
+    // 按 group_id 或 server_id 过滤
+    let filtered: Vec<&Node> = if let Some(ref sid) = q.server_id {
+        all_nodes.iter().filter(|n| n.server_id == *sid).collect()
+    } else if let Some(ref gid) = q.group_id {
+        let server_ids_in_group: Vec<String> = all_servers
+            .iter()
+            .filter(|s| s.group_id.as_deref() == Some(gid.as_str()))
+            .map(|s| s.id.clone())
+            .collect();
+        all_nodes
+            .iter()
+            .filter(|n| server_ids_in_group.contains(&n.server_id))
+            .collect()
+    } else {
+        all_nodes.iter().collect()
+    };
+
+    let result: Vec<NodeWithStats> = filtered
+        .iter()
+        .map(|n| {
+            let ls = latest_map.get(n.id.as_str());
+            NodeWithStats {
+                node: (*n).clone(),
+                latest_status: ls.map(|s| NodeStatus {
+                    timestamp: s.timestamp,
+                    online: s.online,
+                    latency: s.latency,
+                    players_online: s.players_online,
+                    players_max: s.players_max,
+                    version: s.version.clone(),
+                    motd: s.motd.clone(),
+                }),
+                latency_stats: None,
+            }
+        })
+        .collect();
+
+    Ok(Json(result))
+}
+
 async fn get_node(
     State(state): State<AppState>,
-    Path(id): Path<i32>,
+    Path(id): Path<String>,
 ) -> Result<Json<NodeWithStats>, axum::http::StatusCode> {
-    let server = state
+    let node = state
         .db
-        .get_server(id)
+        .get_node(&id)
         .await
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(axum::http::StatusCode::NOT_FOUND)?;
-
-    let latest_status = state
+    let latest = state.db.get_node_latest_status(&id).await.ok().flatten();
+    let history = state
         .db
-        .get_server_latest_status(id)
+        .get_node_history(&id, 720)
         .await
-        .ok()
-        .flatten()
-        .map(|s| NodeStatus {
+        .unwrap_or_default();
+    let stats = if !history.is_empty() {
+        Some(calculate_latency_stats(&history))
+    } else {
+        None
+    };
+
+    Ok(Json(NodeWithStats {
+        node,
+        latest_status: latest.map(|s| NodeStatus {
             timestamp: s.timestamp,
             online: s.online,
             latency: s.latency,
@@ -56,65 +113,23 @@ async fn get_node(
             players_max: s.players_max,
             version: s.version,
             motd: s.motd,
-        });
-
-    let history = state
-        .db
-        .get_server_history(id, 1000)
-        .await
-        .unwrap_or_default();
-
-    let latency_stats = if history.is_empty() {
-        None
-    } else {
-        Some(calculate_latency_stats(&history))
-    };
-
-    let enabled = state.config.get_node(id).map(|n| n.enable).unwrap_or(true);
-
-    Ok(Json(NodeWithStats {
-        server,
-        enabled,
-        latest_status,
-        latency_stats,
+        }),
+        latency_stats: stats,
     }))
 }
 
-/// 获取节点历史
 async fn get_node_history(
     State(state): State<AppState>,
-    Path(id): Path<i32>,
-    axum::extract::Query(query): axum::extract::Query<HoursQuery>,
-) -> Json<serde_json::Value> {
-    let hours = query.hours.clamp(1, 720);
-
-    // 计算时间范围
-    let start = now_gmt8() - chrono::Duration::hours(hours as i64);
-    let end = now_gmt8();
-
-    match state.db.get_server_history_range(id, start, end).await {
-        Ok(history) => Json(serde_json::to_value(history).unwrap_or(serde_json::json!([]))),
-        Err(_) => Json(serde_json::json!([])),
-    }
-}
-
-/// 获取节点统计
-async fn get_node_stats(State(state): State<AppState>, Path(id): Path<i32>) -> Json<LatencyStats> {
-    let history = match state.db.get_server_history(id, 1000).await {
-        Ok(h) => h,
-        Err(_) => return Json(LatencyStats::default()),
-    };
-
-    Json(calculate_latency_stats(&history))
-}
-
-/// 获取节点玩家
-async fn get_node_players(
-    State(state): State<AppState>,
-    Path(id): Path<i32>,
-) -> Json<Vec<PlayerSession>> {
-    match state.db.get_all_player_sessions(id).await {
-        Ok(players) => Json(players),
-        Err(_) => Json(Vec::new()),
-    }
+    Path(id): Path<String>,
+    Query(q): Query<NodeQuery>,
+) -> Result<Json<Vec<StatusLog>>, axum::http::StatusCode> {
+    let hours = q.hours.unwrap_or(24).clamp(1, 720);
+    let now = crate::utils::time::now_gmt8();
+    let start = now - chrono::Duration::hours(hours as i64);
+    state
+        .db
+        .get_node_history_range(&id, start, now)
+        .await
+        .map(Json)
+        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)
 }

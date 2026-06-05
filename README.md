@@ -22,7 +22,10 @@ MotdTracker 是一个专为 Minecraft 服务器设计的多入口点实时监控
 ### 功能特性
 
 - **单文件部署** - 前端打包进二进制，无需 Nginx / 静态文件目录
-- **TUI 配置向导** - 首次启动自动弹出终端交互界面，无需手写配置文件
+- **数据库配置** - 所有配置存储在 SQLite 数据库中，通过 Web 管理面板配置
+- **管理员系统** - 首次使用时自助创建管理员账号，支持登录/登出/改密码
+- **环境变量覆盖** - 支持 `MOTDTRACKER_*` 环境变量覆盖最小启动配置（适配 Docker）
+- **多服务器支持** - 通过服务器组管理多台 Minecraft 服务器，侧边栏一键切换
 - **实时监控** - 原生 WebSocket 推送，轮询完成后自动增量刷新
 - **数据可视化** - Chart.js 趋势图 + 24h 热力图 + 周活跃热力图
 - **玩家追踪** - 会话管理、在线时长统计、每日/每周/每小时分析
@@ -30,7 +33,7 @@ MotdTracker 是一个专为 Minecraft 服务器设计的多入口点实时监控
 - **Prometheus 集成** - 节点级指标导出
 - **Badge 生成** - SVG 状态徽章（服务器/节点/玩家）
 - **SQLite 存储** - 零配置，单文件嵌入式数据库
-- **NapCat 告警** - QQ 群机器人实时告警通知
+- **Webhook 告警** - 通用 Webhook 告警通知，支持自定义 Headers 和 Body 模板
 
 ---
 
@@ -58,93 +61,14 @@ chmod +x motdtracker
 motdtracker.exe
 ```
 
-**首次运行时如果没有 `config.toml`，会自动进入 TUI 配置向导。**
-
----
-
-## 配置
-
-### 方式一：TUI 配置向导（推荐）
-
-直接运行程序，若检测不到 `config.toml` 会自动进入交互式配置向导：
-
-```
-┌──────────────────────────────────┐
-│   MotdTracker 配置向导           │
-├──────────────────────────────────┤
-│                                  │
-│   欢迎使用 MotdTracker!          │
-│                                  │
-│   此向导将引导你完成首次配置。    │
-│   配置完成后将自动生成            │
-│   config.toml 文件。             │
-│                                  │
-│   按 Enter 开始...               │
-│                                  │
-└──────────────────────────────────┘
-```
-
-向导步骤：
-1. **服务器名称** - 实例的显示名称
-2. **Web 端口** - 监听端口（默认 5011）
-3. **轮询间隔** - 状态查询频率（默认 60 秒）
-4. **数据库路径** - SQLite 文件路径
-5. **节点管理** - 添加/编辑/删除监控节点（可跳过）
-6. **确认保存** - 检查配置并写入 `config.toml`
-
-### 方式二：手动编写配置文件
-
-复制示例配置并编辑：
-
 ```bash
 cp config.example.toml config.toml
+# 编辑 config.toml 填入端口和数据库路径，其余配置通过 Web UI 管理
 ```
 
-`config.toml` 示例：
+> 也可以完全不创建 config.toml，直接通过环境变量提供端口和数据库路径，程序将使用默认值启动。
 
-```toml
-server_name = "我的服务器"
-port = 5011
-poll_interval = 60
-
-[database]
-path = "data/motdtracker.db"
-
-[[nodes]]
-id = 1
-name = "主入口"
-host = "play.example.com"
-port = 25565
-edition = "java"
-enable = true
-
-[[nodes]]
-id = 2
-name = "基岩版入口"
-host = "play.example.com"
-port = 19132
-edition = "bedrock"
-enable = true
-```
-
-> **⚠ 节点 ID 是标识节点的唯一依据。** 不同节点必须使用不同的 `id`，否则会导致历史数据混乱、统计错误，且无法恢复。`id` 一旦分配请勿随意修改。
-
-### 可选配置
-
-<details>
-<summary>NapCat QQ 告警</summary>
-
-```toml
-[napcat_alert]
-enable = true
-host = "http://localhost:3001"
-groups = ["123456789"]
-delta_minutes = 30
-offline_confirm_frames = 3
-online_confirm_frames = 3
-```
-
-</details>
+首次启动后，访问 `http://localhost:5011` 将自动跳转到管理员初始化页面，创建账号后即可通过 Web 面板管理所有配置。
 
 ---
 
@@ -193,7 +117,7 @@ MotdTracker/
 │   ├── main.rs               # 入口 + 启动逻辑
 │   ├── lib.rs
 │   ├── embedded.rs           # rust-embed 静态资源内嵌
-│   ├── tui/                  # TUI 配置向导 (ratatui)
+│   ├── tui/                  # TUI 配置向导 (已移除，改用 Web UI)
 │   ├── api/                  # REST API + WebSocket + Badge + Prometheus
 │   ├── config/               # TOML 配置加载
 │   ├── core/                 # Minecraft 查询 + 轮询调度
@@ -285,6 +209,20 @@ git config core.hooksPath .githooks
 | `GET /api/query` | 类 SQL 查询 |
 | `WS /api/ws` | 原生 WebSocket |
 
+### 管理后台
+
+| 端点 | 描述 |
+|------|------|
+| `POST /api/admin/setup` | 首次初始化管理员 |
+| `POST /api/admin/login` | 管理员登录 |
+| `POST /api/admin/logout` | 管理员登出 |
+| `GET/PUT /api/admin/settings` | 应用设置读写 |
+| `GET/POST /api/admin/groups` | 服务器组管理 |
+| `GET/PUT/DELETE /api/admin/groups/:id` | 单个组操作 |
+| `GET/POST /api/admin/nodes` | 节点管理 |
+| `GET/PUT/DELETE /api/admin/nodes/:id` | 单个节点操作 |
+| `PUT /api/admin/nodes/:id/group` | 节点分配组 |
+
 ---
 
 ## 技术栈
@@ -296,8 +234,8 @@ git config core.hooksPath .githooks
 | 数据库 | sqlx 0.7 (SQLite) |
 | WebSocket | 原生 WebSocket |
 | 静态资源 | rust-embed（编译期嵌入） |
-| 配置向导 | ratatui + crossterm |
-| 配置格式 | TOML |
+| 认证 | Argon2 + UUID Token |
+| 配置格式 | TOML（最小启动配置）+ SQLite（业务配置） |
 | 日志 | tracing |
 | 前端框架 | React 18 + Vite 5 |
 | UI 组件库 | MUI 7 |
@@ -312,8 +250,8 @@ git config core.hooksPath .githooks
 
 ```bash
 # 发布新版本
-git tag v0.1.0
-git push origin v0.1.0
+git tag v2.0.0
+git push origin v2.0.0
 # → 自动触发 Release workflow
 ```
 
@@ -329,11 +267,12 @@ git push origin v0.1.0
 # 拉取镜像
 docker pull ghcr.io/poicraft/motdtracker:latest
 
-# 以后台模式运行，映射端口并挂载数据目录
+# 以后台模式运行，映射端口，并通过环境变量覆盖最小启动配置
 docker run -d --name motdtracker \
     -p 5011:5011 \
     -v $(pwd)/data:/app/data \
-    -v $(pwd)/config.toml:/app/config.toml \
+  -e MOTDTRACKER_DATABASE_PATH=/app/data/motdtracker.db \
+  -e MOTDTRACKER_PORT=5011 \
     ghcr.io/poicraft/motdtracker:latest
 
 # 查看日志
@@ -355,9 +294,10 @@ services:
       - "5011:5011"
     volumes:
       - ./data:/app/data
-      - ./config.toml:/app/config.toml
     environment:
       - TZ=Asia/Shanghai
+      - MOTDTRACKER_DATABASE_PATH=/app/data/motdtracker.db
+      - MOTDTRACKER_PORT=5011
 ```
 
 启动服务：
@@ -366,9 +306,26 @@ services:
 docker compose up -d
 ```
 
-如果你希望使用指定的配置，编辑 `config.toml`（参考 `config.example.toml`）并将其挂载到容器中。
+如果你仍然希望使用文件配置，可以继续挂载 `config.toml`；不过对于 Docker 用户，更推荐直接使用环境变量覆盖最小启动项，避免手写完整配置文件。
 
-注意：TUI 配置向导在 Docker 部署时暂不可用，请参考 `config.example.toml` 自行配置。
+### 支持的环境变量
+
+| 变量名 | 说明 | 示例 |
+|--------|------|------|
+| `MOTDTRACKER_PORT` | Web 服务端口 | `5011` |
+| `MOTDTRACKER_DATABASE_PATH` | SQLite 数据库路径 | `/app/data/motdtracker.db` |
+| `MOTDTRACKER_POLL_INTERVAL` | 轮询间隔（秒） | `60` |
+
+优先级：**环境变量 > 配置文件 > 默认值**
+
+注意：TUI 配置向导已移除。首次启动后请访问 Web 管理面板（`/admin`）创建管理员账号并配置节点。
+
+## 快速开始
+
+1. 启动服务：`cargo run` 或使用 Docker
+2. 浏览器访问 `http://localhost:5011`
+3. 首次使用会自动跳转到管理员初始化页面
+4. 创建管理员账号后即可进入管理面板配置节点
 
 ## 贡献
 

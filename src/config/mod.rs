@@ -48,13 +48,9 @@ pub struct DatabaseConfig {
     pub path: String,
 }
 
-/// 应用程序配置
+/// 应用程序配置（仅保留最小启动项，业务配置全部在数据库中管理）
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AppConfig {
-    /// 服务器名称
-    #[serde(default = "default_server_name")]
-    pub server_name: String,
-
     /// 数据库配置
     #[serde(default)]
     pub database: DatabaseConfig,
@@ -66,54 +62,24 @@ pub struct AppConfig {
     /// Web 服务端口
     #[serde(default = "default_port")]
     pub port: u16,
-
-    /// 节点配置列表
-    #[serde(default)]
-    pub nodes: Vec<NodeConfig>,
-
-    /// NapCat 告警配置（可选）
-    pub napcat_alert: Option<NapCatAlertConfig>,
-
-    /// Umami 分析配置（可选）
-    pub umami: Option<UmamiConfig>,
 }
 
-/// 节点配置
+/// Webhook 告警配置（运行时从数据库加载，不从配置文件读取）
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct NodeConfig {
-    /// 节点 ID
-    pub id: i32,
+pub struct WebhookAlertConfig {
+    /// Webhook URL
+    pub url: String,
 
-    /// 节点名称
-    pub name: String,
+    /// 请求方法（POST / PUT）
+    #[serde(default = "default_http_method")]
+    pub method: String,
 
-    /// 节点地址
-    pub host: String,
-
-    /// 节点端口
-    #[serde(default = "default_node_port")]
-    pub port: u16,
-
-    /// 服务器版本类型（java / bedrock）
+    /// 自定义请求头（键值对，值支持模板变量）
     #[serde(default)]
-    pub edition: ServerEdition,
+    pub headers: std::collections::HashMap<String, String>,
 
-    /// 图表颜色
-    pub color: Option<String>,
-
-    /// 是否启用
-    #[serde(default = "default_enable")]
-    pub enable: bool,
-}
-
-/// NapCat 告警配置
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct NapCatAlertConfig {
-    /// NapCat 主机地址
-    pub host: String,
-
-    /// 群组列表
-    pub groups: Vec<String>,
+    /// 请求体模板（支持模板变量）
+    pub body: String,
 
     /// 重复告警间隔（分钟）
     #[serde(default = "default_delta_minutes")]
@@ -132,7 +98,7 @@ pub struct NapCatAlertConfig {
     pub enable: bool,
 }
 
-/// Umami 分析配置
+/// Umami 分析配置（保留结构体供数据库反序列化使用）
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct UmamiConfig {
     /// 是否启用
@@ -151,9 +117,6 @@ pub struct UmamiConfig {
 }
 
 // 默认值函数
-fn default_server_name() -> String {
-    "MotdTracker".to_string()
-}
 fn default_database() -> String {
     "data/motdtracker.db".to_string()
 }
@@ -163,11 +126,11 @@ fn default_poll_interval() -> u64 {
 fn default_port() -> u16 {
     5011
 }
-fn default_node_port() -> u16 {
-    25565
-}
 fn default_enable() -> bool {
     true
+}
+fn default_http_method() -> String {
+    "POST".to_string()
 }
 fn default_delta_minutes() -> u64 {
     30
@@ -187,19 +150,19 @@ impl Default for DatabaseConfig {
     }
 }
 
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            database: DatabaseConfig::default(),
+            poll_interval: default_poll_interval(),
+            port: default_port(),
+        }
+    }
+}
+
 impl AppConfig {
     /// 获取数据库连接字符串
     pub fn database_url(&self) -> String {
         format!("sqlite:{}", self.database.path)
-    }
-
-    /// 获取启用的节点
-    pub fn enabled_nodes(&self) -> Vec<&NodeConfig> {
-        self.nodes.iter().filter(|n| n.enable).collect()
-    }
-
-    /// 根据 ID 获取节点
-    pub fn get_node(&self, id: i32) -> Option<&NodeConfig> {
-        self.nodes.iter().find(|n| n.id == id)
     }
 }

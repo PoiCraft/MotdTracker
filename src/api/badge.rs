@@ -417,8 +417,8 @@ async fn badge_server_players(State(state): State<AppState>) -> Response {
     svg_response(generate_badge("players", &players_text, "#007ec6"))
 }
 
-async fn badge_node_status(State(state): State<AppState>, Path(id): Path<i32>) -> Response {
-    let latest_status = state.db.get_server_latest_status(id).await.ok().flatten();
+async fn badge_node_status(State(state): State<AppState>, Path(id): Path<String>) -> Response {
+    let latest_status = state.db.get_node_latest_status(&id).await.ok().flatten();
 
     let (status_text, color) = if let Some(status) = latest_status {
         if status.online {
@@ -435,14 +435,14 @@ async fn badge_node_status(State(state): State<AppState>, Path(id): Path<i32>) -
 
 async fn badge_node_uptime(
     State(state): State<AppState>,
-    Path(id): Path<i32>,
+    Path(id): Path<String>,
     axum::extract::Query(query): axum::extract::Query<HoursQuery>,
 ) -> Response {
     let hours = query.hours.clamp(1, 720);
     let start = now_gmt8() - chrono::Duration::hours(hours as i64);
     let end = now_gmt8();
 
-    let history = state.db.get_server_history_range(id, start, end).await.ok();
+    let history = state.db.get_node_history_range(&id, start, end).await.ok();
 
     let uptime_text = if let Some(logs) = history {
         let total = logs.len() as u32;
@@ -466,8 +466,8 @@ async fn badge_node_uptime(
     svg_response(generate_badge("uptime", &uptime_text, color))
 }
 
-async fn badge_node_latency(State(state): State<AppState>, Path(id): Path<i32>) -> Response {
-    let latest_status = state.db.get_server_latest_status(id).await.ok().flatten();
+async fn badge_node_latency(State(state): State<AppState>, Path(id): Path<String>) -> Response {
+    let latest_status = state.db.get_node_latest_status(&id).await.ok().flatten();
 
     let (latency_text, color) = if let Some(status) = latest_status {
         if status.online {
@@ -491,7 +491,7 @@ async fn badge_node_latency(State(state): State<AppState>, Path(id): Path<i32>) 
 
 async fn badge_node_latency_stats(
     State(state): State<AppState>,
-    Path(id): Path<i32>,
+    Path(id): Path<String>,
     axum::extract::Query(query): axum::extract::Query<StatQuery>,
 ) -> Response {
     let hours = query.hours.clamp(1, 720);
@@ -500,7 +500,7 @@ async fn badge_node_latency_stats(
 
     let history = state
         .db
-        .get_server_history_range(id, start, end)
+        .get_node_history_range(&id, start, end)
         .await
         .unwrap_or_default();
     let stats = crate::utils::calculate_latency_stats(&history);
@@ -567,8 +567,8 @@ async fn badge_node_latency_stats(
     svg_response(generate_badge(&label, &value, &color))
 }
 
-async fn badge_node_players(State(state): State<AppState>, Path(id): Path<i32>) -> Response {
-    let latest_status = state.db.get_server_latest_status(id).await.ok().flatten();
+async fn badge_node_players(State(state): State<AppState>, Path(id): Path<String>) -> Response {
+    let latest_status = state.db.get_node_latest_status(&id).await.ok().flatten();
 
     let players_text = if let Some(status) = latest_status {
         let online = status.players_online.map(|n| n as u32).unwrap_or(0);

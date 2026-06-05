@@ -12,8 +12,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use motdtracker::{
     api,
-    config::load_config,
-    core::poller::ServerPoller,
+    config::{load_config, AppConfig},
+    core::poller::ServerPollerManager,
     db::{Database, SqliteDatabase},
     ws::WsBroadcaster,
 };
@@ -30,24 +30,17 @@ async fn main() {
 
     info!("Starting MotdTracker {}...", motdtracker::APP_VERSION);
 
-    let config = match load_config() {
+    let mut config = match load_config() {
         Ok(cfg) => {
             info!("Config loaded successfully");
             cfg
         }
-        Err(_) => {
-            eprintln!("未找到 config.toml，启动配置向导...");
-            match motdtracker::tui::run_wizard() {
-                Ok(Some(cfg)) => cfg,
-                Ok(None) => {
-                    eprintln!("配置已取消");
-                    return;
-                }
-                Err(e) => {
-                    error!("TUI 配置向导失败: {}", e);
-                    return;
-                }
-            }
+        Err(e) => {
+            tracing::warn!(
+                "Config not found or invalid ({}), using defaults. Configure via admin panel.",
+                e
+            );
+            AppConfig::default()
         }
     };
 
@@ -68,57 +61,68 @@ async fn main() {
         }
     };
 
-    for node in &config.nodes {
-        let edition_str = node.edition.to_string();
-        if let Err(e) = db
-            .add_server(
-                &node.name,
-                &node.host,
-                node.port,
-                node.color.as_deref(),
-                Some(node.id),
-                Some(&edition_str),
-            )
-            .await
-        {
-            error!("Failed to sync server '{}' to database: {}", node.name, e);
+    // 从数据库加载运行时配置，覆盖文件配置
+    let mut runtime_config = config.clone();
+    if let Ok(Some(val)) = db.get_app_config("poll_interval").await {
+        if let Ok(v) = val.parse::<u64>() {
+            runtime_config.poll_interval = v;
         }
     }
+    if let Ok(Some(val)) = db.get_app_config("port").await {
+        if let Ok(v) = val.parse::<u16>() {
+            runtime_config.port = v;
+        }
+    }
+    config = runtime_config;
+    info!(
+        "Runtime config: poll_interval={}, port={}",
+        config.poll_interval, config.port
+    );
 
     let broadcaster = Arc::new(WsBroadcaster::new());
 
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    let ws_shutdown_rx_for_state = shutdown_rx.clone();
+    let global_shutdown_rx = shutdown_rx;
 
-    let poller = ServerPoller::new(
-        Arc::new(config.clone()),
+    let poller_manager = Arc::new(ServerPollerManager::new(
         db.clone(),
         broadcaster.clone(),
-        shutdown_rx.clone(),
-    );
-    tokio::spawn(async move {
-        if let Err(e) = poller.start().await {
-            error!("Poller error: {}", e);
-        }
-    });
+        global_shutdown_rx,
+    ));
+
+    // 启动轮询管理器
+    {
+        let mgr = poller_manager.clone();
+        tokio::spawn(async move {
+            if let Err(e) = mgr.run().await {
+                error!("Poller manager error: {}", e);
+            }
+        });
+    }
+
+    let app_state = api::AppState {
+        db: db.clone(),
+        config: Arc::new(config.clone()),
+        broadcaster,
+        poller_manager: poller_manager.clone(),
+        ws_shutdown_rx: ws_shutdown_rx_for_state,
+    };
 
     let app = Router::new()
-        .nest("/api/server", api::server::create_router())
-        .nest("/api/node", api::node::create_router())
-        .nest("/api/player", api::player::create_router())
-        .nest("/api/web", api::web::create_router())
-        .nest("/api/badge", api::badge::create_router())
+        .nest("/api/status", api::status::create_router())
+        .nest("/api/groups", api::groups::create_router())
+        .nest("/api/servers", api::servers::create_router())
+        .nest("/api/nodes", api::node::create_router())
+        .nest("/api/players", api::player::create_router())
+        .nest("/api/badges", api::badge::create_router())
         .nest("/api/exporter", api::exporter::create_router())
-        .nest("/api/query", api::query::create_router())
+        .nest("/api/admin", api::admin::create_router())
         .route("/api/ws", get(api::ws_handler))
         .fallback(motdtracker::embedded::embedded_static_handler)
         .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any))
         .layer(TraceLayer::new_for_http())
-        .with_state(api::AppState {
-            db: db.clone(),
-            config: Arc::new(config.clone()),
-            broadcaster,
-            shutdown_rx,
-        });
+        .with_state(app_state);
 
     let addr: SocketAddr = format!("0.0.0.0:{}", config.port)
         .parse()
