@@ -1,6 +1,7 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
+import { api } from "@/api/endpoints"
 import { useAuth } from "@/providers/AuthProvider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,10 +12,21 @@ export default function LoginPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { login, setup, error, loading } = useAuth()
+  const [initialized, setInitialized] = useState<boolean | null>(null)
   const [isSetup, setIsSetup] = useState(false)
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [localError, setLocalError] = useState("")
+
+  useEffect(() => {
+    api.admin
+      .status()
+      .then((res) => {
+        setInitialized(res.initialized)
+        setIsSetup(!res.initialized)
+      })
+      .catch(() => setInitialized(true))
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -29,6 +41,7 @@ export default function LoginPage() {
     } catch (e: any) {
       if (e.message?.includes("409")) {
         setIsSetup(false)
+        setInitialized(true)
         setLocalError("Account already exists. Please login.")
       } else {
         setLocalError(e.message || "Authentication failed")
@@ -96,7 +109,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               className="w-full transition-all duration-300"
-              disabled={loading}
+              disabled={loading || initialized === null}
             >
               {loading
                 ? t("login.signingIn")
@@ -105,17 +118,19 @@ export default function LoginPage() {
                 : t("login.signIn")}
             </Button>
 
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full text-xs transition-all duration-300"
-              onClick={() => {
-                setIsSetup(!isSetup)
-                setLocalError("")
-              }}
-            >
-              {isSetup ? t("login.signIn") : t("login.createAccount")}
-            </Button>
+            {initialized === false && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-xs transition-all duration-300"
+                onClick={() => {
+                  setIsSetup(!isSetup)
+                  setLocalError("")
+                }}
+              >
+                {isSetup ? t("login.signIn") : t("login.createAccount")}
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>
