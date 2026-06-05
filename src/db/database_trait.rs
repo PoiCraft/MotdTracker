@@ -83,7 +83,7 @@ pub trait Database: Send + Sync {
         &self,
         hours: u32,
     ) -> Result<std::collections::HashMap<String, Vec<StatusLog>>, DbError>;
-    async fn get_server_history_for_group(
+    async fn get_server_history(
         &self,
         server_id: &str,
         hours: u32,
@@ -101,7 +101,7 @@ pub trait Database: Send + Sync {
         &self,
         node_id: &str,
     ) -> Result<Vec<PlayerSession>, DbError>;
-    async fn get_all_player_sessions_mut_node(
+    async fn get_player_sessions_by_node(
         &self,
         node_id: &str,
     ) -> Result<Vec<PlayerSession>, DbError>;
@@ -134,6 +134,9 @@ pub trait Database: Send + Sync {
     ) -> Result<(), DbError>;
     async fn get_all_player_sessions(&self, server_id: &str)
         -> Result<Vec<PlayerSession>, DbError>;
+
+    /// 获取所有玩家会话（不分组，用于批量构建玩家列表）
+    async fn get_all_player_sessions_flat(&self) -> Result<Vec<PlayerSession>, DbError>;
 
     // === 管理员认证 ===
     async fn has_admin_user(&self) -> Result<bool, DbError>;

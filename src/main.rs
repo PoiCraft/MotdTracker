@@ -1,7 +1,10 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::{routing::get, Router};
+use governor::{Quota, RateLimiter};
+use std::num::NonZeroU32;
 use tokio::sync::watch;
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -101,15 +104,24 @@ async fn main() {
         });
     }
 
+    // 创建基于 IP 的登录限流器：每 IP 每 15 分钟最多 10 次尝试
+    // governor 令牌桶：每 90 秒补充 1 个令牌，桶容量 10
+    let login_limiter = Arc::new(RateLimiter::keyed(
+        Quota::with_period(Duration::from_secs(15 * 60 / 10))
+            .unwrap()
+            .allow_burst(NonZeroU32::new(10).unwrap()),
+    ));
+
     let app_state = api::AppState {
         db: db.clone(),
         config: Arc::new(config.clone()),
         broadcaster,
         poller_manager: poller_manager.clone(),
         ws_shutdown_rx: ws_shutdown_rx_for_state,
+        login_limiter,
     };
 
-    let app = Router::new()
+    let mut app = Router::new()
         .nest("/api/status", api::status::create_router())
         .nest("/api/groups", api::groups::create_router())
         .nest("/api/servers", api::servers::create_router())
@@ -120,9 +132,33 @@ async fn main() {
         .nest("/api/admin", api::admin::create_router())
         .route("/api/ws", get(api::ws_handler))
         .fallback(motdtracker::embedded::embedded_static_handler)
-        .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any))
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
+
+    // CORS: 默认禁止跨域；若配置了 cors_origin 则仅允许该来源
+    let cors_layer = if config.cors_origin.is_empty() {
+        None
+    } else if config.cors_origin == "*" {
+        tracing::warn!(
+            "CORS configured to allow all origins (*) — this is insecure for production"
+        );
+        Some(CorsLayer::new().allow_origin(Any).allow_methods(Any))
+    } else {
+        match config.cors_origin.parse::<axum::http::HeaderValue>() {
+            Ok(origin) => Some(CorsLayer::new().allow_origin(origin).allow_methods(Any)),
+            Err(e) => {
+                tracing::error!(
+                    "Invalid CORS origin '{}': {}. CORS disabled.",
+                    config.cors_origin,
+                    e
+                );
+                None
+            }
+        }
+    };
+    if let Some(cors) = cors_layer {
+        app = app.layer(cors);
+    }
 
     let addr: SocketAddr = format!("0.0.0.0:{}", config.port)
         .parse()

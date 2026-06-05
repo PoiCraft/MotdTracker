@@ -85,7 +85,7 @@ async fn get_group(
         .db
         .get_server_group(&id)
         .await
-        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(super::internal_error)?
         .ok_or(axum::http::StatusCode::NOT_FOUND)?;
 
     let all_servers = state.db.get_servers_by_group(&id).await.unwrap_or_default();

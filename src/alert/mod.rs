@@ -32,6 +32,8 @@ pub struct AlertManager {
     offline_streak: AtomicU32,
     /// 上次告警时间
     last_alert_time: Arc<RwLock<Option<DateTime<Utc>>>>,
+    /// HTTP 客户端（复用）
+    client: reqwest::Client,
 }
 
 /// 渲染模板字符串，替换 {var} 占位符
@@ -53,7 +55,14 @@ impl AlertManager {
             online_streak: AtomicU32::new(0),
             offline_streak: AtomicU32::new(0),
             last_alert_time: Arc::new(RwLock::new(None)),
+            client: reqwest::Client::new(),
         }
+    }
+
+    /// 更新配置（保留当前状态/计数）
+    pub fn update_config(&mut self, config: WebhookAlertConfig, server_name: String) {
+        self.config = config;
+        self.server_name = server_name;
     }
 
     /// 检查并发送告警
@@ -135,10 +144,9 @@ impl AlertManager {
         let body = render_template(&self.config.body, &vars);
 
         let method = self.config.method.to_uppercase();
-        let client = reqwest::Client::new();
         let mut req = match method.as_str() {
-            "PUT" => client.put(&self.config.url),
-            _ => client.post(&self.config.url),
+            "PUT" => self.client.put(&self.config.url),
+            _ => self.client.post(&self.config.url),
         };
 
         // 应用自定义 headers（值支持模板变量）

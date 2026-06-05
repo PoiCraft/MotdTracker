@@ -505,23 +505,35 @@ impl MinecraftQuerier {
         }
     }
 
-    /// 提取 MOTD（支持简单字符串和复杂格式）
+    /// 提取 MOTD（支持简单字符串、复杂格式和 extra 嵌套）
     fn extract_motd(value: &Value) -> Option<String> {
         if value.is_string() {
             value.as_str().map(|s| s.to_string())
         } else if value.is_object() {
-            // 处理 {"text": "motd"} 格式
-            value
-                .get("text")
-                .and_then(|t| t.as_str())
-                .map(|s| s.to_string())
+            // 处理 {"text": "...", "extra": [...]} 格式
+            let text = value.get("text").and_then(|t| t.as_str()).unwrap_or("");
+            let extra = value.get("extra").and_then(|e| e.as_array()).map(|arr| {
+                arr.iter()
+                    .filter_map(Self::extract_motd)
+                    .collect::<Vec<_>>()
+                    .join("")
+            });
+            let result = match extra {
+                Some(e) if !e.is_empty() => format!("{}{}", text, e),
+                _ => text.to_string(),
+            };
+            if result.is_empty() {
+                None
+            } else {
+                Some(result)
+            }
         } else if value.is_array() {
             // 处理 [{"text": "line1"}, {"text": "line2"}] 格式
             value.as_array().map(|arr| {
                 arr.iter()
-                    .filter_map(|item| item.get("text").and_then(|t| t.as_str()))
+                    .filter_map(Self::extract_motd)
                     .collect::<Vec<_>>()
-                    .join("\n")
+                    .join("")
             })
         } else {
             None

@@ -1,6 +1,6 @@
 //! Prometheus 指标导出 API
 
-use axum::{extract::State, response::Response, routing::get, Router};
+use axum::{extract::State, http::StatusCode, response::Response, routing::get, Router};
 use std::collections::HashMap;
 
 use super::AppState;
@@ -145,6 +145,18 @@ async fn prometheus_metrics(State(state): State<AppState>) -> Response {
         .unwrap()
 }
 
-async fn health_check() -> &'static str {
-    "OK"
+async fn health_check(State(state): State<AppState>) -> Response {
+    match state.db.get_all_servers().await {
+        Ok(_) => Response::builder()
+            .status(StatusCode::OK)
+            .body("OK".into())
+            .unwrap(),
+        Err(e) => {
+            tracing::warn!("Health check failed: {}", e);
+            Response::builder()
+                .status(StatusCode::SERVICE_UNAVAILABLE)
+                .body("Database unavailable".into())
+                .unwrap()
+        }
+    }
 }

@@ -11,7 +11,6 @@ use tokio::task::JoinSet;
 use tracing::{debug, error, info, warn};
 
 use crate::alert::AlertManager;
-use crate::config::WebhookAlertConfig;
 use crate::core::monitor::MinecraftQuerier;
 use crate::db::Database;
 use crate::models::*;
@@ -32,6 +31,7 @@ fn compute_config_hash(interval: u64, nodes: &[Node]) -> u64 {
         n.color.hash(&mut hasher);
         n.enabled.hash(&mut hasher);
         n.server_id.hash(&mut hasher);
+        n.sort_order.hash(&mut hasher);
     }
     hasher.finish()
 }
@@ -41,6 +41,7 @@ struct ServerPoller {
     broadcaster: Arc<WsBroadcaster>,
     enabled_nodes: Vec<Node>,
     poll_interval: u64,
+    alert_manager: Arc<tokio::sync::RwLock<Option<AlertManager>>>,
 }
 
 impl ServerPoller {
@@ -65,22 +66,32 @@ impl ServerPoller {
         }
         let mut tasks = JoinSet::new();
         for node in &self.enabled_nodes {
-            let db = self.db.clone();
             let n = node.clone();
-            tasks.spawn(async move { Self::poll_single(db, &n, ts).await });
+            tasks.spawn(async move { Self::poll_single(&n, ts).await });
         }
         let mut online = 0u32;
         let mut total = 0u32;
         let mut obs: Vec<(String, bool, Option<Vec<String>>)> = Vec::new();
         let mut entries: Vec<StatusLogEntry> = Vec::new();
         while let Some(r) = tasks.join_next().await {
-            if let Ok((entry, pls)) = r {
-                total += 1;
-                if entry.online {
-                    online += 1;
+            match r {
+                Ok((entry, pls)) => {
+                    total += 1;
+                    if entry.online {
+                        online += 1;
+                    }
+                    obs.push((entry.node_id.clone(), entry.online, pls));
+                    entries.push(entry);
                 }
-                obs.push((entry.node_id.clone(), entry.online, pls));
-                entries.push(entry);
+                Err(e) => {
+                    error!("节点查询任务失败: {}", e);
+                    total += 1;
+                }
+            }
+        }
+        if !entries.is_empty() {
+            if let Err(e) = self.db.log_status_batch(&entries).await {
+                error!("批量记录状态失败: {}", e);
             }
         }
         if let Err(e) = self.db.update_player_sessions_aggregate(&obs, ts).await {
@@ -110,30 +121,13 @@ impl ServerPoller {
         self.broadcaster
             .broadcast_poll_complete(ts, snapshots)
             .await;
-        if let Ok(Some(v)) = self.db.get_app_config("webhook_alert").await {
-            if let Ok(cfg) = serde_json::from_str::<WebhookAlertConfig>(&v) {
-                if cfg.enable {
-                    let sn = self
-                        .db
-                        .get_app_config("server_name")
-                        .await
-                        .ok()
-                        .flatten()
-                        .unwrap_or_else(|| "MotdTracker".to_string());
-                    AlertManager::new(cfg, sn)
-                        .check_and_alert(online > 0, online, total)
-                        .await;
-                }
-            }
+        if let Some(ref am) = *self.alert_manager.read().await {
+            am.check_and_alert(online > 0, online, total).await;
         }
         debug!("轮询完成: {}/{}", online, total);
     }
 
-    async fn poll_single(
-        db: Arc<dyn Database>,
-        node: &Node,
-        ts: DateTime<Utc>,
-    ) -> (StatusLogEntry, Option<Vec<String>>) {
+    async fn poll_single(node: &Node, ts: DateTime<Utc>) -> (StatusLogEntry, Option<Vec<String>>) {
         let edition: crate::config::ServerEdition = node
             .edition
             .as_str()
@@ -168,9 +162,6 @@ impl ServerPoller {
             map: st.map,
             edition: ej,
         };
-        if let Err(e) = db.log_status(&entry).await {
-            error!("记录状态失败: {}", e);
-        }
         (entry, st.sample_players.clone())
     }
 }
@@ -181,6 +172,7 @@ pub struct ServerPollerManager {
     restart_tx: watch::Sender<bool>,
     global_shutdown_rx: watch::Receiver<bool>,
     active_config_hash: AtomicU64,
+    alert_manager: Arc<tokio::sync::RwLock<Option<AlertManager>>>,
 }
 
 impl ServerPollerManager {
@@ -196,6 +188,7 @@ impl ServerPollerManager {
             restart_tx: rtx,
             global_shutdown_rx,
             active_config_hash: AtomicU64::new(0),
+            alert_manager: Arc::new(tokio::sync::RwLock::new(None)),
         }
     }
     pub fn restart(&self) {
@@ -241,6 +234,34 @@ impl ServerPollerManager {
                 compute_config_hash(poll_interval, &nodes),
                 Ordering::Relaxed,
             );
+            // 加载/更新告警管理器配置
+            {
+                let new_cfg = if let Ok(Some(v)) = self.db.get_app_config("webhook_alert").await {
+                    serde_json::from_str::<crate::config::WebhookAlertConfig>(&v).ok()
+                } else {
+                    None
+                };
+                let sn = self
+                    .db
+                    .get_app_config("server_name")
+                    .await
+                    .ok()
+                    .flatten()
+                    .unwrap_or_else(|| "MotdTracker".to_string());
+                let mut am_guard = self.alert_manager.write().await;
+                match (new_cfg, am_guard.as_mut()) {
+                    (Some(cfg), Some(am)) => {
+                        am.update_config(cfg, sn);
+                    }
+                    (Some(cfg), None) => {
+                        *am_guard = Some(AlertManager::new(cfg, sn));
+                    }
+                    (None, Some(_)) => {
+                        *am_guard = None;
+                    }
+                    _ => {}
+                }
+            }
             info!("创建轮询器: {}s, {} nodes", poll_interval, nodes.len());
             let (tx, rx) = watch::channel(false);
             let poller = ServerPoller {
@@ -248,6 +269,7 @@ impl ServerPollerManager {
                 broadcaster: self.broadcaster.clone(),
                 enabled_nodes: nodes,
                 poll_interval,
+                alert_manager: self.alert_manager.clone(),
             };
             let h = tokio::spawn(async move {
                 poller.run(rx).await;

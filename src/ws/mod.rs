@@ -44,7 +44,7 @@ pub struct WsNodeSnapshot {
 impl WsBroadcaster {
     /// 创建新的广播器
     pub fn new() -> Self {
-        let (sender, _) = broadcast::channel(256);
+        let (sender, _) = broadcast::channel(1024);
         Self {
             sender,
             client_count: Arc::new(RwLock::new(0)),

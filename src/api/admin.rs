@@ -1,7 +1,7 @@
 //! 管理后台 API
 
 use axum::{
-    extract::State,
+    extract::{ConnectInfo, State},
     http::{header, StatusCode},
     response::IntoResponse,
     routing::{get, post, put},
@@ -9,6 +9,7 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use serde_json::{json, Value};
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use super::AppState;
@@ -17,6 +18,61 @@ use crate::auth::token::{generate_session_token, validate_token_format};
 use crate::db::Database;
 use crate::models::ServerEntity;
 use crate::models::*; // alias to avoid confusion with API ServerEntity
+
+// ─── Strongly-typed request DTOs ───────────────────────────────────────────
+
+#[derive(Debug, serde::Deserialize)]
+struct NodeRequestDto {
+    name: String,
+    host: String,
+    #[serde(default = "default_node_port")]
+    port: u16,
+    #[serde(default = "default_edition")]
+    edition: String,
+    color: Option<String>,
+    #[serde(default = "default_true")]
+    enabled: bool,
+    #[serde(default)]
+    server_id: String,
+    #[serde(default)]
+    sort_order: i32,
+}
+
+fn default_node_port() -> u16 {
+    25565
+}
+fn default_edition() -> String {
+    "java".to_string()
+}
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct GroupRequestDto {
+    name: String,
+    #[serde(default)]
+    sort_order: i32,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ServerRequestDto {
+    name: String,
+    #[serde(default)]
+    group_id: Option<String>,
+    #[serde(default)]
+    sort_order: i32,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct MoveServerToGroupDto {
+    group_id: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct MoveNodeToServerDto {
+    server_id: String,
+}
 
 pub fn create_router() -> Router<AppState> {
     let public = Router::new()
@@ -70,19 +126,56 @@ async fn authenticate(
     let token = extract_token(headers).ok_or(StatusCode::UNAUTHORIZED)?;
     db.validate_session(&token)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(super::internal_error)?
         .ok_or(StatusCode::UNAUTHORIZED)
+}
+
+fn is_private_ip(ip: &std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(ip) => ip.is_private() || ip.is_loopback(),
+        std::net::IpAddr::V6(ip) => ip.is_loopback(),
+    }
+}
+
+fn real_client_ip(headers: &axum::http::HeaderMap, addr: SocketAddr) -> std::net::IpAddr {
+    // 只有来自内网/回环地址时才信任代理 header（防止客户端伪造）
+    if is_private_ip(&addr.ip()) {
+        // 优先从 X-Forwarded-For 获取真实 IP（Nginx/Caddy 等反代场景）
+        if let Some(ff) = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()) {
+            // 取逗号分隔的第一个 IP
+            if let Some(ip_str) = ff.split(',').next().map(|s| s.trim()) {
+                if let Ok(ip) = ip_str.parse::<std::net::IpAddr>() {
+                    return ip;
+                }
+            }
+        }
+        // 其次检查 X-Real-IP
+        if let Some(ri) = headers.get("x-real-ip").and_then(|v| v.to_str().ok()) {
+            if let Ok(ip) = ri.trim().parse::<std::net::IpAddr>() {
+                return ip;
+            }
+        }
+    }
+    addr.ip()
 }
 
 async fn handle_setup(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: axum::http::HeaderMap,
     Json(req): Json<SetupRequest>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    let ip = real_client_ip(&headers, addr);
+    if state.login_limiter.check_key(&ip).is_err() {
+        tracing::warn!("Rate limit exceeded for setup from {}", ip);
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
     if state
         .db
         .has_admin_user()
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(super::internal_error)?
     {
         return Err(StatusCode::CONFLICT);
     }
@@ -92,44 +185,50 @@ async fn handle_setup(
     if req.password.len() < 6 || req.password.len() > 128 {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let password_hash =
-        hash_password(&req.password).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let password_hash = hash_password(&req.password).map_err(super::internal_error)?;
     let user_id = state
         .db
         .create_admin_user(&req.username, &password_hash)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     let token = generate_session_token();
     let expires_at = Utc::now() + Duration::hours(24);
     state
         .db
         .create_session(user_id, &token, expires_at)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     state
         .db
         .update_admin_last_login(user_id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(Json(LoginResponse { token, expires_at }))
 }
 
 async fn handle_login(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: axum::http::HeaderMap,
     Json(req): Json<LoginRequest>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    let ip = real_client_ip(&headers, addr);
+    if state.login_limiter.check_key(&ip).is_err() {
+        tracing::warn!("Rate limit exceeded for login from {}", ip);
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
     let user = state
         .db
         .get_admin_user(&req.username)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     let dummy = "$argon2id$v=19$m=65536,t=3,p=1$dGVzdHNhbHQ$invalidhashvalue00000000000000";
     let hash = user
         .as_ref()
         .map(|u| u.password_hash.as_str())
         .unwrap_or(dummy);
-    let valid =
-        verify_password(&req.password, hash).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let valid = verify_password(&req.password, hash).map_err(super::internal_error)?;
     if !valid || user.is_none() {
         return Err(StatusCode::UNAUTHORIZED);
     }
@@ -140,12 +239,12 @@ async fn handle_login(
         .db
         .create_session(user.id, &token, expires_at)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     state
         .db
         .update_admin_last_login(user.id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(Json(LoginResponse { token, expires_at }))
 }
 
@@ -166,18 +265,17 @@ async fn handle_change_password(
     if req.new_password.len() < 6 || req.new_password.len() > 128 {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let valid = verify_password(&req.old_password, &user.password_hash)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let valid =
+        verify_password(&req.old_password, &user.password_hash).map_err(super::internal_error)?;
     if !valid {
         return Err(StatusCode::UNAUTHORIZED);
     }
-    let new_hash =
-        hash_password(&req.new_password).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let new_hash = hash_password(&req.new_password).map_err(super::internal_error)?;
     state
         .db
         .update_admin_password(user.id, &new_hash)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(StatusCode::NO_CONTENT)
 }
 async fn handle_status(State(state): State<AppState>) -> Result<Json<Value>, StatusCode> {
@@ -185,7 +283,7 @@ async fn handle_status(State(state): State<AppState>) -> Result<Json<Value>, Sta
         .db
         .has_admin_user()
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(Json(json!({"initialized": has})))
 }
 
@@ -241,24 +339,24 @@ async fn update_settings(
         .db
         .set_app_config("server_name", &s.server_name)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     state
         .db
         .set_app_config("poll_interval", &s.poll_interval.to_string())
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     state
         .db
         .set_app_config("port", &s.port.to_string())
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     if let Some(ref w) = s.webhook_alert {
-        let j = serde_json::to_string(w).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let j = serde_json::to_string(w).map_err(super::internal_error)?;
         state
             .db
             .set_app_config("webhook_alert", &j)
             .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .map_err(super::internal_error)?;
     }
     Ok(StatusCode::NO_CONTENT)
 }
@@ -274,7 +372,7 @@ async fn list_nodes(
         .get_all_nodes()
         .await
         .map(Json)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+        .map_err(super::internal_error)
 }
 async fn get_node(
     State(state): State<AppState>,
@@ -286,47 +384,39 @@ async fn get_node(
         .db
         .get_node(&id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(super::internal_error)?
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
 }
 async fn add_node(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
-    Json(req): Json<Value>,
+    Json(req): Json<NodeRequestDto>,
 ) -> Result<Json<Node>, StatusCode> {
     let _ = authenticate(&headers, &state.db).await?;
-    let name = req["name"].as_str().unwrap_or("").to_string();
-    let host = req["host"].as_str().unwrap_or("").to_string();
-    if name.trim().is_empty() || host.trim().is_empty() {
+    if req.name.trim().is_empty() || req.host.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let port = req["port"].as_u64().unwrap_or(25565) as u16;
-    let edition = req["edition"].as_str().unwrap_or("java").to_string();
-    let color = req["color"].as_str().map(|s| s.to_string());
-    let enabled = req["enabled"].as_bool().unwrap_or(true);
-    let server_id = req["server_id"].as_str().unwrap_or("").to_string();
-    let sort = req["sort_order"].as_i64().unwrap_or(0) as i32;
     let params = AddNodeParams {
-        name: &name,
-        host: &host,
-        port,
-        edition: &edition,
-        color: color.as_deref(),
-        enabled,
-        server_id: &server_id,
-        sort_order: sort,
+        name: &req.name,
+        host: &req.host,
+        port: req.port,
+        edition: &req.edition,
+        color: req.color.as_deref(),
+        enabled: req.enabled,
+        server_id: &req.server_id,
+        sort_order: req.sort_order,
     };
     let id = state
         .db
         .add_node(&params)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     state
         .db
         .get_node(&id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(super::internal_error)?
         .map(Json)
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)
 }
@@ -334,35 +424,27 @@ async fn update_node(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
-    Json(req): Json<Value>,
+    Json(req): Json<NodeRequestDto>,
 ) -> Result<StatusCode, StatusCode> {
     let _ = authenticate(&headers, &state.db).await?;
-    let name = req["name"].as_str().unwrap_or("").to_string();
-    let host = req["host"].as_str().unwrap_or("").to_string();
-    if name.trim().is_empty() || host.trim().is_empty() {
+    if req.name.trim().is_empty() || req.host.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let port = req["port"].as_u64().unwrap_or(25565) as u16;
-    let edition = req["edition"].as_str().unwrap_or("java").to_string();
-    let color = req["color"].as_str().map(|s| s.to_string());
-    let enabled = req["enabled"].as_bool().unwrap_or(true);
-    let server_id = req["server_id"].as_str().unwrap_or("").to_string();
-    let sort = req["sort_order"].as_i64().unwrap_or(0) as i32;
     let params = UpdateNodeParams {
-        name: &name,
-        host: &host,
-        port,
-        edition: &edition,
-        color: color.as_deref(),
-        enabled,
-        server_id: &server_id,
-        sort_order: sort,
+        name: &req.name,
+        host: &req.host,
+        port: req.port,
+        edition: &req.edition,
+        color: req.color.as_deref(),
+        enabled: req.enabled,
+        server_id: &req.server_id,
+        sort_order: req.sort_order,
     };
     state
         .db
         .update_node(&id, &params)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(StatusCode::NO_CONTENT)
 }
 async fn delete_node(
@@ -375,7 +457,7 @@ async fn delete_node(
         .db
         .delete_node(&id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(StatusCode::NO_CONTENT)
 }
 async fn move_node_up(
@@ -388,7 +470,7 @@ async fn move_node_up(
         .db
         .get_all_nodes()
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     let pos = nodes
         .iter()
         .position(|n| n.id == id)
@@ -412,7 +494,7 @@ async fn move_node_up(
         .db
         .update_node(&cur.id, &cur_params)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     let prev_params = UpdateNodeParams {
         name: &prev.name,
         host: &prev.host,
@@ -427,7 +509,7 @@ async fn move_node_up(
         .db
         .update_node(&prev.id, &prev_params)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(StatusCode::NO_CONTENT)
 }
 async fn move_node_down(
@@ -440,7 +522,7 @@ async fn move_node_down(
         .db
         .get_all_nodes()
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     let pos = nodes
         .iter()
         .position(|n| n.id == id)
@@ -464,7 +546,7 @@ async fn move_node_down(
         .db
         .update_node(&cur.id, &cur_params)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     let next_params = UpdateNodeParams {
         name: &next.name,
         host: &next.host,
@@ -479,25 +561,21 @@ async fn move_node_down(
         .db
         .update_node(&next.id, &next_params)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(StatusCode::NO_CONTENT)
 }
 async fn move_node_to_server(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
-    Json(req): Json<Value>,
+    Json(req): Json<MoveNodeToServerDto>,
 ) -> Result<StatusCode, StatusCode> {
     let _ = authenticate(&headers, &state.db).await?;
-    let sid = req["server_id"]
-        .as_str()
-        .map(|s| s.to_string())
-        .unwrap_or_default();
     let node = state
         .db
         .get_node(&id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(super::internal_error)?
         .ok_or(StatusCode::NOT_FOUND)?;
     let params = UpdateNodeParams {
         name: &node.name,
@@ -506,14 +584,14 @@ async fn move_node_to_server(
         edition: &node.edition,
         color: node.color.as_deref(),
         enabled: node.enabled,
-        server_id: &sid,
+        server_id: &req.server_id,
         sort_order: node.sort_order,
     };
     state
         .db
         .update_node(&node.id, &params)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -527,12 +605,12 @@ async fn list_groups(
         .db
         .get_all_server_groups()
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     let servers = state
         .db
         .get_all_servers()
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     let mut r: Vec<Value> = Vec::new();
     for g in &groups {
         let gs: Vec<&ServerEntity> = servers
@@ -557,13 +635,13 @@ async fn get_group(
         .db
         .get_server_group(&id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(super::internal_error)?
         .ok_or(StatusCode::NOT_FOUND)?;
     let s = state
         .db
         .get_servers_by_group(&id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(Json(
         json!({"id": g.id, "name": g.name, "sort_order": g.sort_order, "servers": s}),
     ))
@@ -571,38 +649,36 @@ async fn get_group(
 async fn add_group(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
-    Json(req): Json<Value>,
+    Json(req): Json<GroupRequestDto>,
 ) -> Result<Json<Value>, StatusCode> {
     let _ = authenticate(&headers, &state.db).await?;
-    let name = req["name"].as_str().unwrap_or("").to_string();
-    if name.trim().is_empty() {
+    if req.name.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let so = req["sort_order"].as_i64().unwrap_or(0) as i32;
     let id = state
         .db
-        .create_server_group(&name, so)
+        .create_server_group(&req.name, req.sort_order)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    Ok(Json(json!({"id": id, "name": name, "sort_order": so})))
+        .map_err(super::internal_error)?;
+    Ok(Json(
+        json!({"id": id, "name": req.name, "sort_order": req.sort_order}),
+    ))
 }
 async fn update_group(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
-    Json(req): Json<Value>,
+    Json(req): Json<GroupRequestDto>,
 ) -> Result<StatusCode, StatusCode> {
     let _ = authenticate(&headers, &state.db).await?;
-    let name = req["name"].as_str().unwrap_or("").to_string();
-    if name.trim().is_empty() {
+    if req.name.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let so = req["sort_order"].as_i64().unwrap_or(0) as i32;
     state
         .db
-        .update_server_group(&id, &name, so)
+        .update_server_group(&id, &req.name, req.sort_order)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(StatusCode::NO_CONTENT)
 }
 async fn delete_group(
@@ -615,7 +691,7 @@ async fn delete_group(
         .db
         .delete_server_group(&id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -630,7 +706,7 @@ async fn list_servers(
         .get_all_servers()
         .await
         .map(Json)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+        .map_err(super::internal_error)
 }
 async fn get_server(
     State(state): State<AppState>,
@@ -642,32 +718,29 @@ async fn get_server(
         .db
         .get_server(&id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(super::internal_error)?
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
 }
 async fn add_server(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
-    Json(req): Json<Value>,
+    Json(req): Json<ServerRequestDto>,
 ) -> Result<Json<ServerEntity>, StatusCode> {
     let _ = authenticate(&headers, &state.db).await?;
-    let name = req["name"].as_str().unwrap_or("").to_string();
-    if name.trim().is_empty() {
+    if req.name.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let gid = req["group_id"].as_str();
-    let so = req["sort_order"].as_i64().unwrap_or(0) as i32;
     let id = state
         .db
-        .create_server(&name, gid, so)
+        .create_server(&req.name, req.group_id.as_deref(), req.sort_order)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     state
         .db
         .get_server(&id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(super::internal_error)?
         .map(Json)
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)
 }
@@ -675,20 +748,17 @@ async fn update_server(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
-    Json(req): Json<Value>,
+    Json(req): Json<ServerRequestDto>,
 ) -> Result<StatusCode, StatusCode> {
     let _ = authenticate(&headers, &state.db).await?;
-    let name = req["name"].as_str().unwrap_or("").to_string();
-    if name.trim().is_empty() {
+    if req.name.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
-    let gid = req["group_id"].as_str();
-    let so = req["sort_order"].as_i64().unwrap_or(0) as i32;
     state
         .db
-        .update_server(&id, &name, gid, so)
+        .update_server(&id, &req.name, req.group_id.as_deref(), req.sort_order)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(StatusCode::NO_CONTENT)
 }
 async fn delete_server(
@@ -701,28 +771,27 @@ async fn delete_server(
         .db
         .delete_server(&id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(StatusCode::NO_CONTENT)
 }
 async fn move_server_to_group(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
-    Json(req): Json<Value>,
+    Json(req): Json<MoveServerToGroupDto>,
 ) -> Result<StatusCode, StatusCode> {
     let _ = authenticate(&headers, &state.db).await?;
-    let gid = req["group_id"].as_str();
     let s = state
         .db
         .get_server(&id)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(super::internal_error)?
         .ok_or(StatusCode::NOT_FOUND)?;
     state
         .db
-        .update_server(&id, &s.name, gid, s.sort_order)
+        .update_server(&id, &s.name, req.group_id.as_deref(), s.sort_order)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -753,6 +822,6 @@ async fn cleanup_sessions(
         .db
         .cleanup_expired_sessions()
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     Ok(Json(json!({"cleaned": c})))
 }

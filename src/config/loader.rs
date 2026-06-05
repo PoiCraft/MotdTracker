@@ -55,6 +55,10 @@ fn apply_env_overrides(config: &mut AppConfig) -> Result<(), ConfigError> {
         config.database.path = value;
     }
 
+    if let Some(value) = read_env_string("MOTDTRACKER_CORS_ORIGIN") {
+        config.cors_origin = value;
+    }
+
     Ok(())
 }
 

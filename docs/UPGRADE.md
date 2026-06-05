@@ -99,12 +99,13 @@ v2 的配置不再通过 `config.toml` 或 TUI 管理，而是通过 **AdminPage
 
 点击**保存并应用**即可生效。
 
-环境变量仍可用作覆盖：
+环境变量仍可用作覆盖（仅在数据库无对应配置时生效）：
 
 ```bash
 MOTDTRACKER_PORT=8080
 MOTDTRACKER_DATABASE_PATH=/data/motdtracker.db
 MOTDTRACKER_POLL_INTERVAL=60
+MOTDTRACKER_CORS_ORIGIN=""
 ```
 
 ### 5. Webhook 告警配置

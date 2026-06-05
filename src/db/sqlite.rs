@@ -80,6 +80,10 @@ impl Database for SqliteDatabase {
             .execute(&self.pool)
             .await
             .map_err(|e| DbError::MigrationError(e.to_string()))?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_status_logs_node_timestamp ON status_logs(node_id, timestamp DESC)")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::MigrationError(e.to_string()))?;
 
         // ==================== player_sessions ====================
         sqlx::query(
@@ -269,8 +273,38 @@ impl Database for SqliteDatabase {
         Ok(())
     }
     async fn log_status_batch(&self, entries: &[StatusLogEntry]) -> Result<(), DbError> {
-        for e in entries {
-            self.log_status(e).await?;
+        if entries.is_empty() {
+            return Ok(());
+        }
+        // SQLite 默认单条 SQL 最多 999 个参数；status_logs 有 13 列
+        const COLUMNS: usize = 13;
+        const MAX_PARAMS: usize = 999;
+        const BATCH_SIZE: usize = MAX_PARAMS / COLUMNS; // 76
+
+        for chunk in entries.chunks(BATCH_SIZE) {
+            let mut builder = sqlx::QueryBuilder::new(
+                "INSERT INTO status_logs (node_id, timestamp, online, latency, players_online, players_max, version, motd, sample_players, software, plugins, map, edition) "
+            );
+            builder.push_values(chunk, |mut b, entry| {
+                b.push_bind(&entry.node_id)
+                    .push_bind(format_gmt8_naive(entry.timestamp))
+                    .push_bind(entry.online)
+                    .push_bind(entry.latency)
+                    .push_bind(entry.players_online)
+                    .push_bind(entry.players_max)
+                    .push_bind(&entry.version)
+                    .push_bind(&entry.motd)
+                    .push_bind(&entry.sample_players)
+                    .push_bind(&entry.software)
+                    .push_bind(&entry.plugins)
+                    .push_bind(&entry.map)
+                    .push_bind(&entry.edition);
+            });
+            builder
+                .build()
+                .execute(&self.pool)
+                .await
+                .map_err(|e| DbError::InsertError(e.to_string()))?;
         }
         Ok(())
     }
@@ -289,7 +323,19 @@ impl Database for SqliteDatabase {
         sqlx::query_as::<_, StatusLog>("SELECT id, node_id, timestamp, online, latency, players_online, players_max, version, motd, sample_players, software, plugins, map, edition FROM status_logs WHERE node_id = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC").bind(node_id).bind(format_gmt8_naive(start)).bind(format_gmt8_naive(end)).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
     }
     async fn get_all_latest_status(&self) -> Result<Vec<StatusLog>, DbError> {
-        sqlx::query_as::<_, StatusLog>("SELECT id, node_id, timestamp, online, latency, players_online, players_max, version, motd, sample_players, software, plugins, map, edition FROM status_logs WHERE id IN (SELECT MAX(id) FROM status_logs GROUP BY node_id)").fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
+        // 使用复合索引优化的最新记录查询：先按 node_id + timestamp DESC 找到每组最新记录
+        sqlx::query_as::<_, StatusLog>(
+            "SELECT s.id, s.node_id, s.timestamp, s.online, s.latency, s.players_online, s.players_max, s.version, s.motd, s.sample_players, s.software, s.plugins, s.map, s.edition \
+             FROM status_logs s \
+             INNER JOIN ( \
+                 SELECT node_id, MAX(timestamp) as max_ts \
+                 FROM status_logs \
+                 GROUP BY node_id \
+             ) m ON s.node_id = m.node_id AND s.timestamp = m.max_ts"
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::QueryError(e.to_string()))
     }
     async fn get_all_history(
         &self,
@@ -303,7 +349,7 @@ impl Database for SqliteDatabase {
         }
         Ok(result)
     }
-    async fn get_server_history_for_group(
+    async fn get_server_history(
         &self,
         server_id: &str,
         hours: u32,
@@ -339,7 +385,7 @@ impl Database for SqliteDatabase {
     ) -> Result<Vec<PlayerSession>, DbError> {
         sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE node_id = ? AND online = 1").bind(node_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
     }
-    async fn get_all_player_sessions_mut_node(
+    async fn get_player_sessions_by_node(
         &self,
         node_id: &str,
     ) -> Result<Vec<PlayerSession>, DbError> {
@@ -350,6 +396,9 @@ impl Database for SqliteDatabase {
         server_id: &str,
     ) -> Result<Vec<PlayerSession>, DbError> {
         sqlx::query_as::<_, PlayerSession>("SELECT ps.id, ps.node_id, ps.player_name, ps.first_seen, ps.session_start, ps.last_seen, ps.online, ps.duration_seconds FROM player_sessions ps INNER JOIN nodes n ON ps.node_id = n.id WHERE n.server_id = ? ORDER BY ps.last_seen DESC").bind(server_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
+    }
+    async fn get_all_player_sessions_flat(&self) -> Result<Vec<PlayerSession>, DbError> {
+        sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions ORDER BY last_seen DESC").fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
     }
     async fn get_player_history(
         &self,
@@ -368,9 +417,7 @@ impl Database for SqliteDatabase {
     async fn get_player_detail(&self, player_name: &str) -> Result<Option<PlayerDetail>, DbError> {
         let all_nodes = self.get_all_nodes().await.unwrap_or_default();
         let all_servers = self.get_all_servers().await.unwrap_or_default();
-        let sessions = self
-            .get_all_player_sessions_mut_node_by_name(player_name)
-            .await?;
+        let sessions = self.get_player_sessions_by_name(player_name).await?;
 
         if sessions.is_empty() {
             // 检查是否有历史记录
@@ -647,7 +694,7 @@ impl Database for SqliteDatabase {
 
 // 辅助方法
 impl SqliteDatabase {
-    async fn get_all_player_sessions_mut_node_by_name(
+    async fn get_player_sessions_by_name(
         &self,
         player_name: &str,
     ) -> Result<Vec<PlayerSession>, DbError> {

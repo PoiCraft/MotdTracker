@@ -33,7 +33,7 @@ async fn list_nodes(
         .db
         .get_all_nodes()
         .await
-        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(super::internal_error)?;
     let all_servers = state.db.get_all_servers().await.unwrap_or_default();
     let latest_status = state.db.get_all_latest_status().await.unwrap_or_default();
     let latest_map: HashMap<&str, &StatusLog> = latest_status
@@ -58,25 +58,30 @@ async fn list_nodes(
         all_nodes.iter().collect()
     };
 
-    let result: Vec<NodeWithStats> = filtered
-        .iter()
-        .map(|n| {
-            let ls = latest_map.get(n.id.as_str());
-            NodeWithStats {
-                node: (*n).clone(),
-                latest_status: ls.map(|s| NodeStatus {
-                    timestamp: s.timestamp,
-                    online: s.online,
-                    latency: s.latency,
-                    players_online: s.players_online,
-                    players_max: s.players_max,
-                    version: s.version.clone(),
-                    motd: s.motd.clone(),
-                }),
-                latency_stats: None,
-            }
-        })
-        .collect();
+    let mut result = Vec::with_capacity(filtered.len());
+    for n in filtered {
+        let ls = latest_map.get(n.id.as_str());
+        let stats = state
+            .db
+            .get_node_history(&n.id, 720)
+            .await
+            .ok()
+            .filter(|h| !h.is_empty())
+            .map(|h| calculate_latency_stats(&h));
+        result.push(NodeWithStats {
+            node: (*n).clone(),
+            latest_status: ls.map(|s| NodeStatus {
+                timestamp: s.timestamp,
+                online: s.online,
+                latency: s.latency,
+                players_online: s.players_online,
+                players_max: s.players_max,
+                version: s.version.clone(),
+                motd: s.motd.clone(),
+            }),
+            latency_stats: stats,
+        });
+    }
 
     Ok(Json(result))
 }
@@ -89,7 +94,7 @@ async fn get_node(
         .db
         .get_node(&id)
         .await
-        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(super::internal_error)?
         .ok_or(axum::http::StatusCode::NOT_FOUND)?;
     let latest = state.db.get_node_latest_status(&id).await.ok().flatten();
     let history = state
@@ -131,5 +136,5 @@ async fn get_node_history(
         .get_node_history_range(&id, start, now)
         .await
         .map(Json)
-        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)
+        .map_err(super::internal_error)
 }

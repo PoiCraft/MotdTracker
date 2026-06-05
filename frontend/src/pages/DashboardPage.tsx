@@ -8,12 +8,17 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
 import { LayoutDashboard, Server, Network, Users } from "lucide-react"
 
-function generateMockData(base: number, points: number = 12): number[] {
+function generateStableData(base: number, points: number = 12): number[] {
+  // 使用确定性算法生成平滑的 sparkline，避免每次渲染随机跳动
   const data: number[] = []
+  const seed = base * 0.6180339887 // 黄金比例作为伪随机种子
   let v = base * 0.6
   for (let i = 0; i < points - 1; i++) {
-    v += (Math.random() - 0.42) * base * 0.12
-    v = Math.max(0, v)
+    // 使用正弦波 + 线性趋势代替随机数，确保相同 base 总是产生相同曲线
+    const wave = Math.sin(seed + i * 0.7) * base * 0.06
+    const trend = (i / points) * base * 0.08
+    v += wave + trend
+    v = Math.max(0, Math.min(v, base * 1.2))
     data.push(Math.round(v))
   }
   data.push(base)
@@ -75,13 +80,13 @@ export default function DashboardPage() {
           title={t("dashboard.groups")}
           value={groups.length}
           icon={LayoutDashboard}
-          sparklineData={generateMockData(groups.length)}
+          sparklineData={generateStableData(groups.length)}
         />
         <StatCard
           title={t("dashboard.servers")}
           value={servers.length}
           icon={Server}
-          sparklineData={generateMockData(servers.length)}
+          sparklineData={generateStableData(servers.length)}
         />
         <StatCard
           title={t("dashboard.onlineNodes")}
@@ -97,13 +102,13 @@ export default function DashboardPage() {
               ? `${Math.round((totalOnlineNodes / totalNodes) * 100)}% ${t("dashboard.uptime")}`
               : undefined
           }
-          sparklineData={generateMockData(totalOnlineNodes)}
+          sparklineData={generateStableData(totalOnlineNodes)}
         />
         <StatCard
           title={t("dashboard.onlinePlayers")}
           value={totalPlayers}
           icon={Users}
-          sparklineData={generateMockData(totalPlayers)}
+          sparklineData={generateStableData(totalPlayers)}
         />
       </StatGrid>
 

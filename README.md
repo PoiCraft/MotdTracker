@@ -281,7 +281,14 @@ docker logs -f motdtracker
 
 ### 使用 docker-compose
 
-将以下内容保存为 `docker-compose.yml`：
+本项目已提供 `docker-compose.yml`，直接下载使用即可：
+
+```bash
+wget https://raw.githubusercontent.com/PoiCraft/MotdTracker/main/docker-compose.yml
+docker compose up -d
+```
+
+或者将以下内容保存为 `docker-compose.yml`：
 
 ```yaml
 version: "3.8"
@@ -298,6 +305,16 @@ services:
       - TZ=Asia/Shanghai
       - MOTDTRACKER_DATABASE_PATH=/app/data/motdtracker.db
       - MOTDTRACKER_PORT=5011
+      # CORS: 空字符串=禁止跨域（生产推荐），"*"=允许任意（仅开发测试）
+      - MOTDTRACKER_CORS_ORIGIN=""
+      # 可选：覆盖轮询间隔（秒）。仅在数据库无此配置时生效；若 Web 面板已修改过则优先使用数据库值
+      # - MOTDTRACKER_POLL_INTERVAL=60
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5011/api/exporter/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 ```
 
 启动服务：
@@ -315,8 +332,10 @@ docker compose up -d
 | `MOTDTRACKER_PORT` | Web 服务端口 | `5011` |
 | `MOTDTRACKER_DATABASE_PATH` | SQLite 数据库路径 | `/app/data/motdtracker.db` |
 | `MOTDTRACKER_POLL_INTERVAL` | 轮询间隔（秒） | `60` |
+| `MOTDTRACKER_CORS_ORIGIN` | CORS 允许的源（空=禁止跨域，`*`=允许任意，或指定域名） | `""` |
 
-优先级：**环境变量 > 配置文件 > 默认值**
+优先级：**数据库配置（通过 Web 面板设置）> 环境变量 > 配置文件 > 默认值**
+> 注意：首次启动后，若通过 Web 管理面板修改过轮询间隔、端口等设置，这些值会持久化到数据库中，此后环境变量和配置文件中的对应项将不再生效。如需强制覆盖，请清空数据库 `app_config` 表中对应的 key。
 
 注意：TUI 配置向导已移除。首次启动后请访问 Web 管理面板（`/admin`）创建管理员账号并配置节点。
 

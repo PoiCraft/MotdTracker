@@ -35,7 +35,7 @@ MotdTracker/
 ### 配置模型
 - **启动配置**: `config.toml` 只包含 `port` 和 `database.path`，可通过 `MOTDTRACKER_*` 环境变量覆盖
 - **业务配置**: 所有服务器/节点/告警配置存储在 SQLite 数据库中，通过 Web 管理面板管理
-- **优先级**: 环境变量 > 配置文件 > 默认值 > 数据库
+- **优先级**: 数据库（Web 面板）> 环境变量 > 配置文件 > 默认值
 - TUI 配置向导已移除；首次启动访问 `/login` 初始化管理员
 
 ### 数据库层
@@ -95,6 +95,7 @@ path = "data/motdtracker.db"
 - `MOTDTRACKER_PORT` — Web 服务端口
 - `MOTDTRACKER_DATABASE_PATH` — SQLite 数据库路径
 - `MOTDTRACKER_POLL_INTERVAL` — 轮询间隔（秒）
+- `MOTDTRACKER_CORS_ORIGIN` — CORS 允许的源（空=禁止跨域，`*`=允许任意，或指定域名）
 
 ### 测试
 

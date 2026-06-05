@@ -11,6 +11,55 @@ use std::collections::HashMap;
 use super::AppState;
 use crate::models::*;
 
+/// 从节点列表和最新状态映射计算聚合指标
+pub fn compute_aggregate(
+    nodes: &[&Node],
+    latest_map: &HashMap<&str, &StatusLog>,
+) -> AggregateStatus {
+    let online_count = nodes
+        .iter()
+        .filter(|n| {
+            latest_map
+                .get(n.id.as_str())
+                .map(|s| s.online)
+                .unwrap_or(false)
+        })
+        .count() as u32;
+    let total_players: u32 = nodes
+        .iter()
+        .filter_map(|n| {
+            latest_map
+                .get(n.id.as_str())
+                .and_then(|s| s.players_online.map(|p| p as u32))
+        })
+        .sum();
+    let total_players_max: u32 = nodes
+        .iter()
+        .filter_map(|n| {
+            latest_map
+                .get(n.id.as_str())
+                .and_then(|s| s.players_max.map(|p| p as u32))
+        })
+        .sum();
+    let lats: Vec<f64> = nodes
+        .iter()
+        .filter_map(|n| latest_map.get(n.id.as_str()).and_then(|s| s.latency))
+        .collect();
+
+    AggregateStatus {
+        online: online_count > 0,
+        online_node_count: online_count,
+        total_node_count: nodes.len() as u32,
+        total_players_online: total_players,
+        total_players_max,
+        avg_latency: if !lats.is_empty() {
+            Some(lats.iter().sum::<f64>() / lats.len() as f64)
+        } else {
+            None
+        },
+    }
+}
+
 pub fn create_router() -> Router<AppState> {
     Router::new()
         .route("/", get(list_servers))
@@ -55,25 +104,20 @@ async fn list_servers(
             .push(n);
     }
 
-    let result: Vec<serde_json::Value> = filtered.iter().map(|sv| {
-        let nodes = server_nodes.get(sv.id.as_str()).map(|v| v.as_slice()).unwrap_or(&[]);
-        let online_count = nodes.iter().filter(|n| latest_map.get(n.id.as_str()).map(|s| s.online).unwrap_or(false)).count() as u32;
-        let total_players: u32 = nodes.iter().filter_map(|n| latest_map.get(n.id.as_str()).and_then(|s| s.players_online.map(|p| p as u32))).sum();
-        let total_players_max: u32 = nodes.iter().filter_map(|n| latest_map.get(n.id.as_str()).and_then(|s| s.players_max.map(|p| p as u32))).sum();
-        let lats: Vec<f64> = nodes.iter().filter_map(|n| latest_map.get(n.id.as_str()).and_then(|s| s.latency)).collect();
-
-        serde_json::json!({
-            "id": sv.id, "group_id": sv.group_id, "name": sv.name, "sort_order": sv.sort_order,
-            "aggregate": {
-                "online": online_count > 0,
-                "online_node_count": online_count,
-                "total_node_count": nodes.len() as u32,
-                "total_players_online": total_players,
-                "total_players_max": total_players_max,
-                "avg_latency": if !lats.is_empty() { Some(lats.iter().sum::<f64>() / lats.len() as f64) } else { None }
-            }
+    let result: Vec<serde_json::Value> = filtered
+        .iter()
+        .map(|sv| {
+            let nodes = server_nodes
+                .get(sv.id.as_str())
+                .map(|v| v.as_slice())
+                .unwrap_or(&[]);
+            let aggregate = compute_aggregate(nodes, &latest_map);
+            serde_json::json!({
+                "id": sv.id, "group_id": sv.group_id, "name": sv.name, "sort_order": sv.sort_order,
+                "aggregate": aggregate
+            })
         })
-    }).collect();
+        .collect();
 
     Json(result)
 }
@@ -86,7 +130,7 @@ async fn get_server(
         .db
         .get_server(&id)
         .await
-        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(super::internal_error)?
         .ok_or(axum::http::StatusCode::NOT_FOUND)?;
 
     let all_nodes = state.db.get_nodes_by_server(&id).await.unwrap_or_default();
@@ -116,42 +160,13 @@ async fn get_server(
         })
         .collect();
 
-    let online_count = nodes_with_stats
-        .iter()
-        .filter(|n| n.latest_status.as_ref().map(|s| s.online).unwrap_or(false))
-        .count() as u32;
-    let total_players: u32 = nodes_with_stats
-        .iter()
-        .filter_map(|n| {
-            n.latest_status
-                .as_ref()
-                .and_then(|s| s.players_online.map(|p| p as u32))
-        })
-        .sum();
-    let total_players_max: u32 = nodes_with_stats
-        .iter()
-        .filter_map(|n| {
-            n.latest_status
-                .as_ref()
-                .and_then(|s| s.players_max.map(|p| p as u32))
-        })
-        .sum();
-    let lats: Vec<f64> = nodes_with_stats
-        .iter()
-        .filter_map(|n| n.latest_status.as_ref().and_then(|s| s.latency))
-        .collect();
+    let node_refs: Vec<&Node> = all_nodes.iter().collect();
+    let aggregate = compute_aggregate(&node_refs, &latest_map);
 
     Ok(Json(serde_json::json!({
         "id": server.id, "group_id": server.group_id, "name": server.name, "sort_order": server.sort_order,
         "nodes": nodes_with_stats,
-        "aggregate": {
-            "online": online_count > 0,
-            "online_node_count": online_count,
-            "total_node_count": nodes_with_stats.len() as u32,
-            "total_players_online": total_players,
-            "total_players_max": total_players_max,
-            "avg_latency": if !lats.is_empty() { Some(lats.iter().sum::<f64>() / lats.len() as f64) } else { None }
-        }
+        "aggregate": aggregate
     })))
 }
 
@@ -163,8 +178,8 @@ async fn get_server_history(
     let hours = q.hours.unwrap_or(24).clamp(1, 720);
     state
         .db
-        .get_server_history_for_group(&id, hours)
+        .get_server_history(&id, hours)
         .await
         .map(Json)
-        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)
+        .map_err(super::internal_error)
 }

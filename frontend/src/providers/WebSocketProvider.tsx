@@ -9,6 +9,8 @@ interface WebSocketContextValue {
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null)
 
+const AUTH_STORAGE_KEY = "motdtracker_auth_token"
+
 export function WebSocketProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<WsStatus>("connecting")
   const wsRef = useRef<WebSocket | null>(null)
@@ -17,7 +19,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
   const connect = useCallback(() => {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:"
-    const ws = new WebSocket(`${proto}//${window.location.host}/api/ws`)
+    const token = localStorage.getItem(AUTH_STORAGE_KEY)
+    const qs = token ? `?token=${encodeURIComponent(token)}` : ""
+    const ws = new WebSocket(`${proto}//${window.location.host}/api/ws${qs}`)
     wsRef.current = ws
 
     ws.onopen = () => setStatus("connected")

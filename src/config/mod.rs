@@ -62,6 +62,10 @@ pub struct AppConfig {
     /// Web 服务端口
     #[serde(default = "default_port")]
     pub port: u16,
+
+    /// CORS 允许的源，空字符串表示禁止跨域（默认）
+    #[serde(default = "default_cors_origin")]
+    pub cors_origin: String,
 }
 
 /// Webhook 告警配置（运行时从数据库加载，不从配置文件读取）
@@ -129,6 +133,9 @@ fn default_port() -> u16 {
 fn default_enable() -> bool {
     true
 }
+fn default_cors_origin() -> String {
+    String::new()
+}
 fn default_http_method() -> String {
     "POST".to_string()
 }
@@ -156,6 +163,7 @@ impl Default for AppConfig {
             database: DatabaseConfig::default(),
             poll_interval: default_poll_interval(),
             port: default_port(),
+            cors_origin: default_cors_origin(),
         }
     }
 }
