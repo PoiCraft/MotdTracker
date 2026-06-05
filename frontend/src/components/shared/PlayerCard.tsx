@@ -17,7 +17,7 @@ export function PlayerCard({ player }: { player: PlayerListItem }) {
       className={cn(
         "cursor-pointer",
         "bg-card/60 backdrop-blur-md border border-border/80 shadow-sm",
-        "dark:bg-zinc-900/60",
+        "dark:bg-card/60",
         "transition-all duration-300 ease-out",
         "hover:shadow-md",
         player.online && "hover:shadow-[0_0_15px_rgba(16,185,129,0.1)]"

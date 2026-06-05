@@ -60,7 +60,7 @@ export function ServerCard({ server }: { server: ServerItem }) {
     <Card
       className={cn(
         "cursor-pointer bg-card/60 backdrop-blur-md border border-border/80 shadow-sm",
-        "dark:bg-zinc-900/60",
+        "dark:bg-card/60",
         "transition-all duration-300 ease-out",
         "hover:shadow-md",
         allOnline &&

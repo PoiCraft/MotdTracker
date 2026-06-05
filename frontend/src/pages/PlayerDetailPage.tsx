@@ -78,7 +78,7 @@ export default function PlayerDetailPage() {
   const glassCard = cn(
     "rounded-xl p-4",
     "bg-card/60 backdrop-blur-md border border-border/80",
-    "dark:bg-zinc-900/60"
+    "dark:bg-card/60"
   )
 
   return (
@@ -242,7 +242,7 @@ export default function PlayerDetailPage() {
           className={cn(
             "rounded-xl overflow-hidden",
             "bg-card/60 backdrop-blur-md border border-border/80",
-            "dark:bg-zinc-900/60"
+            "dark:bg-card/60"
           )}
         >
           <div className="px-4 py-3 border-b border-border/60">

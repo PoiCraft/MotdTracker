@@ -149,7 +149,7 @@ function NodeMonitorCard({ node }: { node: NodeWithStats }) {
       className={cn(
         "rounded-xl p-3 transition-all duration-300 ease-out",
         "bg-card/60 backdrop-blur-md border border-border/80",
-        "dark:bg-zinc-900/60",
+        "dark:bg-card/60",
         online && !isHighLatency && "hover:shadow-md hover:shadow-[0_0_15px_rgba(16,185,129,0.1)]",
         online && isHighLatency && "border-l-4 border-l-red-500 animate-glow-red",
         !online && "opacity-50 bg-muted/20",

@@ -10,7 +10,7 @@ export default function NotFoundPage() {
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
-      <Card className="max-w-md w-full bg-card/60 backdrop-blur-md border border-border/80 shadow-sm dark:bg-zinc-900/60">
+      <Card className="max-w-md w-full bg-card/60 backdrop-blur-md border border-border/80 shadow-sm dark:bg-card/60">
         <CardContent className="p-8 text-center space-y-4">
           <div className="mx-auto h-16 w-16 rounded-2xl bg-muted/40 backdrop-blur-sm flex items-center justify-center">
             <Ghost className="h-8 w-8 text-muted-foreground/60" />

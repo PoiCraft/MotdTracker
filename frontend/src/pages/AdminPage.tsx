@@ -148,7 +148,7 @@ export default function AdminPage() {
 
 const glassCard = cn(
   "bg-card/60 backdrop-blur-md border border-border/80 shadow-sm",
-  "dark:bg-zinc-900/60"
+  "dark:bg-card/60"
 )
 
 function Field({

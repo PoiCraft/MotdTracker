@@ -81,7 +81,7 @@ export default function NodeDetailPage() {
   const glassCard = cn(
     "rounded-xl p-4",
     "bg-card/60 backdrop-blur-md border border-border/80",
-    "dark:bg-zinc-900/60"
+    "dark:bg-card/60"
   )
 
   return (
@@ -272,7 +272,7 @@ export default function NodeDetailPage() {
               className={cn(
                 "rounded-xl p-4 text-center",
                 "bg-card/60 backdrop-blur-md border border-border/80",
-                "dark:bg-zinc-900/60"
+                "dark:bg-card/60"
               )}
             >
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground/80 mb-1">

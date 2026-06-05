@@ -19,7 +19,7 @@ export function NodeCard({ node }: { node: NodeWithStats }) {
       className={cn(
         "cursor-pointer overflow-hidden",
         "bg-card/60 backdrop-blur-md border border-border/80 shadow-sm",
-        "dark:bg-zinc-900/60",
+        "dark:bg-card/60",
         "transition-all duration-300 ease-out",
         "hover:shadow-md",
         online && !isHighLatency && "hover:shadow-[0_0_15px_rgba(16,185,129,0.1)]",
