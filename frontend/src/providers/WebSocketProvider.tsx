@@ -39,6 +39,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           queryClient.invalidateQueries({ queryKey: ["nodes"] })
           queryClient.invalidateQueries({ queryKey: ["players"] })
           queryClient.invalidateQueries({ queryKey: ["groups"] })
+          queryClient.invalidateQueries({ queryKey: ["trend"] })
         }
       } catch {
         // ignore

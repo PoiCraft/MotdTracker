@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { api } from "@/api/endpoints"
+import type { StatusLog } from "@/api/types"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { StatCard, StatGrid } from "@/components/shared/StatCard"
 import { ServerCard } from "@/components/shared/ServerCard"
@@ -8,21 +9,48 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
 import { LayoutDashboard, Server, Network, Users } from "lucide-react"
 
-function generateStableData(base: number, points: number = 12): number[] {
-  // 使用确定性算法生成平滑的 sparkline，避免每次渲染随机跳动
-  const data: number[] = []
-  const seed = base * 0.6180339887 // 黄金比例作为伪随机种子
-  let v = base * 0.6
-  for (let i = 0; i < points - 1; i++) {
-    // 使用正弦波 + 线性趋势代替随机数，确保相同 base 总是产生相同曲线
-    const wave = Math.sin(seed + i * 0.7) * base * 0.06
-    const trend = (i / points) * base * 0.08
-    v += wave + trend
-    v = Math.max(0, Math.min(v, base * 1.2))
-    data.push(Math.round(v))
+function aggregateHistory(histories: StatusLog[][], sampleCount = 12) {
+  if (histories.length === 0) return { onlineNodes: [] as number[], totalPlayers: [] as number[] }
+
+  // 收集所有时间戳并排序
+  const allTimestamps = histories
+    .flat()
+    .map((l) => new Date(l.timestamp).getTime())
+    .sort((a, b) => a - b)
+
+  if (allTimestamps.length === 0) return { onlineNodes: [] as number[], totalPlayers: [] as number[] }
+
+  const minTime = allTimestamps[0]
+  const maxTime = allTimestamps[allTimestamps.length - 1]
+  const range = maxTime - minTime || 1
+  const step = range / sampleCount
+
+  const onlineNodes: number[] = []
+  const totalPlayers: number[] = []
+
+  for (let i = 0; i < sampleCount; i++) {
+    const windowStart = minTime + step * i
+    const windowEnd = minTime + step * (i + 1)
+
+    let online = 0
+    let players = 0
+    for (const serverLogs of histories) {
+      // 取窗口内最新的一条
+      const inWindow = serverLogs.filter((l) => {
+        const t = new Date(l.timestamp).getTime()
+        return t >= windowStart && t < windowEnd
+      })
+      const latest = inWindow[inWindow.length - 1]
+      if (latest?.online) {
+        online++
+        players += latest.players_online ?? 0
+      }
+    }
+    onlineNodes.push(online)
+    totalPlayers.push(players)
   }
-  data.push(base)
-  return data
+
+  return { onlineNodes, totalPlayers }
 }
 
 export default function DashboardPage() {
@@ -36,6 +64,19 @@ export default function DashboardPage() {
   const { data: servers = [], isLoading: serversLoading } = useQuery({
     queryKey: ["servers"],
     queryFn: () => api.servers.list(),
+  })
+
+  const serverIds = servers.map((s) => s.id)
+
+  const { data: trend } = useQuery({
+    queryKey: ["trend", serverIds.join(",")],
+    queryFn: async () => {
+      const results = await Promise.all(
+        serverIds.map((id) => api.servers.history(id, 24))
+      )
+      return aggregateHistory(results)
+    },
+    enabled: serverIds.length > 0,
   })
 
   const loading = groupsLoading || serversLoading
@@ -80,13 +121,11 @@ export default function DashboardPage() {
           title={t("dashboard.groups")}
           value={groups.length}
           icon={LayoutDashboard}
-          sparklineData={generateStableData(groups.length)}
         />
         <StatCard
           title={t("dashboard.servers")}
           value={servers.length}
           icon={Server}
-          sparklineData={generateStableData(servers.length)}
         />
         <StatCard
           title={t("dashboard.onlineNodes")}
@@ -102,13 +141,13 @@ export default function DashboardPage() {
               ? `${Math.round((totalOnlineNodes / totalNodes) * 100)}% ${t("dashboard.uptime")}`
               : undefined
           }
-          sparklineData={generateStableData(totalOnlineNodes)}
+          sparklineData={trend?.onlineNodes}
         />
         <StatCard
           title={t("dashboard.onlinePlayers")}
           value={totalPlayers}
           icon={Users}
-          sparklineData={generateStableData(totalPlayers)}
+          sparklineData={trend?.totalPlayers}
         />
       </StatGrid>
 
