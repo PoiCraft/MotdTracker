@@ -51,6 +51,15 @@ if ($frontendChanged) {
         Write-Host "`nERROR: ESLint check failed. Fix lint errors before committing.`n"
         exit 1
     }
+
+    Write-Host "Running npm run build..."
+    & npm run build 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Pop-Location
+        Write-Host "`nERROR: Frontend build failed. Fix build errors before committing.`n"
+        exit 1
+    }
+
     Pop-Location
 } else {
     Write-Host "No frontend changes, skipping frontend checks."

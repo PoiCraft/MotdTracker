@@ -330,7 +330,7 @@ function aggregateHourly(
     let cursor = start
     while (cursor < end) {
       const hourStart = new Date(cursor)
-      hourStart.setMinutes(0, 0, 0, 0)
+      hourStart.setMinutes(0, 0, 0)
       const nextHour = hourStart.getTime() + 3600_000
       const chunkEnd = Math.min(nextHour, end)
       const minutes = (chunkEnd - cursor) / 1000 / 60

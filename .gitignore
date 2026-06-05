@@ -39,3 +39,6 @@ logs/
 
 # MCP
 .playwright-mcp
+
+# Agent
+.workbuddy

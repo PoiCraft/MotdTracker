@@ -43,6 +43,12 @@ if [ -n "$FRONTEND_CHANGED" ]; then
     echo "\nERROR: ESLint check failed. Fix lint errors before committing.\n"
     exit 1
   fi
+
+  echo "Running npm run build..."
+  if ! (cd frontend && npm run build); then
+    echo "\nERROR: Frontend build failed. Fix build errors before committing.\n"
+    exit 1
+  fi
 else
   echo "No frontend changes, skipping frontend checks."
 fi
