@@ -5,7 +5,6 @@ import { PageHeader } from "@/components/shared/PageHeader"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Progress } from "@/components/ui/progress"
-import { Sparkline } from "@/components/shared/Sparkline"
 import { useState } from "react"
 import { Maximize, Minimize, Network } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -14,35 +13,11 @@ import type { NodeWithStats } from "@/api/types"
 
 const HIGH_LATENCY_THRESHOLD = 500
 
-function generateMockLatencyHistory(current: number): number[] {
-  const data: number[] = []
-  let v = Math.max(10, current * 0.3)
-  for (let i = 0; i < 11; i++) {
-    v += (Math.random() - 0.4) * 40
-    v = Math.max(10, Math.min(200, v))
-    data.push(Math.round(v))
-  }
-  data.push(current)
-  return data
-}
-
-function generateMockPlayerHistory(current: number): number[] {
-  const data: number[] = []
-  let v = Math.max(0, current * 0.6)
-  for (let i = 0; i < 11; i++) {
-    v += (Math.random() - 0.42) * current * 0.12
-    v = Math.max(0, v)
-    data.push(Math.round(v))
-  }
-  data.push(current)
-  return data
-}
-
 export default function MonitorPage() {
   const { t } = useTranslation()
   const [fullscreen, setFullscreen] = useState(false)
 
-  const { data: nodes = [], isLoading } = useQuery({
+  const { data: nodes = [], isLoading, error } = useQuery({
     queryKey: ["nodes"],
     queryFn: () => api.nodes.list(),
   })
@@ -56,6 +31,18 @@ export default function MonitorPage() {
             <Skeleton key={i} className="h-44 rounded-xl" />
           ))}
         </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title={t("monitor.title")} />
+        <EmptyState
+          title={t("dashboard.loadingFailed")}
+          description={error instanceof Error ? error.message : String(error)}
+        />
       </div>
     )
   }
@@ -137,13 +124,6 @@ function NodeMonitorCard({ node }: { node: NodeWithStats }) {
       ? Math.round(((playersOnline || 0) / playersMax) * 100)
       : 0
 
-  const latencyHistory = roundedLatency != null
-    ? generateMockLatencyHistory(roundedLatency)
-    : []
-  const playerHistory = playersOnline != null
-    ? generateMockPlayerHistory(playersOnline)
-    : []
-
   return (
     <div
       className={cn(
@@ -203,23 +183,6 @@ function NodeMonitorCard({ node }: { node: NodeWithStats }) {
             ? `${roundedLatency}${t("status.ms")}`
             : t("common.offline")}
         </span>
-      </div>
-
-      <div className="flex items-center gap-2 mb-1.5">
-        <Sparkline
-          data={latencyHistory}
-          width={56}
-          height={16}
-          color="hsl(160 84% 39%)"
-          alertColor="hsl(0 84% 60%)"
-          alertThreshold={HIGH_LATENCY_THRESHOLD}
-        />
-        <Sparkline
-          data={playerHistory}
-          width={56}
-          height={16}
-          color="hsl(200 84% 50%)"
-        />
       </div>
 
       {online && playersMax != null && playersMax > 0 && (

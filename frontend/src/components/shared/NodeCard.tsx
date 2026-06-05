@@ -1,4 +1,6 @@
+import { memo } from "react"
 import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Network } from "lucide-react"
@@ -7,7 +9,8 @@ import type { NodeWithStats } from "@/api/types"
 
 const HIGH_LATENCY_THRESHOLD = 500
 
-export function NodeCard({ node }: { node: NodeWithStats }) {
+export const NodeCard = memo(function NodeCard({ node }: { node: NodeWithStats }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const status = node.latest_status
   const online = status?.online ?? false
@@ -43,6 +46,8 @@ export function NodeCard({ node }: { node: NodeWithStats }) {
             <h3 className="font-medium text-sm truncate">{node.name}</h3>
           </div>
           <span
+            role="status"
+            aria-label={online ? t("common.online") : t("common.offline")}
             className={cn(
               "shrink-0 h-2 w-2 rounded-full",
               online ? "bg-emerald-500 animate-pulse-dot" : "bg-red-500"
@@ -71,10 +76,10 @@ export function NodeCard({ node }: { node: NodeWithStats }) {
               {latency}ms
             </Badge>
           ) : (
-            <span className="text-xs text-muted-foreground">Offline</span>
+            <span className="text-xs text-muted-foreground">{t("common.offline")}</span>
           )}
         </div>
       </CardContent>
     </Card>
   )
-}
+})

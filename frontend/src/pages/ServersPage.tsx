@@ -14,12 +14,12 @@ export default function ServersPage() {
   const [searchParams] = useSearchParams()
   const groupFilter = searchParams.get("group_id")
 
-  const { data: groups = [] } = useQuery({
+  const { data: groups = [], error: groupsError } = useQuery({
     queryKey: ["groups"],
     queryFn: api.groups.list,
   })
 
-  const { data: servers = [], isLoading } = useQuery({
+  const { data: servers = [], isLoading, error: serversError } = useQuery({
     queryKey: ["servers", groupFilter],
     queryFn: () => api.servers.list(groupFilter),
   })
@@ -47,6 +47,8 @@ export default function ServersPage() {
     byGroup.get(k)!.push(s)
   }
 
+  const error = groupsError || serversError
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -57,6 +59,18 @@ export default function ServersPage() {
           ))}
         </StatGrid>
         <Skeleton className="h-64 rounded-xl" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title={t("servers.title")} />
+        <EmptyState
+          title={t("dashboard.loadingFailed")}
+          description={error instanceof Error ? error.message : String(error)}
+        />
       </div>
     )
   }

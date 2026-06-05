@@ -15,7 +15,11 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<WsStatus>("connecting")
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const retryCount = useRef(0)
   const queryClient = useQueryClient()
+
+  // 用 ref 持有 connect 函数，避免 useCallback 自引用的前向声明问题
+  const connectRef = useRef<() => void>(() => {})
 
   const connect = useCallback(() => {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:"
@@ -24,11 +28,16 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     const ws = new WebSocket(`${proto}//${window.location.host}/api/ws${qs}`)
     wsRef.current = ws
 
-    ws.onopen = () => setStatus("connected")
+    ws.onopen = () => {
+      setStatus("connected")
+      retryCount.current = 0
+    }
     ws.onclose = () => {
       setStatus("disconnected")
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
-      reconnectTimer.current = setTimeout(connect, 3000)
+      const backoff = Math.min(3000 * Math.pow(2, retryCount.current), 30000)
+      retryCount.current++
+      reconnectTimer.current = setTimeout(() => connectRef.current(), backoff)
     }
     ws.onerror = () => setStatus("disconnected")
     ws.onmessage = (event) => {
@@ -48,8 +57,22 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   }, [queryClient])
 
   useEffect(() => {
+    connectRef.current = connect
+  }, [connect])
+
+  useEffect(() => {
     connect()
+    // 监听 localStorage 变化以同步 token
+    function handleStorage(e: StorageEvent) {
+      if (e.key === AUTH_STORAGE_KEY) {
+        wsRef.current?.close()
+        retryCount.current = 0
+        connect()
+      }
+    }
+    window.addEventListener("storage", handleStorage)
     return () => {
+      window.removeEventListener("storage", handleStorage)
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
       wsRef.current?.close()
     }

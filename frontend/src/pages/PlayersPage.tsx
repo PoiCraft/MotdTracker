@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { api } from "@/api/endpoints"
+import { useDebounce } from "@/hooks/useDebounce"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { StatCard, StatGrid } from "@/components/shared/StatCard"
 import { PlayerCard } from "@/components/shared/PlayerCard"
@@ -13,16 +14,17 @@ import { Users, Search, Wifi, WifiOff } from "lucide-react"
 export default function PlayersPage() {
   const { t } = useTranslation()
   const [search, setSearch] = useState("")
+  const debouncedSearch = useDebounce(search, 200)
 
-  const { data: players = [], isLoading } = useQuery({
+  const { data: players = [], isLoading, error } = useQuery({
     queryKey: ["players"],
     queryFn: () => api.players.list(),
   })
 
   const filtered = players.filter(
     (p) =>
-      !search ||
-      p.player_name.toLowerCase().includes(search.toLowerCase())
+      !debouncedSearch ||
+      p.player_name.toLowerCase().includes(debouncedSearch.toLowerCase())
   )
 
   const onlineCount = players.filter((p) => p.online).length
@@ -41,6 +43,18 @@ export default function PlayersPage() {
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title={t("players.title")} />
+        <EmptyState
+          title={t("dashboard.loadingFailed")}
+          description={error instanceof Error ? error.message : String(error)}
+        />
       </div>
     )
   }

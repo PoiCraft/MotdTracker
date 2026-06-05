@@ -19,6 +19,8 @@ import type {
 
 const BASE = ""
 
+const AUTH_STORAGE_KEY = "motdtracker_auth_token"
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const { headers: customHeaders, ...rest } = options ?? {}
   const res = await fetch(`${BASE}${url}`, {
@@ -29,6 +31,11 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     },
   })
   if (res.status === 204) return undefined as T
+  if (res.status === 401) {
+    localStorage.removeItem(AUTH_STORAGE_KEY)
+    window.location.href = "/login"
+    throw new Error("Session expired. Please login again.")
+  }
   if (!res.ok) {
     const body = await res.text()
     throw new Error(body || `HTTP ${res.status}`)
@@ -49,8 +56,12 @@ export const api = {
   },
 
   servers: {
-    list: (groupId?: string | null) =>
-      request<ServerItem[]>(`/api/servers${groupId ? `?group_id=${groupId}` : ""}`),
+    list: (groupId?: string | null) => {
+      const p = new URLSearchParams()
+      if (groupId) p.set("group_id", groupId)
+      const qs = p.toString()
+      return request<ServerItem[]>(`/api/servers${qs ? `?${qs}` : ""}`)
+    },
     detail: (id: string) => request<ServerDetail>(`/api/servers/${id}`),
     history: (id: string, hours = 24) =>
       request<StatusLog[]>(`/api/servers/${id}/history?hours=${hours}`),

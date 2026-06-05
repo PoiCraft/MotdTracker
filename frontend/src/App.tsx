@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react"
+import { lazy, Suspense, type ReactNode } from "react"
 import {
   createBrowserRouter,
   RouterProvider,
@@ -6,10 +6,17 @@ import {
 } from "react-router-dom"
 import { ThemeProvider } from "next-themes"
 import { QueryProvider } from "@/providers/QueryProvider"
-import { AuthProvider } from "@/providers/AuthProvider"
+import { AuthProvider, useAuth } from "@/providers/AuthProvider"
 import { WebSocketProvider } from "@/providers/WebSocketProvider"
 import { AppShell } from "@/components/layout/AppShell"
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { Skeleton } from "@/components/ui/skeleton"
+
+function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  return children
+}
 
 function Fallback() {
   return (
@@ -55,7 +62,14 @@ const router = createBrowserRouter([
       { path: "players/:playerName", element: <PlayerDetailPage /> },
       { path: "badges", element: <BadgesPage /> },
       { path: "login", element: <LoginPage /> },
-      { path: "admin", element: <AdminPage /> },
+      {
+        path: "admin",
+        element: (
+          <ProtectedRoute>
+            <AdminPage />
+          </ProtectedRoute>
+        ),
+      },
       { path: "*", element: <NotFoundPage /> },
     ],
   },
@@ -67,9 +81,11 @@ export default function App() {
       <QueryProvider>
         <AuthProvider>
           <WebSocketProvider>
-            <Suspense fallback={<Fallback />}>
-              <RouterProvider router={router} />
-            </Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<Fallback />}>
+                <RouterProvider router={router} />
+              </Suspense>
+            </ErrorBoundary>
           </WebSocketProvider>
         </AuthProvider>
       </QueryProvider>

@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent } from "@/components/ui/card"
@@ -7,7 +8,7 @@ import { cn } from "@/lib/utils"
 import type { PlayerListItem } from "@/api/types"
 import { formatDateTime } from "@/lib/utils"
 
-export function PlayerCard({ player }: { player: PlayerListItem }) {
+export const PlayerCard = memo(function PlayerCard({ player }: { player: PlayerListItem }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const currentServer = player.servers.find((s) => s.online)?.server_name
@@ -68,4 +69,4 @@ export function PlayerCard({ player }: { player: PlayerListItem }) {
       </CardContent>
     </Card>
   )
-}
+})

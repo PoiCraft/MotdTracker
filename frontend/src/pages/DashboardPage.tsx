@@ -9,10 +9,31 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
 import { LayoutDashboard, Server, Network, Users } from "lucide-react"
 
+/** 限制并发数为 5，避免请求风暴 */
+async function promiseAllLimit<T>(
+  tasks: (() => Promise<T>)[],
+  limit: number
+): Promise<T[]> {
+  const results: T[] = []
+  const executing: Promise<void>[] = []
+  for (const task of tasks) {
+    const p = task().then((r) => { results.push(r) })
+    executing.push(p)
+    if (executing.length >= limit) {
+      await Promise.race(executing)
+      executing.splice(
+        executing.findIndex((x) => x === p),
+        1
+      )
+    }
+  }
+  await Promise.all(executing)
+  return results
+}
+
 function aggregateHistory(histories: StatusLog[][], sampleCount = 12) {
   if (histories.length === 0) return { onlineNodes: [] as number[], totalPlayers: [] as number[] }
 
-  // 收集所有时间戳并排序
   const allTimestamps = histories
     .flat()
     .map((l) => new Date(l.timestamp).getTime())
@@ -35,15 +56,16 @@ function aggregateHistory(histories: StatusLog[][], sampleCount = 12) {
     let online = 0
     let players = 0
     for (const serverLogs of histories) {
-      // 取窗口内最新的一条
       const inWindow = serverLogs.filter((l) => {
         const t = new Date(l.timestamp).getTime()
         return t >= windowStart && t < windowEnd
       })
       const latest = inWindow[inWindow.length - 1]
-      if (latest?.online) {
-        online++
-        players += latest.players_online ?? 0
+      if (latest) {
+        if (latest.online) {
+          online++
+          players += latest.players_online ?? 0
+        }
       }
     }
     onlineNodes.push(online)
@@ -56,12 +78,12 @@ function aggregateHistory(histories: StatusLog[][], sampleCount = 12) {
 export default function DashboardPage() {
   const { t } = useTranslation()
 
-  const { data: groups = [], isLoading: groupsLoading } = useQuery({
+  const { data: groups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
     queryKey: ["groups"],
     queryFn: api.groups.list,
   })
 
-  const { data: servers = [], isLoading: serversLoading } = useQuery({
+  const { data: servers = [], isLoading: serversLoading, error: serversError } = useQuery({
     queryKey: ["servers"],
     queryFn: () => api.servers.list(),
   })
@@ -71,15 +93,12 @@ export default function DashboardPage() {
   const { data: trend } = useQuery({
     queryKey: ["trend", serverIds.join(",")],
     queryFn: async () => {
-      const results = await Promise.all(
-        serverIds.map((id) => api.servers.history(id, 24))
-      )
+      const tasks = serverIds.map((id) => () => api.servers.history(id, 24))
+      const results = await promiseAllLimit(tasks, 5)
       return aggregateHistory(results)
     },
     enabled: serverIds.length > 0,
   })
-
-  const loading = groupsLoading || serversLoading
 
   const totalNodes = groups.reduce((sum, g) => sum + g.total_node_count, 0)
   const totalOnlineNodes = groups.reduce(
@@ -95,6 +114,9 @@ export default function DashboardPage() {
     serversByGroup.get(key)!.push(s)
   }
 
+  const loading = groupsLoading || serversLoading
+  const error = groupsError || serversError
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -105,6 +127,18 @@ export default function DashboardPage() {
           ))}
         </StatGrid>
         <Skeleton className="h-64 rounded-xl" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title={t("dashboard.title")} />
+        <EmptyState
+          title={t("dashboard.loadingFailed")}
+          description={error instanceof Error ? error.message : String(error)}
+        />
       </div>
     )
   }
@@ -184,6 +218,24 @@ export default function DashboardPage() {
             </div>
           )
         })}
+
+        {/* 未分组服务器 */}
+        {(() => {
+          const ungrouped = serversByGroup.get(null) || []
+          if (ungrouped.length === 0) return null
+          return (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold">{t("admin.ungrouped")}</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {ungrouped.map((s) => (
+                  <ServerCard key={s.id} server={s} />
+                ))}
+              </div>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

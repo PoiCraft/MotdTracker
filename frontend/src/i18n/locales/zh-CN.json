@@ -208,7 +208,10 @@
     "passwordsNotMatch": "两次输入的密码不一致",
     "passwordTooShort": "密码长度至少为 6 位",
     "passwordChanged": "密码修改成功",
-    "passwordChangeFailed": "密码修改失败"
+    "passwordChangeFailed": "密码修改失败",
+    "pollIntervalTooSmall": "轮询间隔不能小于 1 秒",
+    "portOutOfRange": "端口号必须在 1-65535 之间",
+    "invalidWebhookUrl": "Webhook URL 格式无效"
   },
   "status": {
     "ms": "毫秒",

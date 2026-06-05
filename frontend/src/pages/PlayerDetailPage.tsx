@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
@@ -48,6 +49,18 @@ export default function PlayerDetailPage() {
     queryFn: () => api.players.weekly(playerName!),
     enabled: !!playerName,
   })
+
+  const recentSessions = useMemo(() => {
+    if (!detail) return []
+    return detail.sessions.slice(-20).reverse().map((s) => ({
+      ...s,
+      isActive: detail.online && s.session_end === null,
+      duration:
+        (new Date(s.session_end!).getTime() -
+          new Date(s.session_start).getTime()) /
+        1000,
+    }))
+  }, [detail])
 
   if (isLoading) {
     return (
@@ -212,7 +225,7 @@ export default function PlayerDetailPage() {
           <h3 className="text-sm font-medium mb-4">
             {t("player.weeklyHeatmap")}
           </h3>
-          <div className="grid grid-cols-24 gap-0.5">
+          <div className="grid gap-0.5" style={{ gridTemplateColumns: 'repeat(24, 1fr)' }}>
             {Array.from({ length: 7 }, (_, day) => (
               <div key={day} className="contents">
                 {Array.from({ length: 24 }, (_, hour) => {
@@ -262,17 +275,7 @@ export default function PlayerDetailPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {detail.sessions
-                .slice(-20)
-                .reverse()
-                .map((s, i) => {
-                  const isActive =
-                    new Date(s.session_end).getTime() > Date.now() - 60000
-                  const duration =
-                    (new Date(s.session_end).getTime() -
-                      new Date(s.session_start).getTime()) /
-                    1000
-                  return (
+              {recentSessions.map((s, i) => (
                     <TableRow
                       key={s.id || i}
                       className="hover:bg-transparent"
@@ -281,7 +284,7 @@ export default function PlayerDetailPage() {
                         <span
                           className={cn(
                             "inline-flex items-center gap-1.5 text-xs",
-                            isActive
+                            s.isActive
                               ? "text-emerald-500"
                               : "text-muted-foreground"
                           )}
@@ -289,12 +292,12 @@ export default function PlayerDetailPage() {
                           <span
                             className={cn(
                               "h-1.5 w-1.5 rounded-full",
-                              isActive
+                              s.isActive
                                 ? "bg-emerald-500"
                                 : "bg-muted-foreground/40"
                             )}
                           />
-                          {isActive ? t("common.online") : t("common.offline")}
+                          {s.isActive ? t("common.online") : t("common.offline")}
                         </span>
                       </TableCell>
                       <TableCell className="text-sm">{s.server_id}</TableCell>
@@ -302,11 +305,10 @@ export default function PlayerDetailPage() {
                         {formatDateTime(s.session_start)}
                       </TableCell>
                       <TableCell className="text-right text-xs tabular-nums font-mono">
-                        {formatDuration(duration)}
+                        {formatDuration(s.duration)}
                       </TableCell>
                     </TableRow>
-                  )
-                })}
+              ))}
             </TableBody>
           </Table>
         </div>
@@ -316,17 +318,26 @@ export default function PlayerDetailPage() {
 }
 
 function aggregateHourly(
-  sessions: Array<{ session_start: string; session_end: string }>
+  sessions: Array<{ session_start: string; session_end: string | null }>
 ): Array<{ hour: number; minutes: number }> {
   const buckets = new Map<number, number>()
   for (const s of sessions) {
-    const h = new Date(s.session_start).getHours()
-    const dur =
-      (new Date(s.session_end).getTime() -
-        new Date(s.session_start).getTime()) /
-      1000 /
-      60
-    buckets.set(h, (buckets.get(h) || 0) + dur)
+    const start = new Date(s.session_start).getTime()
+    const end = s.session_end ? new Date(s.session_end).getTime() : Date.now()
+    if (end <= start) continue
+
+    // 将会话时长按实际跨越的小时分摊
+    let cursor = start
+    while (cursor < end) {
+      const hourStart = new Date(cursor)
+      hourStart.setMinutes(0, 0, 0, 0)
+      const nextHour = hourStart.getTime() + 3600_000
+      const chunkEnd = Math.min(nextHour, end)
+      const minutes = (chunkEnd - cursor) / 1000 / 60
+      const h = new Date(cursor).getHours()
+      buckets.set(h, (buckets.get(h) || 0) + minutes)
+      cursor = chunkEnd
+    }
   }
   return Array.from(buckets, ([hour, minutes]) => ({
     hour,

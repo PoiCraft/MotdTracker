@@ -1,44 +1,16 @@
+import { memo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Sparkline } from "@/components/shared/Sparkline"
 import { Server } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ServerItem } from "@/api/types"
 
 const HIGH_LATENCY_THRESHOLD = 500
 
-function generateMockTrend(current: number, points: number = 12): number[] {
-  const data: number[] = []
-  let v = current * 0.7
-  for (let i = 0; i < points - 1; i++) {
-    v += (Math.random() - 0.45) * current * 0.15
-    v = Math.max(0, v)
-    data.push(Math.round(v))
-  }
-  data.push(current)
-  return data
-}
-
-function generateMockLatencyTrend(
-  current: number,
-  points: number = 12
-): number[] {
-  const data: number[] = []
-  let v = current * 0.3
-  for (let i = 0; i < points - 2; i++) {
-    v += (Math.random() - 0.4) * 30
-    v = Math.max(10, Math.min(200, v))
-    data.push(Math.round(v))
-  }
-  data.push(Math.round(current * 0.6))
-  data.push(current)
-  return data
-}
-
-export function ServerCard({ server }: { server: ServerItem }) {
+export const ServerCard = memo(function ServerCard({ server }: { server: ServerItem }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const agg = server.aggregate
@@ -47,9 +19,6 @@ export function ServerCard({ server }: { server: ServerItem }) {
     agg.total_node_count > 0
   const avgLatency = agg.avg_latency ?? 0
   const isHighLatency = avgLatency > HIGH_LATENCY_THRESHOLD
-
-  const playerTrend = generateMockTrend(agg.total_players_online)
-  const latencyTrend = generateMockLatencyTrend(avgLatency)
 
   const playerPercent =
     agg.total_players_max > 0
@@ -143,23 +112,6 @@ export function ServerCard({ server }: { server: ServerItem }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Sparkline
-            data={playerTrend}
-            width={80}
-            height={20}
-            color="hsl(160 84% 39%)"
-          />
-          <Sparkline
-            data={latencyTrend}
-            width={80}
-            height={20}
-            color="hsl(160 84% 39%)"
-            alertColor="hsl(0 84% 60%)"
-            alertThreshold={HIGH_LATENCY_THRESHOLD}
-          />
-        </div>
-
         {agg.total_players_max > 0 && (
           <div className="space-y-1">
             <div className="flex justify-between text-[10px] text-muted-foreground/80">
@@ -174,4 +126,4 @@ export function ServerCard({ server }: { server: ServerItem }) {
       </CardContent>
     </Card>
   )
-}
+})

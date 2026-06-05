@@ -82,7 +82,7 @@ export function Sparkline({
     }
   }, [data, width, height, alertThreshold, reactId])
 
-  if (data.length < 2) {
+  if (data.length === 0) {
     return (
       <svg width={width} height={height} className={cn("shrink-0", className)}>
         <line
@@ -94,6 +94,19 @@ export function Sparkline({
           strokeWidth={1.5}
           className="text-muted-foreground/30"
           strokeDasharray="4 3"
+        />
+      </svg>
+    )
+  }
+
+  if (data.length === 1) {
+    return (
+      <svg width={width} height={height} className={cn("shrink-0", className)}>
+        <circle
+          cx={width / 2}
+          cy={height / 2}
+          r={3}
+          fill={isAlert ? alertColor : color}
         />
       </svg>
     )

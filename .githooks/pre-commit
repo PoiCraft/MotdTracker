@@ -1,22 +1,50 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "Running cargo fmt check..."
-if ! cargo fmt --all -- --check; then
-  echo "\nERROR: cargo fmt check failed. Run 'cargo fmt --all' to format the code.\n"
-  exit 1
+# ── Rust checks (only when Rust files have staged changes) ──────────
+RUST_CHANGED=$(git diff --cached --name-only --diff-filter=ACMR -- '*.rs' 'Cargo.toml' 'Cargo.lock' '.cargo/' | head -1)
+if [ -n "$RUST_CHANGED" ]; then
+  echo "Rust changes detected, running Rust checks..."
+
+  echo "Running cargo fmt check..."
+  if ! cargo fmt --all -- --check; then
+    echo "\nERROR: cargo fmt check failed. Run 'cargo fmt --all' to format the code.\n"
+    exit 1
+  fi
+
+  echo "Running cargo check..."
+  if ! cargo check --all; then
+    echo "\nERROR: cargo check failed. Fix compilation errors before committing.\n"
+    exit 1
+  fi
+
+  echo "Running cargo clippy..."
+  if ! cargo clippy --all-targets -- -D warnings; then
+    echo "\nERROR: cargo clippy failed. Fix clippy warnings before committing.\n"
+    exit 1
+  fi
+else
+  echo "No Rust changes, skipping Rust checks."
 fi
 
-echo "Running cargo check..."
-if ! cargo check --all; then
-  echo "\nERROR: cargo check failed. Fix compilation errors before committing.\n"
-  exit 1
-fi
+# ── Frontend checks (only when frontend/ has staged changes) ─────────
+FRONTEND_CHANGED=$(git diff --cached --name-only --diff-filter=ACMR -- frontend/ | head -1)
+if [ -n "$FRONTEND_CHANGED" ]; then
+  echo "Frontend changes detected, running frontend checks..."
 
-echo "Running cargo clippy..."
-if ! cargo clippy --all-targets -- -D warnings; then
-  echo "\nERROR: cargo clippy failed. Fix clippy warnings before committing.\n"
-  exit 1
+  echo "Running tsc --noEmit..."
+  if ! (cd frontend && npx tsc --noEmit); then
+    echo "\nERROR: TypeScript check failed. Fix type errors before committing.\n"
+    exit 1
+  fi
+
+  echo "Running eslint..."
+  if ! (cd frontend && npx eslint .); then
+    echo "\nERROR: ESLint check failed. Fix lint errors before committing.\n"
+    exit 1
+  fi
+else
+  echo "No frontend changes, skipping frontend checks."
 fi
 
 echo "Pre-commit checks passed."

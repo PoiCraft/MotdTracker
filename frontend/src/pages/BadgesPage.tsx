@@ -89,6 +89,7 @@ export default function BadgesPage() {
     new Set()
   )
   const [expandedPlayers, setExpandedPlayers] = useState(false)
+  const [playerSearch, setPlayerSearch] = useState("")
   const [selected, setSelected] = useState<TreeSelection | null>(null)
   const [selectedType, setSelectedType] = useState("status")
   const [selectedFormat, setSelectedFormat] = useState("url")
@@ -116,7 +117,7 @@ export default function BadgesPage() {
   function toggleGroup(id: string) {
     setExpandedGroups((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) { next.delete(id) } else { next.add(id) }
       return next
     })
   }
@@ -124,7 +125,7 @@ export default function BadgesPage() {
   function toggleServer(id: string) {
     setExpandedServers((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) { next.delete(id) } else { next.add(id) }
       return next
     })
   }
@@ -182,6 +183,13 @@ export default function BadgesPage() {
   const ungroupedServers = serversByGroup.get("__ungrouped") || []
   const onlinePlayers = players.filter((p) => p.online)
   const offlinePlayers = players.filter((p) => !p.online)
+
+  const filteredOnline = playerSearch
+    ? onlinePlayers.filter((p) => p.player_name.toLowerCase().includes(playerSearch.toLowerCase()))
+    : onlinePlayers
+  const filteredOffline = playerSearch
+    ? offlinePlayers.filter((p) => p.player_name.toLowerCase().includes(playerSearch.toLowerCase()))
+    : offlinePlayers
 
   const glassCard = cn(
     "bg-card/60 backdrop-blur-md border border-border/80 shadow-sm",
@@ -359,7 +367,16 @@ export default function BadgesPage() {
                 />
                 {expandedPlayers && (
                   <>
-                    {onlinePlayers.map((p) => (
+                    <div className="ml-4 my-1">
+                      <input
+                        type="text"
+                        placeholder={t("players.search")}
+                        value={playerSearch}
+                        onChange={(e) => setPlayerSearch(e.target.value)}
+                        className="w-full text-xs px-2 py-1 rounded-md bg-muted/40 border border-border/40 focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground/50"
+                      />
+                    </div>
+                    {filteredOnline.map((p) => (
                       <div key={p.player_name} className="ml-4">
                         <TreeRow
                           icon={Users}
@@ -388,7 +405,7 @@ export default function BadgesPage() {
                         />
                       </div>
                     ))}
-                    {offlinePlayers.map((p) => (
+                    {filteredOffline.map((p) => (
                       <div key={p.player_name} className="ml-4">
                         <TreeRow
                           icon={Users}
@@ -409,6 +426,11 @@ export default function BadgesPage() {
                         />
                       </div>
                     ))}
+                    {playerSearch && filteredOnline.length === 0 && filteredOffline.length === 0 && (
+                      <p className="ml-4 text-[10px] text-muted-foreground/60 py-1">
+                        {t("players.noPlayers")}
+                      </p>
+                    )}
                   </>
                 )}
               </div>
@@ -598,6 +620,8 @@ function TreeRow({
     >
       {onToggle ? (
         <button
+          type="button"
+          title={expanded ? "Collapse" : "Expand"}
           onClick={(e) => {
             e.stopPropagation()
             onToggle()

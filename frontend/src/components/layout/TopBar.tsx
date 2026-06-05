@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react"
+import { useCallback } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useTranslation } from "react-i18next"
+import { useTheme } from "next-themes"
 import {
   LayoutDashboard,
   Monitor,
@@ -45,25 +46,11 @@ export function TopBar() {
   const location = useLocation()
   const { token } = useAuth()
   const { status: wsStatus } = useWebSocket()
-  const [isDark, setIsDark] = useState(false)
-
-  useEffect(() => {
-    const root = document.documentElement
-    const observer = new MutationObserver(() =>
-      setIsDark(root.classList.contains("dark"))
-    )
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] })
-    setIsDark(root.classList.contains("dark"))
-    return () => observer.disconnect()
-  }, [])
+  const { theme, setTheme } = useTheme()
+  const isDark = theme === "dark"
 
   const toggleTheme = () => {
-    const root = document.documentElement
-    root.classList.toggle("dark")
-    localStorage.setItem(
-      "theme",
-      root.classList.contains("dark") ? "dark" : "light"
-    )
+    setTheme(isDark ? "light" : "dark")
   }
 
   const currentTitle =
@@ -127,6 +114,8 @@ export function TopBar() {
           <div className="flex items-center gap-1 ml-auto">
             <div className="hidden sm:flex items-center gap-1 mr-1">
               <div
+                role="status"
+                aria-label={wsStatus === "connected" ? t("common.online") : wsStatus === "connecting" ? t("common.loading") : t("common.offline")}
                 className={`h-2 w-2 rounded-full transition-colors duration-300 ${
                   wsStatus === "connected"
                     ? "bg-emerald-500 animate-pulse-dot"
@@ -146,7 +135,7 @@ export function TopBar() {
               <Search className="h-3.5 w-3.5" />
               <span className="text-xs">{t("common.search")}</span>
               <kbd className="pointer-events-none hidden lg:inline-flex h-5 select-none items-center gap-1 rounded border border-border/60 bg-muted/60 px-1.5 font-mono text-[10px] font-medium">
-                ⌘K
+                {navigator.platform.includes("Mac") ? "⌘K" : "Ctrl+K"}
               </kbd>
             </Button>
 
@@ -156,6 +145,7 @@ export function TopBar() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 transition-all duration-300"
+                  aria-label={t("common.appName")}
                 >
                   <Globe className="h-4 w-4" />
                 </Button>
@@ -178,6 +168,7 @@ export function TopBar() {
               size="icon"
               className="h-8 w-8 transition-all duration-300"
               onClick={toggleTheme}
+              aria-label={isDark ? t("common.enabled") : t("common.disabled")}
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
@@ -188,6 +179,7 @@ export function TopBar() {
                 size="icon"
                 className="h-8 w-8 transition-all duration-300"
                 onClick={() => navigate("/admin")}
+                aria-label={t("nav.admin")}
               >
                 <Settings className="h-4 w-4" />
               </Button>
@@ -197,6 +189,7 @@ export function TopBar() {
                 size="icon"
                 className="h-8 w-8 transition-all duration-300"
                 onClick={() => navigate("/login")}
+                aria-label={t("nav.login")}
               >
                 <LogIn className="h-4 w-4" />
               </Button>

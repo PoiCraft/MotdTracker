@@ -38,13 +38,14 @@ export default function LoginPage() {
         await login(username, password)
       }
       navigate("/dashboard")
-    } catch (e: any) {
-      if (e.message?.includes("409")) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Authentication failed"
+      if (message.includes("409")) {
         setIsSetup(false)
         setInitialized(true)
         setLocalError("Account already exists. Please login.")
       } else {
-        setLocalError(e.message || "Authentication failed")
+        setLocalError(message)
       }
     }
   }

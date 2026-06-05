@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type ReactNode } from "react"
+import { useState, useMemo, type ReactNode } from "react"
 import { Navigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -187,18 +187,14 @@ function ConfigTab({ token }: { token: string }) {
     queryFn: () => api.admin.listNodes(token),
   })
 
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    () => (groups.length === 1 && !selected ? new Set([groups[0].id]) : new Set())
+  )
   const [expandedServers, setExpandedServers] = useState<Set<string>>(
     new Set()
   )
   const [selected, setSelected] = useState<SelectedItem | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (groups.length === 1 && !selected) {
-      setExpandedGroups(new Set([groups[0].id]))
-    }
-  }, [groups])
 
   const serversByGroup = useMemo(() => {
     const map = new Map<string, AdminServer[]>()
@@ -222,7 +218,7 @@ function ConfigTab({ token }: { token: string }) {
   function toggleGroup(id: string) {
     setExpandedGroups((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) { next.delete(id) } else { next.add(id) }
       return next
     })
   }
@@ -230,7 +226,7 @@ function ConfigTab({ token }: { token: string }) {
   function toggleServer(id: string) {
     setExpandedServers((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) { next.delete(id) } else { next.add(id) }
       return next
     })
   }
@@ -383,6 +379,7 @@ function ConfigTab({ token }: { token: string }) {
                   onDragOver={(e) => handleDragOver(e, g.id)}
                   onDragLeave={() => setDragOver(null)}
                   onDrop={(e) => handleDrop(e, "group", g.id)}
+                  t={t}
                 />
                 {isGroupExpanded &&
                   groupServers.map((s) => {
@@ -421,6 +418,7 @@ function ConfigTab({ token }: { token: string }) {
                           onDragOver={(e) => handleDragOver(e, s.id)}
                           onDragLeave={() => setDragOver(null)}
                           onDrop={(e) => handleDrop(e, "server", s.id)}
+                          t={t}
                         />
                         {isServerExpanded &&
                           serverNodes.map((n) => {
@@ -458,6 +456,7 @@ function ConfigTab({ token }: { token: string }) {
                                       </Badge>
                                     ) : undefined
                                   }
+                                  t={t}
                                 />
                               </div>
                             )
@@ -509,6 +508,7 @@ function ConfigTab({ token }: { token: string }) {
                       onDragOver={(e) => handleDragOver(e, s.id)}
                       onDragLeave={() => setDragOver(null)}
                       onDrop={(e) => handleDrop(e, "server", s.id)}
+                      t={t}
                     />
                     {isServerExpanded &&
                       serverNodes.map((n) => {
@@ -536,6 +536,7 @@ function ConfigTab({ token }: { token: string }) {
                                 )
                                   deleteNodeMut.mutate(n.id)
                               }}
+                              t={t}
                             />
                           </div>
                         )
@@ -614,6 +615,7 @@ function TreeNode({
   onDragOver,
   onDragLeave,
   onDrop,
+  t,
 }: {
   icon: React.ComponentType<{ className?: string }>
   label: string
@@ -632,6 +634,7 @@ function TreeNode({
   onDragOver?: (e: React.DragEvent) => void
   onDragLeave?: () => void
   onDrop?: (e: React.DragEvent) => void
+  t: (key: string) => string
 }) {
   return (
     <div
@@ -651,6 +654,8 @@ function TreeNode({
     >
       {onToggle ? (
         <button
+          type="button"
+          title={expanded ? t("common.collapse") : t("common.expand")}
           onClick={(e) => {
             e.stopPropagation()
             onToggle()
@@ -678,6 +683,8 @@ function TreeNode({
       <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-0.5 shrink-0">
         {onAdd && (
           <button
+            type="button"
+            title={t("common.add")}
             onClick={(e) => {
               e.stopPropagation()
               onAdd()
@@ -688,6 +695,8 @@ function TreeNode({
           </button>
         )}
         <button
+          type="button"
+          title={t("common.delete")}
           onClick={(e) => {
             e.stopPropagation()
             onDelete()
@@ -766,11 +775,7 @@ function GroupForm({
     enabled: !isNew,
   })
 
-  const [name, setName] = useState("")
-
-  useEffect(() => {
-    if (existing) setName(existing.name)
-  }, [existing])
+  const [name, setName] = useState(() => existing?.name ?? "")
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -863,15 +868,8 @@ function ServerForm({
     enabled: !isNew,
   })
 
-  const [name, setName] = useState("")
-  const [groupId, setGroupId] = useState("")
-
-  useEffect(() => {
-    if (existing) {
-      setName(existing.name)
-      setGroupId(existing.group_id || "")
-    }
-  }, [existing])
+  const [name, setName] = useState(() => existing?.name ?? "")
+  const [groupId, setGroupId] = useState(() => existing?.group_id ?? "")
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -985,29 +983,27 @@ function NodeForm({
     enabled: !isNew,
   })
 
-  const [form, setForm] = useState({
-    name: "",
-    host: "",
-    port: 25565,
-    edition: "java",
-    color: "#1A73E8",
-    enabled: true,
-    server_id: "",
-  })
-
-  useEffect(() => {
-    if (existing) {
-      setForm({
-        name: existing.name,
-        host: existing.host,
-        port: existing.port,
-        edition: existing.edition,
-        color: existing.color,
-        enabled: existing.enabled,
-        server_id: existing.server_id,
-      })
-    }
-  }, [existing])
+  const [form, setForm] = useState(() =>
+    existing
+      ? {
+          name: existing.name,
+          host: existing.host,
+          port: existing.port,
+          edition: existing.edition,
+          color: existing.color,
+          enabled: existing.enabled,
+          server_id: existing.server_id,
+        }
+      : {
+          name: "",
+          host: "",
+          port: 25565,
+          edition: "java",
+          color: "#1A73E8",
+          enabled: true,
+          server_id: "",
+        }
+  )
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -1210,15 +1206,24 @@ function SettingsTab({ token }: { token: string }) {
     queryFn: () => api.admin.settings(token),
   })
 
-  const [form, setForm] = useState<Partial<AdminSettings>>({})
+  const [form, setForm] = useState<Partial<AdminSettings>>(() => settings ?? {})
   const [saved, setSaved] = useState(false)
-
-  useEffect(() => {
-    if (settings) setForm(settings)
-  }, [settings])
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (form.poll_interval != null && form.poll_interval < 1) {
+        throw new Error(t("admin.pollIntervalTooSmall"))
+      }
+      if (form.port != null && (form.port < 1 || form.port > 65535)) {
+        throw new Error(t("admin.portOutOfRange"))
+      }
+      if (form.webhook_alert?.enable && form.webhook_alert.url) {
+        try {
+          new URL(form.webhook_alert.url)
+        } catch {
+          throw new Error(t("admin.invalidWebhookUrl"))
+        }
+      }
       await api.admin.updateSettings(token, form)
     },
     onSuccess: () => {
@@ -1250,6 +1255,7 @@ function SettingsTab({ token }: { token: string }) {
           <Field label={t("admin.pollInterval")}>
             <Input
               type="number"
+              min={1}
               value={form.poll_interval || ""}
               onChange={(e) =>
                 setForm({ ...form, poll_interval: +e.target.value })
@@ -1259,6 +1265,8 @@ function SettingsTab({ token }: { token: string }) {
           <Field label={t("admin.port")}>
             <Input
               type="number"
+              min={1}
+              max={65535}
               value={form.port || ""}
               onChange={(e) =>
                 setForm({ ...form, port: +e.target.value })
@@ -1284,6 +1292,12 @@ function SettingsTab({ token }: { token: string }) {
               <span className="text-xs text-emerald-500 flex items-center gap-1">
                 <CheckCircle className="h-3 w-3" />
                 {t("admin.configApplied")}
+              </span>
+            )}
+            {saveMutation.isError && (
+              <span className="text-xs text-destructive flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {saveMutation.error instanceof Error ? saveMutation.error.message : String(saveMutation.error)}
               </span>
             )}
           </div>
@@ -1357,7 +1371,9 @@ function SettingsTab({ token }: { token: string }) {
                     ...form,
                     webhook_alert: { ...form.webhook_alert!, headers },
                   })
-                } catch {}
+                } catch {
+                  // invalid JSON — ignore
+                }
               }}
               rows={3}
               className="font-mono text-xs"
@@ -1449,6 +1465,12 @@ function SettingsTab({ token }: { token: string }) {
                 {t("admin.configApplied")}
               </span>
             )}
+            {saveMutation.isError && (
+              <span className="text-xs text-destructive flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {saveMutation.error instanceof Error ? saveMutation.error.message : String(saveMutation.error)}
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1489,8 +1511,9 @@ function ChangePasswordCard({ token }: { token: string }) {
       setOldPassword("")
       setNewPassword("")
       setConfirmPassword("")
-    } catch (e: any) {
-      setError(e.message || t("admin.passwordChangeFailed"))
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : t("admin.passwordChangeFailed")
+      setError(message)
     } finally {
       setSaving(false)
     }

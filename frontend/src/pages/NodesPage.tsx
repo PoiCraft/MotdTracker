@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { api } from "@/api/endpoints"
+import { useDebounce } from "@/hooks/useDebounce"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { StatCard, StatGrid } from "@/components/shared/StatCard"
 import { NodeCard } from "@/components/shared/NodeCard"
@@ -13,39 +14,39 @@ import { Network, Search } from "lucide-react"
 export default function NodesPage() {
   const { t } = useTranslation()
   const [search, setSearch] = useState("")
+  const debouncedSearch = useDebounce(search, 200)
 
-  const { data: nodes = [], isLoading } = useQuery({
+  const { data: nodes = [], isLoading, error } = useQuery({
     queryKey: ["nodes"],
     queryFn: () => api.nodes.list(),
   })
 
   const filtered = nodes.filter(
     (n) =>
-      !search ||
-      n.name.toLowerCase().includes(search.toLowerCase()) ||
-      n.host.toLowerCase().includes(search.toLowerCase())
+      !debouncedSearch ||
+      n.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      n.host.toLowerCase().includes(debouncedSearch.toLowerCase())
   )
 
   const onlineCount = nodes.filter((n) => n.latest_status?.online).length
-  const avgLat =
-    nodes.filter(
+
+  const { avgLat, totalP } = useMemo(() => {
+    const onlineWithLatency = nodes.filter(
       (n) => n.latest_status?.online && n.latest_status?.latency != null
-    ).length > 0
-      ? Math.round(
-          nodes
-            .filter(
-              (n) => n.latest_status?.online && n.latest_status?.latency != null
-            )
-            .reduce((a, n) => a + n.latest_status!.latency!, 0) /
-            nodes.filter(
-              (n) => n.latest_status?.online && n.latest_status?.latency != null
-            ).length
-        )
-      : 0
-  const totalP = nodes.reduce(
-    (a, n) => a + (n.latest_status?.players_online || 0),
-    0
-  )
+    )
+    const avgLat =
+      onlineWithLatency.length > 0
+        ? Math.round(
+            onlineWithLatency.reduce((a, n) => a + n.latest_status!.latency!, 0) /
+              onlineWithLatency.length
+          )
+        : 0
+    const totalP = nodes.reduce(
+      (a, n) => a + (n.latest_status?.players_online || 0),
+      0
+    )
+    return { avgLat, totalP }
+  }, [nodes])
 
   if (isLoading) {
     return (
@@ -61,6 +62,18 @@ export default function NodesPage() {
             <Skeleton key={i} className="h-36 rounded-xl" />
           ))}
         </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title={t("nodes.title")} />
+        <EmptyState
+          title={t("dashboard.loadingFailed")}
+          description={error instanceof Error ? error.message : String(error)}
+        />
       </div>
     )
   }

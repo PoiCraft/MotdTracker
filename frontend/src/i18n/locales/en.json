@@ -208,7 +208,10 @@
     "passwordsNotMatch": "Passwords do not match",
     "passwordTooShort": "Password must be at least 6 characters",
     "passwordChanged": "Password changed successfully",
-    "passwordChangeFailed": "Failed to change password"
+    "passwordChangeFailed": "Failed to change password",
+    "pollIntervalTooSmall": "Poll interval must be at least 1 second",
+    "portOutOfRange": "Port must be between 1 and 65535",
+    "invalidWebhookUrl": "Invalid webhook URL format"
   },
   "status": {
     "ms": "ms",
