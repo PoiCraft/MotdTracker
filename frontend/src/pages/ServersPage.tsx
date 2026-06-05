@@ -7,14 +7,12 @@ import { StatCard, StatGrid } from "@/components/shared/StatCard"
 import { ServerCard } from "@/components/shared/ServerCard"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useServerGroup } from "@/providers/ServerGroupProvider"
 import { Server, Network, Users, Gauge } from "lucide-react"
 
 export default function ServersPage() {
   const { t } = useTranslation()
   const [searchParams] = useSearchParams()
-  const { selectedGroupId } = useServerGroup()
-  const groupFilter = searchParams.get("group_id") || selectedGroupId
+  const groupFilter = searchParams.get("group_id")
 
   const { data: groups = [] } = useQuery({
     queryKey: ["groups"],
@@ -55,10 +53,10 @@ export default function ServersPage() {
         <Skeleton className="h-8 w-48" />
         <StatGrid>
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
+            <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </StatGrid>
-        <Skeleton className="h-64 rounded-lg" />
+        <Skeleton className="h-64 rounded-xl" />
       </div>
     )
   }
@@ -105,7 +103,7 @@ export default function ServersPage() {
             <div key={g.id} className="space-y-3">
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-semibold">{g.name}</h2>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground font-mono tabular-nums">
                   {gs.reduce((a, b) => a + b.aggregate.online_node_count, 0)}/
                   {gs.reduce((a, b) => a + b.aggregate.total_node_count, 0)}{" "}
                   {t("common.online")}

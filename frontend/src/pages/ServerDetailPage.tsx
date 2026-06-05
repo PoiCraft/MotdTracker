@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Network, Users, Gauge, Activity } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export default function ServerDetailPage() {
   const { serverId } = useParams<{ serverId: string }>()
@@ -39,10 +40,10 @@ export default function ServerDetailPage() {
         <Skeleton className="h-8 w-48" />
         <StatGrid>
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
+            <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </StatGrid>
-        <Skeleton className="h-64 rounded-lg" />
+        <Skeleton className="h-64 rounded-xl" />
       </div>
     )
   }
@@ -75,7 +76,11 @@ export default function ServerDetailPage() {
           variant={
             onlineN === totalN && totalN > 0 ? "success" : "warning"
           }
-          subtitle={totalN > 0 ? `${Math.round((onlineN / totalN) * 100)}%` : undefined}
+          subtitle={
+            totalN > 0
+              ? `${Math.round((onlineN / totalN) * 100)}%`
+              : undefined
+          }
         />
         <StatCard
           title={t("server.totalPlayers")}
@@ -93,18 +98,26 @@ export default function ServerDetailPage() {
         />
         <StatCard
           title={t("server.onlineRate")}
-          value={totalN > 0 ? `${Math.round((onlineN / totalN) * 100)}%` : "--"}
+          value={
+            totalN > 0 ? `${Math.round((onlineN / totalN) * 100)}%` : "--"
+          }
           icon={Activity}
         />
       </StatGrid>
 
-      <div className="rounded-lg border bg-card">
-        <div className="px-4 py-3 border-b">
+      <div
+        className={cn(
+          "rounded-xl overflow-hidden",
+          "bg-card/60 backdrop-blur-md border border-border/80",
+          "dark:bg-zinc-900/60"
+        )}
+      >
+        <div className="px-4 py-3 border-b border-border/60">
           <h3 className="text-sm font-medium">{t("server.nodeList")}</h3>
         </div>
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="hover:bg-transparent">
               <TableHead>{t("nodes.title")}</TableHead>
               <TableHead>{t("nodes.status")}</TableHead>
               <TableHead className="text-right">{t("nodes.latency")}</TableHead>
@@ -117,37 +130,59 @@ export default function ServerDetailPage() {
           <TableBody>
             {detail.nodes.map((n) => {
               const status = n.latest_status
+              const latency =
+                status?.latency != null ? Math.round(status.latency) : null
+              const isHighLatency = latency != null && latency > 500
               return (
                 <TableRow
                   key={n.id}
-                  className="cursor-pointer hover:bg-muted/50"
+                  className="cursor-pointer transition-colors duration-150 hover:bg-muted/30"
                   onClick={() => navigate(`/nodes/${n.id}`)}
                 >
-                  <TableCell className="font-medium text-sm">{n.name}</TableCell>
+                  <TableCell className="font-medium text-sm">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-2 w-2 rounded-full shrink-0"
+                        style={{ backgroundColor: n.color || "#6b7280" }}
+                      />
+                      {n.name}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <span
-                      className={`inline-flex items-center gap-1.5 text-xs ${
+                      className={cn(
+                        "inline-flex items-center gap-1.5 text-xs",
                         status?.online
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-red-600 dark:text-red-400"
-                      }`}
+                          ? isHighLatency
+                            ? "text-red-500"
+                            : "text-emerald-500"
+                          : "text-red-500"
+                      )}
                     >
                       <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          status?.online ? "bg-green-500" : "bg-red-500"
-                        }`}
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          status?.online
+                            ? isHighLatency
+                              ? "bg-red-500 animate-pulse"
+                              : "bg-emerald-500"
+                            : "bg-red-500"
+                        )}
                       />
                       {status?.online
                         ? t("common.online")
                         : t("common.offline")}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    {status?.latency != null
-                      ? `${Math.round(status.latency)}ms`
-                      : "--"}
+                  <TableCell
+                    className={cn(
+                      "text-right font-mono text-sm tabular-nums",
+                      isHighLatency && "text-red-500 font-medium"
+                    )}
+                  >
+                    {latency != null ? `${latency}ms` : "--"}
                   </TableCell>
-                  <TableCell className="text-right text-sm">
+                  <TableCell className="text-right text-sm font-mono tabular-nums">
                     {status?.players_online != null &&
                     status?.players_max != null
                       ? `${status.players_online}/${status.players_max}`

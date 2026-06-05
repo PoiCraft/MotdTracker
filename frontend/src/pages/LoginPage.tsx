@@ -5,7 +5,7 @@ import { useAuth } from "@/providers/AuthProvider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Shield } from "lucide-react"
 
 export default function LoginPage() {
   const { t } = useTranslation()
@@ -37,9 +37,24 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      <div
+        className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(0,0,0,0.15) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,0,0,0.15) 1px, transparent 1px)
+          `,
+          backgroundSize: "24px 24px",
+        }}
+      />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,transparent_0%,var(--background)_70%)]" />
+
+      <Card className="w-full max-w-sm relative bg-card/80 backdrop-blur-xl border border-border/60 shadow-2xl transition-all duration-300">
+        <CardHeader className="text-center space-y-3">
+          <div className="mx-auto h-10 w-10 rounded-lg bg-foreground text-background flex items-center justify-center">
+            <Shield className="h-5 w-5" />
+          </div>
           <CardTitle className="text-xl">
             {isSetup ? t("login.setupTitle") : t("login.title")}
           </CardTitle>
@@ -57,6 +72,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                className="bg-background/50"
               />
             </div>
             <div className="space-y-2">
@@ -66,6 +82,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="bg-background/50"
               />
             </div>
 
@@ -76,7 +93,11 @@ export default function LoginPage() {
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full transition-all duration-300"
+              disabled={loading}
+            >
               {loading
                 ? t("login.signingIn")
                 : isSetup
@@ -87,7 +108,7 @@ export default function LoginPage() {
             <Button
               type="button"
               variant="ghost"
-              className="w-full text-xs"
+              className="w-full text-xs transition-all duration-300"
               onClick={() => {
                 setIsSetup(!isSetup)
                 setLocalError("")

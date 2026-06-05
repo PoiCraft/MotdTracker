@@ -1,9 +1,14 @@
-import { useState, useEffect, type ReactNode } from "react"
+import { useState, useEffect, useMemo, type ReactNode } from "react"
 import { Navigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/api/endpoints"
-import type { AdminSettings, AdminGroup, AdminServer, AdminNode } from "@/api/types"
+import type {
+  AdminSettings,
+  AdminGroup,
+  AdminServer,
+  AdminNode,
+} from "@/api/types"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,93 +27,1183 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/providers/AuthProvider"
+import { cn } from "@/lib/utils"
 import {
   Plus,
-  Pencil,
   Trash2,
-  ArrowUp,
-  ArrowDown,
   Save,
   CheckCircle,
   AlertCircle,
   Lock,
   KeyRound,
+  ChevronRight,
+  Folder,
+  Server,
+  Network,
+  Settings,
+  X,
 } from "lucide-react"
+
+type EntityType = "group" | "server" | "node"
+interface SelectedItem {
+  type: EntityType
+  id: string
+}
 
 export default function AdminPage() {
   const { t } = useTranslation()
   const { token, loading: authLoading, logout } = useAuth()
-  if (authLoading) return <Skeleton className="h-96 rounded-lg" />
+  const queryClient = useQueryClient()
+
+  const { data: configStatus } = useQuery({
+    queryKey: ["admin-config-status"],
+    queryFn: () => api.admin.configStatus(token!),
+    enabled: !authLoading && !!token,
+    refetchInterval: 30000,
+  })
+
+  const isSynced = configStatus?.synced ?? true
+
+  const applyMutation = useMutation({
+    mutationFn: async () => {
+      await api.admin.apply(token!)
+      await new Promise((r) => setTimeout(r, 1000))
+      queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
+    },
+  })
+
+  if (authLoading) return <Skeleton className="h-96 rounded-xl" />
   if (!token) return <Navigate to="/login" replace />
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t("admin.title")} description={t("admin.description")}>
-        <Button variant="outline" size="sm" onClick={logout}>
+      <PageHeader
+        title={t("admin.title")}
+        description={t("admin.description")}
+      >
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={logout}
+          className="transition-all duration-300"
+        >
           {t("admin.logout")}
         </Button>
       </PageHeader>
 
-      <Tabs defaultValue="settings">
-        <TabsList>
-          <TabsTrigger value="settings">{t("admin.settings")}</TabsTrigger>
-          <TabsTrigger value="groups">{t("admin.groups")}</TabsTrigger>
-          <TabsTrigger value="servers">{t("admin.servers")}</TabsTrigger>
-          <TabsTrigger value="nodes">{t("admin.nodes")}</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="config">
+        <div className="flex items-center gap-3">
+          <TabsList>
+            <TabsTrigger value="config">
+              <Settings className="h-3.5 w-3.5 mr-1.5" />
+              {t("admin.config")}
+            </TabsTrigger>
+            <TabsTrigger value="settings">
+              <Settings className="h-3.5 w-3.5 mr-1.5" />
+              {t("admin.settings")}
+            </TabsTrigger>
+          </TabsList>
 
+          <div className="flex items-center gap-2 ml-auto">
+            {!isSynced && (
+              <span className="text-xs text-amber-500 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {t("admin.configNotSynced")}
+              </span>
+            )}
+            <Button
+              size="sm"
+              variant={!isSynced ? "default" : "outline"}
+              onClick={() => applyMutation.mutate()}
+              disabled={applyMutation.isPending}
+              className={cn(
+                "transition-all duration-300",
+                !isSynced && "animate-pulse"
+              )}
+            >
+              {applyMutation.isPending ? (
+                <span className="h-3.5 w-3.5 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Save className="h-3.5 w-3.5 mr-1" />
+              )}
+              {t("admin.applyConfig")}
+            </Button>
+          </div>
+        </div>
+
+        <TabsContent value="config" className="mt-4">
+          <ConfigTab token={token} />
+        </TabsContent>
         <TabsContent value="settings" className="mt-4">
           <SettingsTab token={token} />
-        </TabsContent>
-        <TabsContent value="groups" className="mt-4">
-          <GroupsTab token={token} />
-        </TabsContent>
-        <TabsContent value="servers" className="mt-4">
-          <ServersTab token={token} />
-        </TabsContent>
-        <TabsContent value="nodes" className="mt-4">
-          <NodesTab token={token} />
         </TabsContent>
       </Tabs>
     </div>
   )
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+const glassCard = cn(
+  "bg-card/60 backdrop-blur-md border border-border/80 shadow-sm",
+  "dark:bg-zinc-900/60"
+)
+
+function Field({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <label className="text-[10px] uppercase tracking-wider text-muted-foreground/80">
+        {label}
+      </label>
       {children}
     </div>
   )
 }
 
+// ─── Config Tab (3-level nested tree) ────────────────────────────────────────
+
+function ConfigTab({ token }: { token: string }) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+
+  const { data: groups = [] } = useQuery({
+    queryKey: ["admin-groups"],
+    queryFn: () => api.admin.listGroups(token),
+  })
+  const { data: servers = [] } = useQuery({
+    queryKey: ["admin-servers"],
+    queryFn: () => api.admin.listServers(token),
+  })
+  const { data: nodes = [] } = useQuery({
+    queryKey: ["admin-nodes"],
+    queryFn: () => api.admin.listNodes(token),
+  })
+
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [expandedServers, setExpandedServers] = useState<Set<string>>(
+    new Set()
+  )
+  const [selected, setSelected] = useState<SelectedItem | null>(null)
+  const [dragOver, setDragOver] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (groups.length === 1 && !selected) {
+      setExpandedGroups(new Set([groups[0].id]))
+    }
+  }, [groups])
+
+  const serversByGroup = useMemo(() => {
+    const map = new Map<string, AdminServer[]>()
+    for (const s of servers) {
+      const gid = s.group_id || "__ungrouped"
+      if (!map.has(gid)) map.set(gid, [])
+      map.get(gid)!.push(s)
+    }
+    return map
+  }, [servers])
+
+  const nodesByServer = useMemo(() => {
+    const map = new Map<string, AdminNode[]>()
+    for (const n of nodes) {
+      if (!map.has(n.server_id)) map.set(n.server_id, [])
+      map.get(n.server_id)!.push(n)
+    }
+    return map
+  }, [nodes])
+
+  function toggleGroup(id: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleServer(id: string) {
+    setExpandedServers((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function handleSaved(entityType: EntityType, newId?: string) {
+    if (newId) {
+      setSelected({ type: entityType, id: newId })
+      if (entityType === "server") {
+        const srv = servers.find((s) => s.id === newId)
+        if (srv?.group_id) setExpandedGroups((p) => new Set(p).add(srv.group_id!))
+      }
+      if (entityType === "node") {
+        const nd = nodes.find((n) => n.id === newId)
+        if (nd?.server_id) setExpandedServers((p) => new Set(p).add(nd.server_id))
+      }
+    }
+  }
+
+  const moveServerMut = useMutation({
+    mutationFn: ({ serverId, groupId }: { serverId: string; groupId: string }) =>
+      api.admin.updateServer(token, serverId, { group_id: groupId || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-servers"] })
+      queryClient.invalidateQueries({ queryKey: ["servers"] })
+      queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
+    },
+  })
+
+  const moveNodeToServerMut = useMutation({
+    mutationFn: ({ nodeId, serverId }: { nodeId: string; serverId: string }) =>
+      api.admin.moveNodeServer(token, nodeId, serverId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-nodes"] })
+      queryClient.invalidateQueries({ queryKey: ["nodes"] })
+      queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
+    },
+  })
+
+  const deleteGroupMut = useMutation({
+    mutationFn: (id: string) => api.admin.deleteGroup(token, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-groups"] })
+      queryClient.invalidateQueries({ queryKey: ["groups"] })
+      queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
+      if (selected?.type === "group") setSelected(null)
+    },
+  })
+
+  const deleteServerMut = useMutation({
+    mutationFn: (id: string) => api.admin.deleteServer(token, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-servers"] })
+      queryClient.invalidateQueries({ queryKey: ["servers"] })
+      queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
+      if (selected?.type === "server") setSelected(null)
+    },
+  })
+
+  const deleteNodeMut = useMutation({
+    mutationFn: (id: string) => api.admin.deleteNode(token, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-nodes"] })
+      queryClient.invalidateQueries({ queryKey: ["nodes"] })
+      queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
+      if (selected?.type === "node") setSelected(null)
+    },
+  })
+
+  const ungroupedServers = serversByGroup.get("__ungrouped") || []
+
+  function handleDragStart(e: React.DragEvent, type: EntityType, id: string) {
+    e.dataTransfer.setData("text/plain", `${type}:${id}`)
+    e.dataTransfer.effectAllowed = "move"
+  }
+
+  function handleDrop(e: React.DragEvent, targetType: EntityType, targetId: string) {
+    e.preventDefault()
+    setDragOver(null)
+    const raw = e.dataTransfer.getData("text/plain")
+    if (!raw) return
+    const [srcType, srcId] = raw.split(":")
+
+    if (srcType === "server" && targetType === "group") {
+      if (srcId !== targetId) moveServerMut.mutate({ serverId: srcId, groupId: targetId })
+    } else if (srcType === "node" && targetType === "server") {
+      if (srcId !== targetId) moveNodeToServerMut.mutate({ nodeId: srcId, serverId: targetId })
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent, id: string) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    setDragOver(id)
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4">
+      <div
+        className={cn(
+          "rounded-xl overflow-hidden",
+          glassCard,
+          "max-h-[calc(100vh-220px)] flex flex-col"
+        )}
+      >
+        <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">
+            {t("admin.structure")}
+          </h3>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => {
+              setSelected({ type: "group", id: "__new__" })
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+          {groups.map((g) => {
+            const groupServers = serversByGroup.get(g.id) || []
+            const isGroupExpanded = expandedGroups.has(g.id)
+            const isGroupSelected =
+              selected?.type === "group" && selected.id === g.id
+
+            return (
+              <div key={g.id}>
+                <TreeNode
+                  icon={Folder}
+                  label={g.name}
+                  count={groupServers.length}
+                  expanded={isGroupExpanded}
+                  selected={isGroupSelected}
+                  color="text-amber-500"
+
+                  dragOver={dragOver === g.id}
+                  onToggle={() => toggleGroup(g.id)}
+                  onSelect={() =>
+                    setSelected({ type: "group", id: g.id })
+                  }
+                  onAdd={() => {
+                    setSelected({ type: "server", id: "__new__" })
+                    setExpandedGroups((prev) => new Set(prev).add(g.id))
+                  }}
+                  onDelete={() => {
+                    if (confirm(t("admin.deleteGroupConfirm")))
+                      deleteGroupMut.mutate(g.id)
+                  }}
+                  onDragOver={(e) => handleDragOver(e, g.id)}
+                  onDragLeave={() => setDragOver(null)}
+                  onDrop={(e) => handleDrop(e, "group", g.id)}
+                />
+                {isGroupExpanded &&
+                  groupServers.map((s) => {
+                    const serverNodes = nodesByServer.get(s.id) || []
+                    const isServerExpanded = expandedServers.has(s.id)
+                    const isServerSelected =
+                      selected?.type === "server" && selected.id === s.id
+
+                    return (
+                      <div key={s.id} className="ml-4">
+                        <TreeNode
+                          icon={Server}
+                          label={s.name}
+                          count={serverNodes.length}
+                          expanded={isServerExpanded}
+                          selected={isServerSelected}
+                          color="text-sky-500"
+                          draggable
+        
+                          dragOver={dragOver === s.id}
+                          onDragStart={(e) => handleDragStart(e, "server", s.id)}
+                          onToggle={() => toggleServer(s.id)}
+                          onSelect={() =>
+                            setSelected({ type: "server", id: s.id })
+                          }
+                          onAdd={() => {
+                            setSelected({ type: "node", id: "__new__" })
+                            setExpandedServers((prev) =>
+                              new Set(prev).add(s.id)
+                            )
+                          }}
+                          onDelete={() => {
+                            if (confirm(t("admin.deleteServerConfirm")))
+                              deleteServerMut.mutate(s.id)
+                          }}
+                          onDragOver={(e) => handleDragOver(e, s.id)}
+                          onDragLeave={() => setDragOver(null)}
+                          onDrop={(e) => handleDrop(e, "server", s.id)}
+                        />
+                        {isServerExpanded &&
+                          serverNodes.map((n) => {
+                            const isNodeSelected =
+                              selected?.type === "node" &&
+                              selected.id === n.id
+                            return (
+                              <div key={n.id} className="ml-4">
+                                <TreeNode
+                                  icon={Network}
+                                  label={n.name}
+                                  selected={isNodeSelected}
+                                  color="text-emerald-500"
+                                  draggable
+                                  onDragStart={(e) => handleDragStart(e, "node", n.id)}
+                                  onSelect={() =>
+                                    setSelected({
+                                      type: "node",
+                                      id: n.id,
+                                    })
+                                  }
+                                  onDelete={() => {
+                                    if (
+                                      confirm(t("admin.deleteNodeConfirm"))
+                                    )
+                                      deleteNodeMut.mutate(n.id)
+                                  }}
+                                  badge={
+                                    !n.enabled ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[9px] px-1 py-0 bg-muted/30 text-muted-foreground border-border/40"
+                                      >
+                                        OFF
+                                      </Badge>
+                                    ) : undefined
+                                  }
+                                />
+                              </div>
+                            )
+                          })}
+                      </div>
+                    )
+                  })}
+              </div>
+            )
+          })}
+
+          {ungroupedServers.length > 0 && (
+            <div className="pt-2 mt-2 border-t border-border/40">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 px-2 mb-1">
+                {t("admin.ungrouped")}
+              </p>
+              {ungroupedServers.map((s) => {
+                const serverNodes = nodesByServer.get(s.id) || []
+                const isServerExpanded = expandedServers.has(s.id)
+                const isServerSelected =
+                  selected?.type === "server" && selected.id === s.id
+                return (
+                  <div key={s.id} className="ml-2">
+                    <TreeNode
+                      icon={Server}
+                      label={s.name}
+                      count={serverNodes.length}
+                      expanded={isServerExpanded}
+                      selected={isServerSelected}
+                      color="text-sky-500"
+                      draggable
+    
+                      dragOver={dragOver === s.id}
+                      onDragStart={(e) => handleDragStart(e, "server", s.id)}
+                      onToggle={() => toggleServer(s.id)}
+                      onSelect={() =>
+                        setSelected({ type: "server", id: s.id })
+                      }
+                      onAdd={() => {
+                        setSelected({ type: "node", id: "__new__" })
+                        setExpandedServers((prev) =>
+                          new Set(prev).add(s.id)
+                        )
+                      }}
+                      onDelete={() => {
+                        if (confirm(t("admin.deleteServerConfirm")))
+                          deleteServerMut.mutate(s.id)
+                      }}
+                      onDragOver={(e) => handleDragOver(e, s.id)}
+                      onDragLeave={() => setDragOver(null)}
+                      onDrop={(e) => handleDrop(e, "server", s.id)}
+                    />
+                    {isServerExpanded &&
+                      serverNodes.map((n) => {
+                        const isNodeSelected =
+                          selected?.type === "node" &&
+                          selected.id === n.id
+                        return (
+                          <div key={n.id} className="ml-4">
+                            <TreeNode
+                              icon={Network}
+                              label={n.name}
+                              selected={isNodeSelected}
+                              color="text-emerald-500"
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, "node", n.id)}
+                              onSelect={() =>
+                                setSelected({
+                                  type: "node",
+                                  id: n.id,
+                                })
+                              }
+                              onDelete={() => {
+                                if (
+                                  confirm(t("admin.deleteNodeConfirm"))
+                                )
+                                  deleteNodeMut.mutate(n.id)
+                              }}
+                            />
+                          </div>
+                        )
+                      })}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {groups.length === 0 && servers.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+              <Folder className="h-8 w-8 mb-2 opacity-40" />
+              <p className="text-xs">{t("admin.noConfig")}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2 text-xs"
+                onClick={() =>
+                  setSelected({ type: "group", id: "__new__" })
+                }
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                {t("admin.createGroup")}
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="min-h-[400px]">
+        {selected ? (
+          <DetailPanel
+            token={token}
+            selected={selected}
+            groups={groups}
+            servers={servers}
+            onSaved={(newId) => handleSaved(selected.type, newId)}
+          />
+        ) : (
+          <div
+            className={cn(
+              "rounded-xl h-full flex flex-col items-center justify-center text-center",
+              glassCard,
+              "min-h-[400px]"
+            )}
+          >
+            <Settings className="h-10 w-10 text-muted-foreground/30 mb-3" />
+            <p className="text-sm text-muted-foreground">
+              {t("admin.selectItem")}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Tree Node ──────────────────────────────────────────────────────────────
+
+function TreeNode({
+  icon: Icon,
+  label,
+  count,
+  expanded,
+  selected,
+  color,
+  badge,
+  draggable,
+  dragOver,
+  onToggle,
+  onSelect,
+  onAdd,
+  onDelete,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  count?: number
+  expanded?: boolean
+  selected?: boolean
+  color: string
+  badge?: ReactNode
+  draggable?: boolean
+  dragOver?: boolean
+  onToggle?: () => void
+  onSelect: () => void
+  onAdd?: () => void
+  onDelete: () => void
+  onDragStart?: (e: React.DragEvent) => void
+  onDragOver?: (e: React.DragEvent) => void
+  onDragLeave?: () => void
+  onDrop?: (e: React.DragEvent) => void
+}) {
+  return (
+    <div
+      className={cn(
+        "group flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer",
+        "transition-all duration-150",
+        selected ? "bg-accent/60" : "hover:bg-muted/40",
+        dragOver && "ring-1 ring-primary/50 bg-primary/10",
+        draggable && "cursor-grab active:cursor-grabbing"
+      )}
+      onClick={onSelect}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
+      {onToggle ? (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggle()
+          }}
+          className="shrink-0 h-4 w-4 flex items-center justify-center"
+        >
+          <ChevronRight
+            className={cn(
+              "h-3 w-3 text-muted-foreground transition-transform duration-200",
+              expanded && "rotate-90"
+            )}
+          />
+        </button>
+      ) : (
+        <span className="shrink-0 h-4 w-4" />
+      )}
+      <Icon className={cn("h-3.5 w-3.5 shrink-0", color)} />
+      <span className="text-sm truncate flex-1">{label}</span>
+      {badge}
+      {count != null && count > 0 && (
+        <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
+          {count}
+        </span>
+      )}
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex items-center gap-0.5 shrink-0">
+        {onAdd && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onAdd()
+            }}
+            className="h-5 w-5 rounded flex items-center justify-center hover:bg-muted/60"
+          >
+            <Plus className="h-3 w-3 text-muted-foreground" />
+          </button>
+        )}
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+          className="h-5 w-5 rounded flex items-center justify-center hover:bg-destructive/10"
+        >
+          <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Detail Panel ───────────────────────────────────────────────────────────
+
+function DetailPanel({
+  token,
+  selected,
+  groups,
+  servers,
+  onSaved,
+}: {
+  token: string
+  selected: SelectedItem
+  groups: AdminGroup[]
+  servers: AdminServer[]
+  onSaved: (newId?: string) => void
+}) {
+  if (selected.type === "group") {
+    return (
+      <GroupForm
+        token={token}
+        groupId={selected.id}
+        onSaved={onSaved}
+      />
+    )
+  }
+  if (selected.type === "server") {
+    return (
+      <ServerForm
+        token={token}
+        serverId={selected.id}
+        groups={groups}
+        onSaved={onSaved}
+      />
+    )
+  }
+  return (
+    <NodeForm
+      token={token}
+      nodeId={selected.id}
+      servers={servers}
+      onSaved={onSaved}
+    />
+  )
+}
+
+// ─── Group Form ─────────────────────────────────────────────────────────────
+
+function GroupForm({
+  token,
+  groupId,
+  onSaved,
+}: {
+  token: string
+  groupId: string
+  onSaved: (newId?: string) => void
+}) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const isNew = groupId === "__new__"
+
+  const { data: existing } = useQuery({
+    queryKey: ["admin-group", groupId],
+    queryFn: () => api.admin.getGroup(token, groupId),
+    enabled: !isNew,
+  })
+
+  const [name, setName] = useState("")
+
+  useEffect(() => {
+    if (existing) setName(existing.name)
+  }, [existing])
+
+  const saveMut = useMutation({
+    mutationFn: async () => {
+      if (isNew) {
+        return await api.admin.createGroup(token, { name })
+      } else {
+        await api.admin.updateGroup(token, groupId, { name })
+        return undefined
+      }
+    },
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-groups"] })
+      queryClient.invalidateQueries({ queryKey: ["groups"] })
+      queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
+      onSaved(created?.id)
+    },
+  })
+
+  return (
+    <div className={cn("rounded-xl", glassCard)}>
+      <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Folder className="h-4 w-4 text-amber-500" />
+          <h3 className="text-sm font-semibold">
+            {isNew ? t("admin.createGroup") : t("admin.editGroup")}
+          </h3>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => onSaved()}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="p-4 space-y-4 max-w-md">
+        <Field label={t("admin.groupName")}>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t("admin.groupName")}
+            autoFocus
+          />
+        </Field>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            onClick={() => saveMut.mutate()}
+            disabled={saveMut.isPending || !name.trim()}
+            className="transition-all duration-300"
+          >
+            <Save className="h-3.5 w-3.5 mr-1" />
+            {t("common.save")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onSaved()}
+            className="transition-all duration-300"
+          >
+            {t("common.cancel")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Server Form ────────────────────────────────────────────────────────────
+
+function ServerForm({
+  token,
+  serverId,
+  groups,
+  onSaved,
+}: {
+  token: string
+  serverId: string
+  groups: AdminGroup[]
+  onSaved: (newId?: string) => void
+}) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const isNew = serverId === "__new__"
+
+  const { data: existing } = useQuery({
+    queryKey: ["admin-server", serverId],
+    queryFn: () => api.admin.getServer(token, serverId),
+    enabled: !isNew,
+  })
+
+  const [name, setName] = useState("")
+  const [groupId, setGroupId] = useState("")
+
+  useEffect(() => {
+    if (existing) {
+      setName(existing.name)
+      setGroupId(existing.group_id || "")
+    }
+  }, [existing])
+
+  const saveMut = useMutation({
+    mutationFn: async () => {
+      if (isNew) {
+        return await api.admin.createServer(token, {
+          name,
+          group_id: groupId || undefined,
+        })
+      } else {
+        await api.admin.updateServer(token, serverId, {
+          name,
+          group_id: groupId || undefined,
+        })
+        return undefined
+      }
+    },
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-servers"] })
+      queryClient.invalidateQueries({ queryKey: ["servers"] })
+      queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
+      onSaved(created?.id)
+    },
+  })
+
+  return (
+    <div className={cn("rounded-xl", glassCard)}>
+      <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Server className="h-4 w-4 text-sky-500" />
+          <h3 className="text-sm font-semibold">
+            {isNew ? t("admin.createServer") : t("admin.editServer")}
+          </h3>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => onSaved()}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="p-4 space-y-4 max-w-md">
+        <Field label={t("admin.serverName")}>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t("admin.serverName")}
+            autoFocus
+          />
+        </Field>
+        <Field label={t("dashboard.groups")}>
+          <Select value={groupId || "__none__"} onValueChange={(v) => setGroupId(v === "__none__" ? "" : v)}>
+            <SelectTrigger>
+              <SelectValue placeholder={t("common.allGroups")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">{t("admin.ungrouped")}</SelectItem>
+              {groups.map((g) => (
+                <SelectItem key={g.id} value={g.id}>
+                  {g.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            onClick={() => saveMut.mutate()}
+            disabled={saveMut.isPending || !name.trim()}
+            className="transition-all duration-300"
+          >
+            <Save className="h-3.5 w-3.5 mr-1" />
+            {t("common.save")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onSaved()}
+            className="transition-all duration-300"
+          >
+            {t("common.cancel")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Node Form ──────────────────────────────────────────────────────────────
+
+function NodeForm({
+  token,
+  nodeId,
+  servers,
+  onSaved,
+}: {
+  token: string
+  nodeId: string
+  servers: AdminServer[]
+  onSaved: (newId?: string) => void
+}) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const isNew = nodeId === "__new__"
+
+  const { data: existing } = useQuery({
+    queryKey: ["admin-node", nodeId],
+    queryFn: () => api.admin.getNode(token, nodeId),
+    enabled: !isNew,
+  })
+
+  const [form, setForm] = useState({
+    name: "",
+    host: "",
+    port: 25565,
+    edition: "java",
+    color: "#1A73E8",
+    enabled: true,
+    server_id: "",
+  })
+
+  useEffect(() => {
+    if (existing) {
+      setForm({
+        name: existing.name,
+        host: existing.host,
+        port: existing.port,
+        edition: existing.edition,
+        color: existing.color,
+        enabled: existing.enabled,
+        server_id: existing.server_id,
+      })
+    }
+  }, [existing])
+
+  const saveMut = useMutation({
+    mutationFn: async () => {
+      if (isNew) {
+        return await api.admin.createNode(token, form)
+      } else {
+        await api.admin.updateNode(token, nodeId, form)
+        return undefined
+      }
+    },
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-nodes"] })
+      queryClient.invalidateQueries({ queryKey: ["nodes"] })
+      queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
+      onSaved(created?.id)
+    },
+  })
+
+  const moveMut = useMutation({
+    mutationFn: (direction: "up" | "down") =>
+      direction === "up"
+        ? api.admin.moveNodeUp(token, nodeId)
+        : api.admin.moveNodeDown(token, nodeId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-nodes"] })
+      queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
+    },
+  })
+
+  return (
+    <div className={cn("rounded-xl", glassCard)}>
+      <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Network className="h-4 w-4 text-emerald-500" />
+          <h3 className="text-sm font-semibold">
+            {isNew ? t("admin.createNode") : t("admin.editNode")}
+          </h3>
+        </div>
+        <div className="flex items-center gap-1">
+          {!isNew && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => moveMut.mutate("up")}
+              >
+                <ChevronRight className="h-3.5 w-3.5 -rotate-90" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => moveMut.mutate("down")}
+              >
+                <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+              </Button>
+            </>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => onSaved()}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <div className="p-4 space-y-4 max-w-lg">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label={t("admin.nodeName")}>
+            <Input
+              value={form.name}
+              onChange={(e) =>
+                setForm({ ...form, name: e.target.value })
+              }
+              placeholder={t("admin.nodeName")}
+              autoFocus
+            />
+          </Field>
+          <Field label={t("admin.nodeHost")}>
+            <Input
+              value={form.host}
+              onChange={(e) =>
+                setForm({ ...form, host: e.target.value })
+              }
+              placeholder="play.example.com"
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <Field label={t("admin.nodePort")}>
+            <Input
+              type="number"
+              value={form.port}
+              onChange={(e) =>
+                setForm({ ...form, port: +e.target.value })
+              }
+            />
+          </Field>
+          <Field label={t("nodes.edition")}>
+            <Select
+              value={form.edition}
+              onValueChange={(v) =>
+                setForm({ ...form, edition: v })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="java">Java</SelectItem>
+                <SelectItem value="bedrock">Bedrock</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label={t("admin.nodeColor")}>
+            <div className="flex items-center gap-2">
+              <Input
+                type="color"
+                value={form.color}
+                onChange={(e) =>
+                  setForm({ ...form, color: e.target.value })
+                }
+                className="w-10 h-9 p-1 cursor-pointer"
+              />
+              <span className="text-xs text-muted-foreground font-mono">
+                {form.color}
+              </span>
+            </div>
+          </Field>
+        </div>
+
+        <Field label={t("servers.title")}>
+          <Select
+            value={form.server_id}
+            onValueChange={(v) =>
+              setForm({ ...form, server_id: v })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t("admin.selectServer")} />
+            </SelectTrigger>
+            <SelectContent>
+              {servers.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={form.enabled}
+            onCheckedChange={(v: boolean) =>
+              setForm({ ...form, enabled: v })
+            }
+          />
+          <span className="text-sm">{t("admin.nodeEnabled")}</span>
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <Button
+            size="sm"
+            onClick={() => saveMut.mutate()}
+            disabled={
+              saveMut.isPending || !form.name.trim() || !form.host.trim()
+            }
+            className="transition-all duration-300"
+          >
+            <Save className="h-3.5 w-3.5 mr-1" />
+            {t("common.save")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onSaved()}
+            className="transition-all duration-300"
+          >
+            {t("common.cancel")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Settings Tab ───────────────────────────────────────────────────────────
+
 function SettingsTab({ token }: { token: string }) {
   const { t } = useTranslation()
-  const [syncStatus, setSyncStatus] = useState<boolean | null>(null)
+  const queryClient = useQueryClient()
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["admin-settings"],
@@ -116,28 +1211,30 @@ function SettingsTab({ token }: { token: string }) {
   })
 
   const [form, setForm] = useState<Partial<AdminSettings>>({})
+  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     if (settings) setForm(settings)
   }, [settings])
 
-  const updateMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async () => {
       await api.admin.updateSettings(token, form)
-      await api.admin.apply(token)
-      setSyncStatus(null)
-      setTimeout(async () => {
-        const res = await api.admin.configStatus(token)
-        setSyncStatus(res.synced)
-      }, 1000)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-settings"] })
+      queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
     },
   })
 
-  if (isLoading || !settings) return <Skeleton className="h-64 rounded-lg" />
+  if (isLoading || !settings)
+    return <Skeleton className="h-64 rounded-xl" />
 
   return (
     <div className="space-y-4 max-w-2xl">
-      <Card>
+      <Card className={glassCard}>
         <CardHeader>
           <CardTitle className="text-sm">{t("admin.settings")}</CardTitle>
         </CardHeader>
@@ -145,7 +1242,9 @@ function SettingsTab({ token }: { token: string }) {
           <Field label={t("admin.serverName")}>
             <Input
               value={form.server_name || ""}
-              onChange={(e) => setForm({ ...form, server_name: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, server_name: e.target.value })
+              }
             />
           </Field>
           <Field label={t("admin.pollInterval")}>
@@ -161,42 +1260,37 @@ function SettingsTab({ token }: { token: string }) {
             <Input
               type="number"
               value={form.port || ""}
-              onChange={(e) => setForm({ ...form, port: +e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, port: +e.target.value })
+              }
             />
           </Field>
 
-          <Button
-            size="sm"
-            onClick={() => updateMutation.mutate()}
-            disabled={updateMutation.isPending}
-          >
-            <Save className="h-3.5 w-3.5 mr-1" />
-            {t("admin.applyConfig")}
-          </Button>
-
-          {syncStatus !== null && (
-            <p
-              className={`text-xs ${
-                syncStatus ? "text-green-600" : "text-yellow-600"
-              }`}
+          <div className="flex items-center gap-2 pt-2">
+            <Button
+              size="sm"
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="transition-all duration-300"
             >
-              {syncStatus ? (
-                <>
-                  <CheckCircle className="h-3 w-3 inline mr-1" />
-                  {t("admin.configSynced")}
-                </>
+              {saveMutation.isPending ? (
+                <span className="h-3.5 w-3.5 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
               ) : (
-                <>
-                  <AlertCircle className="h-3 w-3 inline mr-1" />
-                  {t("admin.configNotSynced")}
-                </>
+                <Save className="h-3.5 w-3.5 mr-1" />
               )}
-            </p>
-          )}
+              {t("common.save")}
+            </Button>
+            {saved && (
+              <span className="text-xs text-emerald-500 flex items-center gap-1">
+                <CheckCircle className="h-3 w-3" />
+                {t("admin.configApplied")}
+              </span>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className={glassCard}>
         <CardHeader>
           <CardTitle className="text-sm">{t("admin.webhook")}</CardTitle>
         </CardHeader>
@@ -208,10 +1302,7 @@ function SettingsTab({ token }: { token: string }) {
               onCheckedChange={(v: boolean) =>
                 setForm({
                   ...form,
-                  webhook_alert: {
-                    ...form.webhook_alert!,
-                    enable: v,
-                  },
+                  webhook_alert: { ...form.webhook_alert!, enable: v },
                 })
               }
             />
@@ -236,10 +1327,7 @@ function SettingsTab({ token }: { token: string }) {
               onValueChange={(v) =>
                 setForm({
                   ...form,
-                  webhook_alert: {
-                    ...form.webhook_alert!,
-                    method: v,
-                  },
+                  webhook_alert: { ...form.webhook_alert!, method: v },
                 })
               }
             >
@@ -257,20 +1345,22 @@ function SettingsTab({ token }: { token: string }) {
           </Field>
           <Field label={t("admin.webhookHeaders")}>
             <Textarea
-              value={JSON.stringify(form.webhook_alert?.headers || {}, null, 2)}
+              value={JSON.stringify(
+                form.webhook_alert?.headers || {},
+                null,
+                2
+              )}
               onChange={(e) => {
                 try {
                   const headers = JSON.parse(e.target.value)
                   setForm({
                     ...form,
-                    webhook_alert: {
-                      ...form.webhook_alert!,
-                      headers,
-                    },
+                    webhook_alert: { ...form.webhook_alert!, headers },
                   })
                 } catch {}
               }}
               rows={3}
+              className="font-mono text-xs"
             />
           </Field>
           <Field label={t("admin.webhookBody")}>
@@ -307,7 +1397,9 @@ function SettingsTab({ token }: { token: string }) {
             <Field label={t("admin.webhookOfflineFrames")}>
               <Input
                 type="number"
-                value={form.webhook_alert?.offline_confirm_frames || ""}
+                value={
+                  form.webhook_alert?.offline_confirm_frames || ""
+                }
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -322,7 +1414,9 @@ function SettingsTab({ token }: { token: string }) {
             <Field label={t("admin.webhookOnlineFrames")}>
               <Input
                 type="number"
-                value={form.webhook_alert?.online_confirm_frames || ""}
+                value={
+                  form.webhook_alert?.online_confirm_frames || ""
+                }
                 onChange={(e) =>
                   setForm({
                     ...form,
@@ -334,6 +1428,27 @@ function SettingsTab({ token }: { token: string }) {
                 }
               />
             </Field>
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <Button
+              size="sm"
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="transition-all duration-300"
+            >
+              {saveMutation.isPending ? (
+                <span className="h-3.5 w-3.5 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Save className="h-3.5 w-3.5 mr-1" />
+              )}
+              {t("common.save")}
+            </Button>
+            {saved && (
+              <span className="text-xs text-emerald-500 flex items-center gap-1">
+                <CheckCircle className="h-3 w-3" />
+                {t("admin.configApplied")}
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -382,7 +1497,7 @@ function ChangePasswordCard({ token }: { token: string }) {
   }
 
   return (
-    <Card>
+    <Card className={glassCard}>
       <CardHeader>
         <CardTitle className="text-sm flex items-center gap-2">
           <KeyRound className="h-4 w-4" />
@@ -411,12 +1526,17 @@ function ChangePasswordCard({ token }: { token: string }) {
             onChange={(e) => setConfirmPassword(e.target.value)}
           />
         </Field>
-        <Button size="sm" disabled={saving} onClick={handleChange}>
+        <Button
+          size="sm"
+          disabled={saving}
+          onClick={handleChange}
+          className="transition-all duration-300"
+        >
           <Lock className="h-3.5 w-3.5 mr-1" />
           {t("admin.changePassword")}
         </Button>
         {message && (
-          <p className="text-xs text-green-600 flex items-center gap-1">
+          <p className="text-xs text-emerald-500 flex items-center gap-1">
             <CheckCircle className="h-3 w-3" />
             {message}
           </p>
@@ -429,530 +1549,5 @@ function ChangePasswordCard({ token }: { token: string }) {
         )}
       </CardContent>
     </Card>
-  )
-}
-
-function GroupsTab({ token }: { token: string }) {
-  const { t } = useTranslation()
-  const queryClient = useQueryClient()
-  const [dialog, setDialog] = useState<{ open: boolean; edit?: AdminGroup }>({
-    open: false,
-  })
-  const [form, setForm] = useState({ name: "" })
-
-  const { data: groups = [] } = useQuery({
-    queryKey: ["admin-groups"],
-    queryFn: () => api.admin.listGroups(token),
-  })
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (dialog.edit) {
-        await api.admin.updateGroup(token, dialog.edit.id, { name: form.name })
-      } else {
-        await api.admin.createGroup(token, { name: form.name })
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-groups"] })
-      queryClient.invalidateQueries({ queryKey: ["groups"] })
-      setDialog({ open: false })
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.admin.deleteGroup(token, id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-groups"] })
-      queryClient.invalidateQueries({ queryKey: ["groups"] })
-    },
-  })
-
-  return (
-    <div className="space-y-4 max-w-2xl">
-      <Button
-        size="sm"
-        onClick={() => {
-          setForm({ name: "" })
-          setDialog({ open: true })
-        }}
-      >
-        <Plus className="h-3.5 w-3.5 mr-1" />
-        {t("admin.createGroup")}
-      </Button>
-
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("admin.groupName")}</TableHead>
-            <TableHead className="text-right">{t("common.actions")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {groups.map((g) => (
-            <TableRow key={g.id}>
-              <TableCell className="font-medium">{g.name}</TableCell>
-              <TableCell className="text-right space-x-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => {
-                    setForm({ name: g.name })
-                    setDialog({ open: true, edit: g })
-                  }}
-                >
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => {
-                    if (confirm(t("admin.deleteGroupConfirm"))) {
-                      deleteMutation.mutate(g.id)
-                    }
-                  }}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-
-      <Dialog
-        open={dialog.open}
-        onOpenChange={(v: boolean) => setDialog({ ...dialog, open: v })}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {dialog.edit ? t("admin.editGroup") : t("admin.createGroup")}
-            </DialogTitle>
-          </DialogHeader>
-          <Input
-            placeholder={t("admin.groupName")}
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-          <div className="flex justify-end">
-            <Button onClick={() => saveMutation.mutate()}>{t("common.save")}</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  )
-}
-
-function ServersTab({ token }: { token: string }) {
-  const { t } = useTranslation()
-  const queryClient = useQueryClient()
-  const [dialog, setDialog] = useState<{ open: boolean; edit?: AdminServer }>({
-    open: false,
-  })
-  const [form, setForm] = useState({ name: "", group_id: "" })
-
-  const { data: servers = [] } = useQuery({
-    queryKey: ["admin-servers"],
-    queryFn: () => api.admin.listServers(token),
-  })
-
-  const { data: groups = [] } = useQuery({
-    queryKey: ["admin-groups"],
-    queryFn: () => api.admin.listGroups(token),
-  })
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (dialog.edit) {
-        await api.admin.updateServer(token, dialog.edit.id, {
-          name: form.name,
-          group_id: form.group_id || undefined,
-        })
-      } else {
-        await api.admin.createServer(token, {
-          name: form.name,
-          group_id: form.group_id || undefined,
-        })
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-servers"] })
-      queryClient.invalidateQueries({ queryKey: ["servers"] })
-      setDialog({ open: false })
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.admin.deleteServer(token, id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-servers"] })
-      queryClient.invalidateQueries({ queryKey: ["servers"] })
-    },
-  })
-
-  return (
-    <div className="space-y-4 max-w-2xl">
-      <Button
-        size="sm"
-        onClick={() => {
-          setForm({ name: "", group_id: "" })
-          setDialog({ open: true })
-        }}
-      >
-        <Plus className="h-3.5 w-3.5 mr-1" />
-        {t("admin.createServer")}
-      </Button>
-
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("admin.serverName")}</TableHead>
-            <TableHead>{t("dashboard.groups")}</TableHead>
-            <TableHead className="text-right">{t("common.actions")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {servers.map((s) => (
-            <TableRow key={s.id}>
-              <TableCell className="font-medium">{s.name}</TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {groups.find((g) => g.id === s.group_id)?.name || "--"}
-              </TableCell>
-              <TableCell className="text-right space-x-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => {
-                    setForm({ name: s.name, group_id: s.group_id || "" })
-                    setDialog({ open: true, edit: s })
-                  }}
-                >
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => {
-                    if (confirm(t("admin.deleteServerConfirm"))) {
-                      deleteMutation.mutate(s.id)
-                    }
-                  }}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-
-      <Dialog
-        open={dialog.open}
-        onOpenChange={(v: boolean) => setDialog({ ...dialog, open: v })}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {dialog.edit ? t("admin.editServer") : t("admin.createServer")}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              placeholder={t("admin.serverName")}
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-            <Select
-              value={form.group_id}
-              onValueChange={(v) => setForm({ ...form, group_id: v })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("common.allGroups")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">{t("common.allGroups")}</SelectItem>
-                {groups.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>
-                    {g.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex justify-end">
-            <Button onClick={() => saveMutation.mutate()}>
-              {t("common.save")}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  )
-}
-
-function NodesTab({ token }: { token: string }) {
-  const { t } = useTranslation()
-  const queryClient = useQueryClient()
-  const [dialog, setDialog] = useState<{ open: boolean; edit?: AdminNode }>({
-    open: false,
-  })
-  const [form, setForm] = useState({
-    name: "",
-    host: "",
-    port: 25565,
-    edition: "java",
-    color: "#1A73E8",
-    enabled: true,
-    server_id: "",
-  })
-
-  const { data: nodes = [] } = useQuery({
-    queryKey: ["admin-nodes"],
-    queryFn: () => api.admin.listNodes(token),
-  })
-
-  const { data: servers = [] } = useQuery({
-    queryKey: ["admin-servers"],
-    queryFn: () => api.admin.listServers(token),
-  })
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (dialog.edit) {
-        await api.admin.updateNode(token, dialog.edit.id, form)
-      } else {
-        await api.admin.createNode(token, form)
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-nodes"] })
-      queryClient.invalidateQueries({ queryKey: ["nodes"] })
-      setDialog({ open: false })
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.admin.deleteNode(token, id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-nodes"] })
-      queryClient.invalidateQueries({ queryKey: ["nodes"] })
-    },
-  })
-
-  return (
-    <div className="space-y-4 max-w-3xl">
-      <Button
-        size="sm"
-        onClick={() => {
-          setForm({
-            name: "",
-            host: "",
-            port: 25565,
-            edition: "java",
-            color: "#1A73E8",
-            enabled: true,
-            server_id: "",
-          })
-          setDialog({ open: true })
-        }}
-      >
-        <Plus className="h-3.5 w-3.5 mr-1" />
-        {t("admin.createNode")}
-      </Button>
-
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("admin.nodeName")}</TableHead>
-            <TableHead>{t("nodes.host")}</TableHead>
-            <TableHead>{t("nodes.edition")}</TableHead>
-            <TableHead>{t("servers.title")}</TableHead>
-            <TableHead>{t("common.enabled")}</TableHead>
-            <TableHead className="text-right">{t("common.actions")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {nodes.map((n) => (
-            <TableRow key={n.id}>
-              <TableCell className="font-medium">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-3 w-3 rounded-full shrink-0"
-                    style={{ backgroundColor: n.color }}
-                  />
-                  {n.name}
-                </div>
-              </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {n.host}:{n.port}
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline" className="text-xs">
-                  {n.edition}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {servers.find((s) => s.id === n.server_id)?.name || "--"}
-              </TableCell>
-              <TableCell>
-                <Switch
-                  checked={n.enabled}
-                  onCheckedChange={async (v: boolean) => {
-                    await api.admin.updateNode(token, n.id, { ...n, enabled: v })
-                    queryClient.invalidateQueries({ queryKey: ["admin-nodes"] })
-                  }}
-                />
-              </TableCell>
-              <TableCell className="text-right space-x-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={async () => {
-                    await api.admin.moveNodeUp(token, n.id)
-                    queryClient.invalidateQueries({ queryKey: ["admin-nodes"] })
-                  }}
-                >
-                  <ArrowUp className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={async () => {
-                    await api.admin.moveNodeDown(token, n.id)
-                    queryClient.invalidateQueries({ queryKey: ["admin-nodes"] })
-                  }}
-                >
-                  <ArrowDown className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => {
-                    setForm({
-                      name: n.name,
-                      host: n.host,
-                      port: n.port,
-                      edition: n.edition,
-                      color: n.color,
-                      enabled: n.enabled,
-                      server_id: n.server_id,
-                    })
-                    setDialog({ open: true, edit: n })
-                  }}
-                >
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => {
-                    if (confirm(t("admin.deleteNodeConfirm"))) {
-                      deleteMutation.mutate(n.id)
-                    }
-                  }}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-
-      <Dialog
-        open={dialog.open}
-        onOpenChange={(v: boolean) => setDialog({ ...dialog, open: v })}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {dialog.edit ? t("admin.editNode") : t("admin.createNode")}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              placeholder={t("admin.nodeName")}
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-            <Input
-              placeholder={t("admin.nodeHost")}
-              value={form.host}
-              onChange={(e) => setForm({ ...form, host: e.target.value })}
-            />
-            <div className="flex gap-2">
-              <Input
-                type="number"
-                placeholder={t("admin.nodePort")}
-                value={form.port}
-                onChange={(e) =>
-                  setForm({ ...form, port: +e.target.value })
-                }
-                className="w-24"
-              />
-              <Select
-                value={form.edition}
-                onValueChange={(v) => setForm({ ...form, edition: v })}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="java">Java</SelectItem>
-                  <SelectItem value="bedrock">Bedrock</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="color"
-                value={form.color}
-                onChange={(e) =>
-                  setForm({ ...form, color: e.target.value })
-                }
-                className="w-12 p-1"
-              />
-            </div>
-            <Select
-              value={form.server_id}
-              onValueChange={(v) => setForm({ ...form, server_id: v })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select Server" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">-- Select Server --</SelectItem>
-                {servers.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={form.enabled}
-                onCheckedChange={(v: boolean) =>
-                  setForm({ ...form, enabled: v })
-                }
-              />
-              <span className="text-sm">{t("admin.nodeEnabled")}</span>
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <Button onClick={() => saveMutation.mutate()}>
-              {t("common.save")}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
   )
 }

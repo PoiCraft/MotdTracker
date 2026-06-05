@@ -6,7 +6,9 @@ import { PageHeader } from "@/components/shared/PageHeader"
 import { StatCard, StatGrid } from "@/components/shared/StatCard"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
 import { Gauge, Users, Clock, Activity } from "lucide-react"
+import { cn } from "@/lib/utils"
 import {
   LineChart,
   Line,
@@ -41,12 +43,12 @@ export default function NodeDetailPage() {
         <Skeleton className="h-8 w-48" />
         <StatGrid>
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
+            <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </StatGrid>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {[1, 2].map((i) => (
-            <Skeleton key={i} className="h-64 rounded-lg" />
+            <Skeleton key={i} className="h-64 rounded-xl" />
           ))}
         </div>
       </div>
@@ -63,6 +65,9 @@ export default function NodeDetailPage() {
   }
 
   const status = detail.latest_status
+  const latency =
+    status?.latency != null ? Math.round(status.latency) : null
+  const isHighLatency = latency != null && latency > 500
 
   const chartData = history.map((h) => ({
     time: new Date(h.timestamp).toLocaleTimeString([], {
@@ -73,25 +78,45 @@ export default function NodeDetailPage() {
     players: h.players_online,
   }))
 
+  const glassCard = cn(
+    "rounded-xl p-4",
+    "bg-card/60 backdrop-blur-md border border-border/80",
+    "dark:bg-zinc-900/60"
+  )
+
   return (
     <div className="space-y-6">
       <PageHeader
         title={detail.name}
-        description={`${detail.host}:${detail.port}`}>
-        <span
-          className={`inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full ${
-            status?.online
-              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-              : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-          }`}
-        >
-          <span
-            className={`h-2 w-2 rounded-full ${
-              status?.online ? "bg-green-500" : "bg-red-500"
-            }`}
-          />
-          {status?.online ? t("common.online") : t("common.offline")}
-        </span>
+        description={`${detail.host}:${detail.port}`}
+      >
+        {status?.online ? (
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-sm px-3 py-1",
+              isHighLatency
+                ? "bg-red-500/10 text-red-500 border-red-500/30 animate-pulse"
+                : "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+            )}
+          >
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full mr-1.5",
+                isHighLatency ? "bg-red-500" : "bg-emerald-500"
+              )}
+            />
+            {t("common.online")}
+          </Badge>
+        ) : (
+          <Badge
+            variant="outline"
+            className="text-sm px-3 py-1 bg-red-500/10 text-red-500 border-red-500/30"
+          >
+            <span className="h-2 w-2 rounded-full mr-1.5 bg-red-500" />
+            {t("common.offline")}
+          </Badge>
+        )}
       </PageHeader>
 
       <StatGrid>
@@ -103,14 +128,12 @@ export default function NodeDetailPage() {
         />
         <StatCard
           title={t("nodes.latency")}
-          value={
-            status?.latency != null ? `${Math.round(status.latency)}ms` : "--"
-          }
+          value={latency != null ? `${latency}ms` : "--"}
           icon={Gauge}
           variant={
-            status?.latency != null && status.latency < 50
+            latency != null && latency < 50
               ? "success"
-              : status?.latency != null && status.latency < 150
+              : latency != null && latency < 150
               ? "warning"
               : "danger"
           }
@@ -136,32 +159,52 @@ export default function NodeDetailPage() {
       </StatGrid>
 
       {status?.motd && (
-        <div className="rounded-lg border bg-card p-4">
-          <p className="text-sm text-muted-foreground">{t("nodes.motd")}</p>
-          <p className="text-sm font-medium mt-1">{status.motd}</p>
+        <div className={glassCard}>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/80 mb-1">
+            {t("nodes.motd")}
+          </p>
+          <p className="text-sm font-medium">{status.motd}</p>
         </div>
       )}
 
       {status?.version && (
-        <div className="rounded-lg border bg-card p-4">
-          <p className="text-sm text-muted-foreground">{t("nodes.version")}</p>
-          <p className="text-sm font-medium mt-1">{status.version}</p>
+        <div className={glassCard}>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/80 mb-1">
+            {t("nodes.version")}
+          </p>
+          <p className="text-sm font-medium">{status.version}</p>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="rounded-lg border bg-card p-4">
-          <h3 className="text-sm font-medium mb-4">{t("node.latencyTrend")}</h3>
+        <div className={glassCard}>
+          <h3 className="text-sm font-medium mb-4">
+            {t("node.latencyTrend")}
+          </h3>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="time" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted/40" />
+              <XAxis
+                dataKey="time"
+                tick={{ fontSize: 11 }}
+                className="text-muted-foreground"
+              />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                className="text-muted-foreground"
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                }}
+              />
               <Line
                 type="monotone"
                 dataKey="latency"
-                stroke="#3b82f6"
+                stroke={isHighLatency ? "hsl(0 84% 60%)" : "hsl(160 84% 39%)"}
                 strokeWidth={2}
                 dot={false}
               />
@@ -169,20 +212,36 @@ export default function NodeDetailPage() {
           </ResponsiveContainer>
         </div>
 
-        <div className="rounded-lg border bg-card p-4">
-          <h3 className="text-sm font-medium mb-4">{t("node.playerTrend")}</h3>
+        <div className={glassCard}>
+          <h3 className="text-sm font-medium mb-4">
+            {t("node.playerTrend")}
+          </h3>
           <ResponsiveContainer width="100%" height={250}>
             <AreaChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="time" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted/40" />
+              <XAxis
+                dataKey="time"
+                tick={{ fontSize: 11 }}
+                className="text-muted-foreground"
+              />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                className="text-muted-foreground"
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                }}
+              />
               <Area
                 type="monotone"
                 dataKey="players"
-                stroke="#22c55e"
-                fill="#22c55e"
-                fillOpacity={0.2}
+                stroke="hsl(200 84% 50%)"
+                fill="hsl(200 84% 50%)"
+                fillOpacity={0.15}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -191,36 +250,44 @@ export default function NodeDetailPage() {
 
       {detail.latency_stats && (
         <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-lg border bg-card p-4 text-center">
-            <div className="text-[0.6875rem] uppercase text-muted-foreground mb-1">
-              {t("node.avgLatency")}
+          {[
+            {
+              label: t("node.avgLatency"),
+              value: detail.latency_stats.avg_latency,
+              color: "",
+            },
+            {
+              label: t("node.minLatency"),
+              value: detail.latency_stats.min_latency,
+              color: "text-emerald-500",
+            },
+            {
+              label: t("node.maxLatency"),
+              value: detail.latency_stats.max_latency,
+              color: "text-red-500",
+            },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className={cn(
+                "rounded-xl p-4 text-center",
+                "bg-card/60 backdrop-blur-md border border-border/80",
+                "dark:bg-zinc-900/60"
+              )}
+            >
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground/80 mb-1">
+                {item.label}
+              </div>
+              <div
+                className={cn(
+                  "text-lg font-bold font-mono tracking-tight tabular-nums",
+                  item.color
+                )}
+              >
+                {item.value != null ? `${Math.round(item.value)}ms` : "--"}
+              </div>
             </div>
-            <div className="text-lg font-semibold tabular-nums">
-              {detail.latency_stats.avg_latency != null
-                ? `${Math.round(detail.latency_stats.avg_latency)}ms`
-                : "--"}
-            </div>
-          </div>
-          <div className="rounded-lg border bg-card p-4 text-center">
-            <div className="text-[0.6875rem] uppercase text-muted-foreground mb-1">
-              {t("node.minLatency")}
-            </div>
-            <div className="text-lg font-semibold tabular-nums text-green-600">
-              {detail.latency_stats.min_latency != null
-                ? `${Math.round(detail.latency_stats.min_latency)}ms`
-                : "--"}
-            </div>
-          </div>
-          <div className="rounded-lg border bg-card p-4 text-center">
-            <div className="text-[0.6875rem] uppercase text-muted-foreground mb-1">
-              {t("node.maxLatency")}
-            </div>
-            <div className="text-lg font-semibold tabular-nums text-red-600">
-              {detail.latency_stats.max_latency != null
-                ? `${Math.round(detail.latency_stats.max_latency)}ms`
-                : "--"}
-            </div>
-          </div>
+          ))}
         </div>
       )}
     </div>

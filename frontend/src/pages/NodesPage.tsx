@@ -8,17 +8,15 @@ import { NodeCard } from "@/components/shared/NodeCard"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
-import { useServerGroup } from "@/providers/ServerGroupProvider"
 import { Network, Search } from "lucide-react"
 
 export default function NodesPage() {
   const { t } = useTranslation()
   const [search, setSearch] = useState("")
-  const { selectedGroupId } = useServerGroup()
 
   const { data: nodes = [], isLoading } = useQuery({
-    queryKey: ["nodes", selectedGroupId],
-    queryFn: () => api.nodes.list(selectedGroupId ?? undefined),
+    queryKey: ["nodes"],
+    queryFn: () => api.nodes.list(),
   })
 
   const filtered = nodes.filter(
@@ -30,8 +28,9 @@ export default function NodesPage() {
 
   const onlineCount = nodes.filter((n) => n.latest_status?.online).length
   const avgLat =
-    nodes.filter((n) => n.latest_status?.online && n.latest_status?.latency != null)
-      .length > 0
+    nodes.filter(
+      (n) => n.latest_status?.online && n.latest_status?.latency != null
+    ).length > 0
       ? Math.round(
           nodes
             .filter(
@@ -54,12 +53,12 @@ export default function NodesPage() {
         <Skeleton className="h-8 w-48" />
         <StatGrid cols={3}>
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
+            <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </StatGrid>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <Skeleton key={i} className="h-32 rounded-lg" />
+            <Skeleton key={i} className="h-36 rounded-xl" />
           ))}
         </div>
       </div>
@@ -94,7 +93,7 @@ export default function NodesPage() {
           placeholder={t("players.search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
+          className="pl-9 bg-card/60 backdrop-blur-sm border-border/60"
         />
       </div>
 

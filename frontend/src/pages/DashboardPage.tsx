@@ -6,12 +6,22 @@ import { StatCard, StatGrid } from "@/components/shared/StatCard"
 import { ServerCard } from "@/components/shared/ServerCard"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useServerGroup } from "@/providers/ServerGroupProvider"
 import { LayoutDashboard, Server, Network, Users } from "lucide-react"
+
+function generateMockData(base: number, points: number = 12): number[] {
+  const data: number[] = []
+  let v = base * 0.6
+  for (let i = 0; i < points - 1; i++) {
+    v += (Math.random() - 0.42) * base * 0.12
+    v = Math.max(0, v)
+    data.push(Math.round(v))
+  }
+  data.push(base)
+  return data
+}
 
 export default function DashboardPage() {
   const { t } = useTranslation()
-  const { selectedGroupId } = useServerGroup()
 
   const { data: groups = [], isLoading: groupsLoading } = useQuery({
     queryKey: ["groups"],
@@ -19,14 +29,17 @@ export default function DashboardPage() {
   })
 
   const { data: servers = [], isLoading: serversLoading } = useQuery({
-    queryKey: ["servers", selectedGroupId],
-    queryFn: () => api.servers.list(selectedGroupId),
+    queryKey: ["servers"],
+    queryFn: () => api.servers.list(),
   })
 
   const loading = groupsLoading || serversLoading
 
   const totalNodes = groups.reduce((sum, g) => sum + g.total_node_count, 0)
-  const totalOnlineNodes = groups.reduce((sum, g) => sum + g.online_node_count, 0)
+  const totalOnlineNodes = groups.reduce(
+    (sum, g) => sum + g.online_node_count,
+    0
+  )
   const totalPlayers = groups.reduce((sum, g) => sum + g.total_players_online, 0)
 
   const serversByGroup = new Map<string | null, typeof servers>()
@@ -42,10 +55,10 @@ export default function DashboardPage() {
         <Skeleton className="h-8 w-48" />
         <StatGrid>
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
+            <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </StatGrid>
-        <Skeleton className="h-64 rounded-lg" />
+        <Skeleton className="h-64 rounded-xl" />
       </div>
     )
   }
@@ -62,11 +75,13 @@ export default function DashboardPage() {
           title={t("dashboard.groups")}
           value={groups.length}
           icon={LayoutDashboard}
+          sparklineData={generateMockData(groups.length)}
         />
         <StatCard
           title={t("dashboard.servers")}
           value={servers.length}
           icon={Server}
+          sparklineData={generateMockData(servers.length)}
         />
         <StatCard
           title={t("dashboard.onlineNodes")}
@@ -82,11 +97,13 @@ export default function DashboardPage() {
               ? `${Math.round((totalOnlineNodes / totalNodes) * 100)}% ${t("dashboard.uptime")}`
               : undefined
           }
+          sparklineData={generateMockData(totalOnlineNodes)}
         />
         <StatCard
           title={t("dashboard.onlinePlayers")}
           value={totalPlayers}
           icon={Users}
+          sparklineData={generateMockData(totalPlayers)}
         />
       </StatGrid>
 

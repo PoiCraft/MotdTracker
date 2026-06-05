@@ -8,7 +8,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from "@/components/ui/command"
 import {
   LayoutDashboard,
@@ -20,7 +19,6 @@ import {
   Settings,
   LogIn,
 } from "lucide-react"
-import { useServerGroup } from "@/providers/ServerGroupProvider"
 import { useAuth } from "@/providers/AuthProvider"
 
 const pages = [
@@ -39,7 +37,6 @@ export function CommandPalette() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const { groups } = useServerGroup()
   const { token } = useAuth()
 
   useEffect(() => {
@@ -53,14 +50,11 @@ export function CommandPalette() {
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [])
 
-  const runCommand = useCallback(
-    (command: () => void) => {
-      setOpen(false)
-      setQuery("")
-      command()
-    },
-    []
-  )
+  const runCommand = useCallback((command: () => void) => {
+    setOpen(false)
+    setQuery("")
+    command()
+  }, [])
 
   const filteredPages = pages.filter((p) => {
     if (p.path === "/admin" && !token) return false
@@ -83,41 +77,13 @@ export function CommandPalette() {
               key={page.path}
               onSelect={() => runCommand(() => navigate(page.path))}
               value={t(page.key)}
+              className="transition-colors duration-150"
             >
-              <page.icon className="mr-2 h-4 w-4" />
+              <page.icon className="mr-2 h-4 w-4 text-muted-foreground" />
               <span>{t(page.key)}</span>
             </CommandItem>
           ))}
         </CommandGroup>
-        {groups.length > 0 && (
-          <>
-            <CommandSeparator />
-            <CommandGroup heading={t("dashboard.groups")}>
-              {groups
-                .filter((g) =>
-                  g.name.toLowerCase().includes(query.toLowerCase())
-                )
-                .map((g) => (
-                  <CommandItem
-                    key={g.id}
-                    onSelect={() =>
-                      runCommand(() =>
-                        navigate(`/servers?group_id=${g.id}`)
-                      )
-                    }
-                    value={g.name}
-                  >
-                    <Server className="mr-2 h-4 w-4" />
-                    <span>{g.name}</span>
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      {g.online_node_count}/{g.total_node_count}{" "}
-                      {t("common.online")}
-                    </span>
-                  </CommandItem>
-                ))}
-            </CommandGroup>
-          </>
-        )}
       </CommandList>
     </CommandDialog>
   )

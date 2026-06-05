@@ -13,7 +13,6 @@ import {
   Moon,
   Sun,
   Search,
-  ChevronDown,
   Globe,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -22,9 +21,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
-import { useServerGroup } from "@/providers/ServerGroupProvider"
 import { useAuth } from "@/providers/AuthProvider"
 import { useWebSocket } from "@/providers/WebSocketProvider"
 
@@ -46,14 +43,15 @@ export function TopBar() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
-  const { groups, selectedGroupId, selectGroup } = useServerGroup()
   const { token } = useAuth()
   const { status: wsStatus } = useWebSocket()
   const [isDark, setIsDark] = useState(false)
 
   useEffect(() => {
     const root = document.documentElement
-    const observer = new MutationObserver(() => setIsDark(root.classList.contains("dark")))
+    const observer = new MutationObserver(() =>
+      setIsDark(root.classList.contains("dark"))
+    )
     observer.observe(root, { attributes: true, attributeFilter: ["class"] })
     setIsDark(root.classList.contains("dark"))
     return () => observer.disconnect()
@@ -62,16 +60,17 @@ export function TopBar() {
   const toggleTheme = () => {
     const root = document.documentElement
     root.classList.toggle("dark")
-    localStorage.setItem("theme", root.classList.contains("dark") ? "dark" : "light")
+    localStorage.setItem(
+      "theme",
+      root.classList.contains("dark") ? "dark" : "light"
+    )
   }
 
-  const selectedLabel = selectedGroupId
-    ? groups.find((g) => g.id === selectedGroupId)?.name || t("common.allGroups")
-    : t("common.allGroups")
-
   const currentTitle =
-    navItems.find((n) =>
-      location.pathname === n.path || location.pathname.startsWith(n.path + "/")
+    navItems.find(
+      (n) =>
+        location.pathname === n.path ||
+        location.pathname.startsWith(n.path + "/")
     )?.label || "nav.dashboard"
 
   const openCmdPalette = useCallback(() => {
@@ -84,12 +83,12 @@ export function TopBar() {
   }, [])
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/60 backdrop-blur-xl supports-[backdrop-filter]:bg-background/40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-12 items-center gap-2 sm:gap-4">
           <button
             onClick={() => navigate("/dashboard")}
-            className="flex items-center gap-2 font-semibold text-sm shrink-0 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 font-semibold text-sm shrink-0 hover:opacity-80 transition-opacity duration-300"
           >
             <div className="h-6 w-6 rounded bg-foreground text-background flex items-center justify-center text-xs font-bold">
               M
@@ -108,7 +107,11 @@ export function TopBar() {
                   variant={active ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => navigate(item.path)}
-                  className={`h-8 text-xs gap-1.5 ${active ? "border border-input shadow-sm" : ""}`}
+                  className={`h-8 text-xs gap-1.5 transition-all duration-300 ${
+                    active
+                      ? "border border-input shadow-sm bg-secondary/80"
+                      : ""
+                  }`}
                 >
                   <item.icon className="h-3.5 w-3.5" />
                   {t(item.label)}
@@ -124,52 +127,36 @@ export function TopBar() {
           <div className="flex items-center gap-1 ml-auto">
             <div className="hidden sm:flex items-center gap-1 mr-1">
               <div
-                className={`h-2 w-2 rounded-full ${
+                className={`h-2 w-2 rounded-full transition-colors duration-300 ${
                   wsStatus === "connected"
-                    ? "bg-green-500 animate-pulse"
+                    ? "bg-emerald-500 animate-pulse-dot"
                     : wsStatus === "connecting"
-                    ? "bg-yellow-500"
+                    ? "bg-amber-500"
                     : "bg-red-500"
                 }`}
               />
             </div>
 
-              <Button
+            <Button
               variant="outline"
               size="sm"
               onClick={openCmdPalette}
-              className="h-8 px-2 gap-2 text-muted-foreground hidden sm:inline-flex"
+              className="h-8 px-2 gap-2 text-muted-foreground hidden sm:inline-flex transition-all duration-300 bg-background/50 backdrop-blur-sm"
             >
               <Search className="h-3.5 w-3.5" />
               <span className="text-xs">{t("common.search")}</span>
-              <kbd className="pointer-events-none hidden lg:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium">
+              <kbd className="pointer-events-none hidden lg:inline-flex h-5 select-none items-center gap-1 rounded border border-border/60 bg-muted/60 px-1.5 font-mono text-[10px] font-medium">
                 ⌘K
               </kbd>
             </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-1">
-                  <span className="max-w-20 truncate sm:max-w-[120px]">{selectedLabel}</span>
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => selectGroup(null)}>
-                  {t("common.allGroups")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {groups.map((g) => (
-                  <DropdownMenuItem key={g.id} onClick={() => selectGroup(g.id)}>
-                    {g.name}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 transition-all duration-300"
+                >
                   <Globe className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -186,7 +173,12 @@ export function TopBar() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggleTheme}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 transition-all duration-300"
+              onClick={toggleTheme}
+            >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
 
@@ -194,7 +186,7 @@ export function TopBar() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 transition-all duration-300"
                 onClick={() => navigate("/admin")}
               >
                 <Settings className="h-4 w-4" />
@@ -203,7 +195,7 @@ export function TopBar() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 transition-all duration-300"
                 onClick={() => navigate("/login")}
               >
                 <LogIn className="h-4 w-4" />

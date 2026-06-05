@@ -8,21 +8,21 @@ import { PlayerCard } from "@/components/shared/PlayerCard"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
-import { useServerGroup } from "@/providers/ServerGroupProvider"
 import { Users, Search, Wifi, WifiOff } from "lucide-react"
 
 export default function PlayersPage() {
   const { t } = useTranslation()
   const [search, setSearch] = useState("")
-  const { selectedGroupId } = useServerGroup()
 
   const { data: players = [], isLoading } = useQuery({
-    queryKey: ["players", selectedGroupId],
-    queryFn: () => api.players.list(selectedGroupId),
+    queryKey: ["players"],
+    queryFn: () => api.players.list(),
   })
 
-  const filtered = players.filter((p) =>
-    !search || p.player_name.toLowerCase().includes(search.toLowerCase())
+  const filtered = players.filter(
+    (p) =>
+      !search ||
+      p.player_name.toLowerCase().includes(search.toLowerCase())
   )
 
   const onlineCount = players.filter((p) => p.online).length
@@ -33,12 +33,12 @@ export default function PlayersPage() {
         <Skeleton className="h-8 w-48" />
         <StatGrid cols={3}>
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
+            <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </StatGrid>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
+            <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </div>
       </div>
@@ -78,7 +78,7 @@ export default function PlayersPage() {
           placeholder={t("players.search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
+          className="pl-9 bg-card/60 backdrop-blur-sm border-border/60"
         />
       </div>
 

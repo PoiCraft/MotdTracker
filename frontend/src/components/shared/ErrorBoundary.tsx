@@ -34,12 +34,17 @@ function ErrorFallback({ error }: { error: Error | null }) {
   const { t } = useTranslation()
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
-      <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+      <div className="h-16 w-16 rounded-2xl bg-destructive/10 backdrop-blur-sm flex items-center justify-center mb-4">
+        <AlertTriangle className="h-8 w-8 text-destructive" />
+      </div>
       <h2 className="text-xl font-bold">{t("common.error")}</h2>
       <p className="text-sm text-muted-foreground mt-2 max-w-md text-center">
         {error?.message || "Something went wrong"}
       </p>
-      <Button className="mt-4" onClick={() => window.location.reload()}>
+      <Button
+        className="mt-4 transition-all duration-300"
+        onClick={() => window.location.reload()}
+      >
         Reload
       </Button>
     </div>

@@ -138,6 +138,7 @@
     "copied": "已复制！",
     "serverLevel": "服务器级别",
     "nodeLevel": "节点级别",
+    "selectNode": "从左侧树形结构中选择一个服务器或节点",
     "playerLevel": "玩家级别"
   },
   "login": {
@@ -153,6 +154,7 @@
   "admin": {
     "title": "管理面板",
     "description": "管理您的 MotdTracker 实例",
+    "config": "配置管理",
     "settings": "设置",
     "groups": "服务器组",
     "servers": "服务器",
@@ -192,6 +194,11 @@
     "moveUp": "上移",
     "moveDown": "下移",
     "deleteNodeConfirm": "确定要删除此节点吗？",
+    "structure": "配置结构",
+    "ungrouped": "未分组",
+    "noConfig": "暂无配置，点击 + 创建第一个分组",
+    "selectItem": "选择左侧项目进行编辑",
+    "selectServer": "选择服务器",
     "logout": "退出登录",
     "changePassword": "修改密码",
     "oldPassword": "当前密码",

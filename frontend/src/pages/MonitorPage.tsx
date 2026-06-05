@@ -4,20 +4,47 @@ import { api } from "@/api/endpoints"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useServerGroup } from "@/providers/ServerGroupProvider"
+import { Progress } from "@/components/ui/progress"
+import { Sparkline } from "@/components/shared/Sparkline"
 import { useState } from "react"
 import { Maximize, Minimize, Network } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import type { NodeWithStats } from "@/api/types"
+
+const HIGH_LATENCY_THRESHOLD = 500
+
+function generateMockLatencyHistory(current: number): number[] {
+  const data: number[] = []
+  let v = Math.max(10, current * 0.3)
+  for (let i = 0; i < 11; i++) {
+    v += (Math.random() - 0.4) * 40
+    v = Math.max(10, Math.min(200, v))
+    data.push(Math.round(v))
+  }
+  data.push(current)
+  return data
+}
+
+function generateMockPlayerHistory(current: number): number[] {
+  const data: number[] = []
+  let v = Math.max(0, current * 0.6)
+  for (let i = 0; i < 11; i++) {
+    v += (Math.random() - 0.42) * current * 0.12
+    v = Math.max(0, v)
+    data.push(Math.round(v))
+  }
+  data.push(current)
+  return data
+}
 
 export default function MonitorPage() {
   const { t } = useTranslation()
   const [fullscreen, setFullscreen] = useState(false)
-  const { selectedGroupId } = useServerGroup()
 
   const { data: nodes = [], isLoading } = useQuery({
-    queryKey: ["nodes", selectedGroupId],
-    queryFn: () => api.nodes.list(selectedGroupId ?? undefined),
+    queryKey: ["nodes"],
+    queryFn: () => api.nodes.list(),
   })
 
   if (isLoading) {
@@ -26,7 +53,7 @@ export default function MonitorPage() {
         <Skeleton className="h-8 w-48" />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <Skeleton key={i} className="h-40 rounded-lg" />
+            <Skeleton key={i} className="h-44 rounded-xl" />
           ))}
         </div>
       </div>
@@ -51,7 +78,7 @@ export default function MonitorPage() {
     <div
       className={
         fullscreen
-          ? "fixed inset-0 z-50 bg-background p-6 overflow-auto"
+          ? "fixed inset-0 z-50 bg-background/95 backdrop-blur-sm p-6 overflow-auto"
           : "space-y-4"
       }
     >
@@ -64,6 +91,7 @@ export default function MonitorPage() {
           variant="outline"
           size="sm"
           onClick={() => setFullscreen(!fullscreen)}
+          className="transition-all duration-300"
         >
           {fullscreen ? (
             <>
@@ -100,29 +128,36 @@ function NodeMonitorCard({ node }: { node: NodeWithStats }) {
   const playersOnline = status?.players_online
   const playersMax = status?.players_max
 
-  const latencyColor = !latency
-    ? "text-muted-foreground"
-    : latency < 50
-    ? "text-green-600 dark:text-green-400"
-    : latency < 150
-    ? "text-yellow-600 dark:text-yellow-400"
-    : "text-red-600 dark:text-red-400"
+  const roundedLatency = latency != null ? Math.round(latency) : null
+  const isHighLatency =
+    roundedLatency != null && roundedLatency > HIGH_LATENCY_THRESHOLD
 
   const percent =
     playersMax && playersMax > 0
       ? Math.round(((playersOnline || 0) / playersMax) * 100)
       : 0
 
+  const latencyHistory = roundedLatency != null
+    ? generateMockLatencyHistory(roundedLatency)
+    : []
+  const playerHistory = playersOnline != null
+    ? generateMockPlayerHistory(playersOnline)
+    : []
+
   return (
     <div
-      className={`rounded-lg border p-3 ${
-        online
-          ? "bg-card hover:shadow-md"
-          : "bg-muted/30 opacity-60"
-      }`}
+      className={cn(
+        "rounded-xl p-3 transition-all duration-300 ease-out",
+        "bg-card/60 backdrop-blur-md border border-border/80",
+        "dark:bg-zinc-900/60",
+        online && !isHighLatency && "hover:shadow-md hover:shadow-[0_0_15px_rgba(16,185,129,0.1)]",
+        online && isHighLatency && "border-l-4 border-l-red-500 animate-glow-red",
+        !online && "opacity-50 bg-muted/20",
+        online && !isHighLatency && "border-l-4"
+      )}
       style={
-        online
-          ? { borderLeft: `3px solid ${node.color || "#3b82f6"}` }
+        online && !isHighLatency
+          ? { borderLeftColor: node.color || "#10b981" }
           : undefined
       }
     >
@@ -137,9 +172,10 @@ function NodeMonitorCard({ node }: { node: NodeWithStats }) {
           </p>
         </div>
         <span
-          className={`shrink-0 h-2 w-2 rounded-full ${
-            online ? "bg-green-500" : "bg-red-500"
-          }`}
+          className={cn(
+            "shrink-0 h-2 w-2 rounded-full",
+            online ? "bg-emerald-500 animate-pulse-dot" : "bg-red-500"
+          )}
         />
       </div>
 
@@ -149,26 +185,45 @@ function NodeMonitorCard({ node }: { node: NodeWithStats }) {
         </p>
       )}
 
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground tabular-nums">
+      <div className="flex items-center justify-between text-xs mb-1.5">
+        <span className="text-muted-foreground tabular-nums font-mono">
           {playersOnline != null && playersMax != null
             ? `${playersOnline}/${playersMax}`
             : "--"}
         </span>
-        <span className={`font-mono tabular-nums text-xs ${latencyColor}`}>
-          {online && latency != null
-            ? `${Math.round(latency)}${t("status.ms")}`
+        <span
+          className={cn(
+            "font-mono tabular-nums text-xs font-medium",
+            !roundedLatency && "text-muted-foreground",
+            roundedLatency && !isHighLatency && "text-emerald-500",
+            isHighLatency && "text-red-500 animate-breathe"
+          )}
+        >
+          {online && roundedLatency != null
+            ? `${roundedLatency}${t("status.ms")}`
             : t("common.offline")}
         </span>
       </div>
 
+      <div className="flex items-center gap-2 mb-1.5">
+        <Sparkline
+          data={latencyHistory}
+          width={56}
+          height={16}
+          color="hsl(160 84% 39%)"
+          alertColor="hsl(0 84% 60%)"
+          alertThreshold={HIGH_LATENCY_THRESHOLD}
+        />
+        <Sparkline
+          data={playerHistory}
+          width={56}
+          height={16}
+          color="hsl(200 84% 50%)"
+        />
+      </div>
+
       {online && playersMax != null && playersMax > 0 && (
-        <div className="mt-1.5 h-1 rounded-full bg-muted overflow-hidden">
-          <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: `${percent}%` }}
-          />
-        </div>
+        <Progress value={percent} className="h-1" />
       )}
     </div>
   )

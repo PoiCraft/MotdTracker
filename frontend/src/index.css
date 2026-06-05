@@ -29,9 +29,29 @@
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --animate-pulse-dot: pulse-dot 2s ease-in-out infinite;
+  --animate-glow-green: glow-green 2s ease-in-out infinite;
+  --animate-glow-red: glow-red 1.5s ease-in-out infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-breathe: breathe 3s ease-in-out infinite;
   @keyframes pulse-dot {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.5; transform: scale(0.75); }
+  }
+  @keyframes glow-green {
+    0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, 0.08); }
+    50% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.18); }
+  }
+  @keyframes glow-red {
+    0%, 100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.1); }
+    50% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.25); }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
   }
 }
 
@@ -124,4 +144,37 @@ body {
 
 @utility zoom-out-95 {
   animation: zoom-out 150ms ease-in both;
+}
+
+@utility glass {
+  background: oklch(1 0 0 / 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid oklch(1 0 0 / 0.12);
+}
+
+@utility glass-dark {
+  background: oklch(0.15 0.005 285 / 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid oklch(1 0 0 / 0.08);
+}
+
+@utility glow-green-sm {
+  box-shadow: 0 0 12px oklch(0.72 0.19 160 / 0.1);
+}
+
+@utility glow-red-sm {
+  box-shadow: 0 0 16px oklch(0.55 0.25 25 / 0.15);
+}
+
+@utility stripe-shimmer {
+  background-image: linear-gradient(
+    110deg,
+    transparent 25%,
+    oklch(1 0 0 / 0.12) 37%,
+    transparent 63%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
 }

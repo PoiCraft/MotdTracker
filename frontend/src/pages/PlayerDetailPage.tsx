@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/shared/PageHeader"
 import { StatCard, StatGrid } from "@/components/shared/StatCard"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
 import {
   Table,
   TableBody,
@@ -15,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Clock, Activity, Users, Calendar } from "lucide-react"
-import { formatDuration, formatDateTime } from "@/lib/utils"
+import { cn, formatDuration, formatDateTime } from "@/lib/utils"
 import {
   BarChart,
   Bar,
@@ -54,10 +55,10 @@ export default function PlayerDetailPage() {
         <Skeleton className="h-8 w-48" />
         <StatGrid>
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
+            <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </StatGrid>
-        <Skeleton className="h-64 rounded-lg" />
+        <Skeleton className="h-64 rounded-xl" />
       </div>
     )
   }
@@ -72,28 +73,38 @@ export default function PlayerDetailPage() {
   }
 
   const hourly = aggregateHourly(detail.sessions)
-
   const currentServer = detail.servers.find((s) => s.online)?.server_name
+
+  const glassCard = cn(
+    "rounded-xl p-4",
+    "bg-card/60 backdrop-blur-md border border-border/80",
+    "dark:bg-zinc-900/60"
+  )
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={detail.player_name}
-        description={currentServer}>
-        <span
-          className={`inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full ${
-            detail.online
-              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-              : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-          }`}
-        >
-          <span
-            className={`h-2 w-2 rounded-full ${
-              detail.online ? "bg-green-500" : "bg-gray-500"
-            }`}
-          />
-          {detail.online ? t("common.online") : t("common.offline")}
-        </span>
+      <PageHeader title={detail.player_name} description={currentServer}>
+        {detail.online ? (
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-sm px-3 py-1",
+              "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
+              "animate-pulse"
+            )}
+          >
+            <span className="h-2 w-2 rounded-full mr-1.5 bg-emerald-500" />
+            {t("common.online")}
+          </Badge>
+        ) : (
+          <Badge
+            variant="outline"
+            className="text-sm px-3 py-1 bg-muted/40 text-muted-foreground border-border/60"
+          >
+            <span className="h-2 w-2 rounded-full mr-1.5 bg-muted-foreground/40" />
+            {t("common.offline")}
+          </Badge>
+        )}
       </PageHeader>
 
       <StatGrid>
@@ -127,41 +138,80 @@ export default function PlayerDetailPage() {
         />
       </StatGrid>
 
-      <div className="rounded-lg border bg-card p-4">
-        <h3 className="text-sm font-medium mb-4">{t("player.hourlyActivity")}</h3>
+      <div className={glassCard}>
+        <h3 className="text-sm font-medium mb-4">
+          {t("player.hourlyActivity")}
+        </h3>
         <ResponsiveContainer width="100%" height={250}>
           <BarChart data={hourly}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="hour" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip />
-            <Bar dataKey="minutes" fill="#3b82f6" />
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted/40" />
+            <XAxis
+              dataKey="hour"
+              tick={{ fontSize: 11 }}
+              className="text-muted-foreground"
+            />
+            <YAxis
+              tick={{ fontSize: 11 }}
+              className="text-muted-foreground"
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: "8px",
+                fontSize: "12px",
+              }}
+            />
+            <Bar
+              dataKey="minutes"
+              fill="hsl(200 84% 50%)"
+              radius={[4, 4, 0, 0]}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {weekly?.daily_stats && weekly.daily_stats.length > 0 && (
-        <div className="rounded-lg border bg-card p-4">
-          <h3 className="text-sm font-medium mb-4">{t("player.dailyActivity")}</h3>
+        <div className={glassCard}>
+          <h3 className="text-sm font-medium mb-4">
+            {t("player.dailyActivity")}
+          </h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={weekly.daily_stats}>
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted/40" />
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 10 }}
                 tickFormatter={(v) => new Date(v).toLocaleDateString()}
+                className="text-muted-foreground"
               />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Bar dataKey="total_minutes" fill="#22c55e" />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                className="text-muted-foreground"
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                }}
+              />
+              <Bar
+                dataKey="total_minutes"
+                fill="hsl(160 84% 39%)"
+                radius={[4, 4, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
       )}
 
       {heatmap.length > 0 && (
-        <div className="rounded-lg border bg-card p-4">
-          <h3 className="text-sm font-medium mb-4">{t("player.weeklyHeatmap")}</h3>
+        <div className={glassCard}>
+          <h3 className="text-sm font-medium mb-4">
+            {t("player.weeklyHeatmap")}
+          </h3>
           <div className="grid grid-cols-24 gap-0.5">
             {Array.from({ length: 7 }, (_, day) => (
               <div key={day} className="contents">
@@ -173,9 +223,9 @@ export default function PlayerDetailPage() {
                   return (
                     <div
                       key={`${day}-${hour}`}
-                      className="aspect-square rounded-sm"
+                      className="aspect-square rounded-sm transition-colors duration-150"
                       style={{
-                        backgroundColor: `rgba(59, 130, 246, ${0.1 + intensity * 0.9})`,
+                        backgroundColor: `rgba(16, 185, 129, ${0.08 + intensity * 0.85})`,
                       }}
                       title={`${day} ${hour}:00 — ${cell?.count || 0} sessions`}
                     />
@@ -188,13 +238,19 @@ export default function PlayerDetailPage() {
       )}
 
       {detail.sessions.length > 0 && (
-        <div className="rounded-lg border bg-card">
-          <div className="px-4 py-3 border-b">
+        <div
+          className={cn(
+            "rounded-xl overflow-hidden",
+            "bg-card/60 backdrop-blur-md border border-border/80",
+            "dark:bg-zinc-900/60"
+          )}
+        >
+          <div className="px-4 py-3 border-b border-border/60">
             <h3 className="text-sm font-medium">{t("player.sessions")}</h3>
           </div>
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="hover:bg-transparent">
                 <TableHead>{t("nodes.status")}</TableHead>
                 <TableHead>{t("player.server")}</TableHead>
                 <TableHead className="text-right">
@@ -217,19 +273,26 @@ export default function PlayerDetailPage() {
                       new Date(s.session_start).getTime()) /
                     1000
                   return (
-                    <TableRow key={s.id || i}>
+                    <TableRow
+                      key={s.id || i}
+                      className="hover:bg-transparent"
+                    >
                       <TableCell>
                         <span
-                          className={`inline-flex items-center gap-1.5 text-xs ${
+                          className={cn(
+                            "inline-flex items-center gap-1.5 text-xs",
                             isActive
-                              ? "text-green-600 dark:text-green-400"
+                              ? "text-emerald-500"
                               : "text-muted-foreground"
-                          }`}
+                          )}
                         >
                           <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              isActive ? "bg-green-500" : "bg-gray-400"
-                            }`}
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              isActive
+                                ? "bg-emerald-500"
+                                : "bg-muted-foreground/40"
+                            )}
                           />
                           {isActive ? t("common.online") : t("common.offline")}
                         </span>
@@ -238,7 +301,7 @@ export default function PlayerDetailPage() {
                       <TableCell className="text-right text-xs text-muted-foreground">
                         {formatDateTime(s.session_start)}
                       </TableCell>
-                      <TableCell className="text-right text-xs tabular-nums">
+                      <TableCell className="text-right text-xs tabular-nums font-mono">
                         {formatDuration(duration)}
                       </TableCell>
                     </TableRow>

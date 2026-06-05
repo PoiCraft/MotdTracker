@@ -20,9 +20,13 @@ import type {
 const BASE = ""
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const { headers: customHeaders, ...rest } = options ?? {}
   const res = await fetch(`${BASE}${url}`, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    ...options,
+    ...rest,
+    headers: {
+      "Content-Type": "application/json",
+      ...customHeaders,
+    },
   })
   if (res.status === 204) return undefined as T
   if (!res.ok) {

@@ -138,6 +138,7 @@
     "copied": "Copied!",
     "serverLevel": "Server Level",
     "nodeLevel": "Node Level",
+    "selectNode": "Select a server or node from the tree on the left",
     "playerLevel": "Player Level"
   },
   "login": {
@@ -153,6 +154,7 @@
   "admin": {
     "title": "Admin Panel",
     "description": "Manage your MotdTracker instance",
+    "config": "Configuration",
     "settings": "Settings",
     "groups": "Groups",
     "servers": "Servers",
@@ -192,6 +194,11 @@
     "moveUp": "Move Up",
     "moveDown": "Move Down",
     "deleteNodeConfirm": "Delete this node?",
+    "structure": "Structure",
+    "ungrouped": "Ungrouped",
+    "noConfig": "No configuration yet — click + to create a group",
+    "selectItem": "Select an item from the tree to edit",
+    "selectServer": "Select Server",
     "logout": "Logout",
     "changePassword": "Change Password",
     "oldPassword": "Current Password",
