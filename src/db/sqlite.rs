@@ -437,7 +437,7 @@ impl Database for SqliteDatabase {
     ) -> Result<PlayerWeeklyStats, DbError> {
         let since = now_gmt8() - chrono::Duration::days(7);
         let rows: Vec<(String, i64)> = sqlx::query_as(
-            "SELECT DATE(session_end) as date, CAST(SUM(CAST((julianday(session_end) - julianday(session_start)) * 1440 AS INTEGER)) AS INTEGER) as total_minutes FROM player_session_history WHERE player_name = ? AND session_end >= ? GROUP BY DATE(session_end) ORDER BY date"
+            "SELECT DATE(session_end) as date, CAST(ROUND(SUM((julianday(session_end) - julianday(session_start)) * 1440)) AS INTEGER) as total_minutes FROM player_session_history WHERE player_name = ? AND session_end >= ? GROUP BY DATE(session_end) ORDER BY date"
         ).bind(player_name).bind(format_gmt8_naive(since)).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
         Ok(PlayerWeeklyStats {
             player_name: player_name.to_string(),
