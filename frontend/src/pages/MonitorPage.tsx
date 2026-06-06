@@ -1,34 +1,69 @@
-import { useQuery } from "@tanstack/react-query"
+import { useState, useEffect, useCallback } from "react"
 import { useTranslation } from "react-i18next"
-import { api } from "@/api/endpoints"
+import { Maximize, Minimize, RotateCw, Server, Folder } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { EmptyState } from "@/components/shared/EmptyState"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Progress } from "@/components/ui/progress"
-import { useState } from "react"
-import { Maximize, Minimize, Network } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useMonitorData } from "@/hooks/useMonitorData"
+import { MonitorStatsBar } from "@/components/monitor/MonitorStatsBar"
+import { MonitorFilterBar } from "@/components/monitor/MonitorFilterBar"
+import { MonitorNodeCard } from "@/components/monitor/MonitorNodeCard"
 import { cn } from "@/lib/utils"
-import type { NodeWithStats } from "@/api/types"
 
-const HIGH_LATENCY_THRESHOLD = 500
+function useFullscreen() {
+  const [active, setActive] = useState(false)
+
+  useEffect(() => {
+    const onChange = () => setActive(Boolean(document.fullscreenElement))
+    document.addEventListener("fullscreenchange", onChange)
+    return () => document.removeEventListener("fullscreenchange", onChange)
+  }, [])
+
+  const toggle = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen()
+      } else {
+        await document.exitFullscreen()
+      }
+    } catch {
+      // silently ignore unsupported/blocked requests
+    }
+  }, [])
+
+  return { active, toggle }
+}
 
 export default function MonitorPage() {
   const { t } = useTranslation()
-  const [fullscreen, setFullscreen] = useState(false)
-
-  const { data: nodes = [], isLoading, error } = useQuery({
-    queryKey: ["nodes"],
-    queryFn: () => api.nodes.list(),
-  })
+  const { active: fullscreen, toggle: toggleFullscreen } = useFullscreen()
+  const {
+    stats,
+    groupedByGroup,
+    isLoading,
+    error,
+    filterStatus,
+    setFilterStatus,
+    sortMode,
+    setSortMode,
+    searchQuery,
+    setSearchQuery,
+  } = useMonitorData()
 
   if (isLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-20 rounded-lg" />
+          ))}
+        </div>
+        <Skeleton className="h-8 w-full max-w-md rounded-lg" />
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <Skeleton key={i} className="h-44 rounded-xl" />
+            <Skeleton key={i} className="h-48 rounded-xl" />
           ))}
         </div>
       </div>
@@ -47,7 +82,7 @@ export default function MonitorPage() {
     )
   }
 
-  if (nodes.length === 0) {
+  if (groupedByGroup.length === 0 && !searchQuery && filterStatus === "all") {
     return (
       <div className="space-y-6">
         <PageHeader title={t("monitor.title")} />
@@ -59,25 +94,29 @@ export default function MonitorPage() {
     )
   }
 
-  const onlineCount = nodes.filter((n) => n.latest_status?.online).length
+  const totalCards = groupedByGroup.reduce(
+    (sum, g) => sum + g.servers.reduce((s, srv) => s + srv.nodes.length, 0),
+    0
+  )
 
   return (
     <div
-      className={
-        fullscreen
-          ? "fixed inset-0 z-50 bg-background/95 backdrop-blur-sm p-6 overflow-auto"
-          : "space-y-4"
-      }
+      className={cn(
+        "space-y-4",
+        fullscreen &&
+          "fixed inset-0 z-50 bg-background/95 backdrop-blur-sm p-6 overflow-auto"
+      )}
     >
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4">
         <PageHeader
           title={t("monitor.title")}
-          description={`${onlineCount}/${nodes.length} ${t("common.online")}`}
+          description={t("monitor.description")}
         />
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setFullscreen(!fullscreen)}
+          onClick={toggleFullscreen}
           className="transition-all duration-300"
         >
           {fullscreen ? (
@@ -92,101 +131,83 @@ export default function MonitorPage() {
         </Button>
       </div>
 
-      <div
-        className={
-          fullscreen
-            ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3"
-            : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
-        }
-      >
-        {nodes.map((node) => (
-          <NodeMonitorCard key={node.id} node={node} />
-        ))}
+      {/* Stats Bar */}
+      <MonitorStatsBar stats={stats} />
+
+      {/* Filter Bar */}
+      <MonitorFilterBar
+        filterStatus={filterStatus}
+        setFilterStatus={setFilterStatus}
+        sortMode={sortMode}
+        setSortMode={setSortMode}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+      />
+
+      {/* Results count */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>{t("monitor.showingResults", { count: totalCards })}</span>
+        {stats.issueCount > 0 && (
+          <span className="text-red-500 flex items-center gap-1 font-medium">
+            <RotateCw className="h-3 w-3 animate-spin" />
+            {t("monitor.alertsActive", { count: stats.issueCount })}
+          </span>
+        )}
       </div>
-    </div>
-  )
-}
 
-function NodeMonitorCard({ node }: { node: NodeWithStats }) {
-  const { t } = useTranslation()
-  const status = node.latest_status
-  const online = status?.online ?? false
-  const latency = status?.latency
-  const playersOnline = status?.players_online
-  const playersMax = status?.players_max
-
-  const roundedLatency = latency != null ? Math.round(latency) : null
-  const isHighLatency =
-    roundedLatency != null && roundedLatency > HIGH_LATENCY_THRESHOLD
-
-  const percent =
-    playersMax && playersMax > 0
-      ? Math.round(((playersOnline || 0) / playersMax) * 100)
-      : 0
-
-  return (
-    <div
-      className={cn(
-        "rounded-xl p-3 transition-all duration-300 ease-out",
-        "bg-card/60 backdrop-blur-md border border-border/80",
-        "dark:bg-card/60",
-        online && !isHighLatency && "hover:shadow-md hover:shadow-[0_0_15px_rgba(16,185,129,0.1)]",
-        online && isHighLatency && "border-l-4 border-l-red-500 animate-glow-red",
-        !online && "opacity-50 bg-muted/20",
-        online && !isHighLatency && "border-l-4"
-      )}
-      style={
-        online && !isHighLatency
-          ? { borderLeftColor: node.color || "#10b981" }
-          : undefined
-      }
-    >
-      <div className="flex items-start justify-between mb-1.5">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1">
-            <Network className="h-3 w-3 text-muted-foreground shrink-0" />
-            <h3 className="font-medium text-xs truncate">{node.name}</h3>
-          </div>
-          <p className="text-[10px] text-muted-foreground truncate">
-            {node.host}:{node.port}
-          </p>
-        </div>
-        <span
-          className={cn(
-            "shrink-0 h-2 w-2 rounded-full",
-            online ? "bg-emerald-500 animate-pulse-dot" : "bg-red-500"
-          )}
+      {/* Node Grid grouped by group -> server */}
+      {groupedByGroup.length === 0 ? (
+        <EmptyState
+          title={t("monitor.noNodes")}
+          description={t("monitor.noNodesHint")}
         />
-      </div>
-
-      {status?.motd && (
-        <p className="text-[10px] text-muted-foreground truncate mb-1.5 italic">
-          {status.motd}
-        </p>
-      )}
-
-      <div className="flex items-center justify-between text-xs mb-1.5">
-        <span className="text-muted-foreground tabular-nums font-mono">
-          {playersOnline != null && playersMax != null
-            ? `${playersOnline}/${playersMax}`
-            : "--"}
-        </span>
-        <span
-          className={cn(
-            "font-mono tabular-nums text-xs font-medium",
-            !roundedLatency && "text-muted-foreground",
-            roundedLatency && !isHighLatency && "text-emerald-500",
-            isHighLatency && "text-red-500 animate-breathe"
-          )}
-        >
-          {online && roundedLatency != null
-            ? `${roundedLatency}${t("status.ms")}`
-            : t("common.offline")}
-        </span>
-      </div>
-
-      {online && playersMax != null && playersMax > 0 && (
-        <Progress value={percent} className="h-1" />
+      ) : (
+        <div className="space-y-8">
+          {groupedByGroup.map((group) => (
+            <div key={group.groupId}>
+              <div className="flex items-center gap-2 mb-4">
+                <Folder className="h-4 w-4 text-amber-500" />
+                <h2 className="text-sm font-semibold">{group.groupName}</h2>
+                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                  {group.servers.reduce(
+                    (sum, s) => sum + s.nodes.filter((n) => n.latest_status?.online).length,
+                    0
+                  )}
+                  /
+                  {group.servers.reduce((sum, s) => sum + s.nodes.length, 0)}
+                </span>
+              </div>
+              <div className="space-y-5">
+                {group.servers.map((server) => (
+                  <div key={server.serverId}>
+                    <div className="flex items-center gap-2 mb-2 ml-1">
+                      <Server className="h-3.5 w-3.5 text-muted-foreground" />
+                      <h3 className="text-xs font-medium text-muted-foreground">
+                        {server.serverName}
+                      </h3>
+                      <span className="text-[10px] text-muted-foreground/70 bg-muted/60 px-1.5 py-0.5 rounded-full">
+                        {server.nodes.filter((n) => n.latest_status?.online).length}/
+                        {server.nodes.length}
+                      </span>
+                    </div>
+                    <div
+                      className={cn(
+                        "grid gap-3",
+                        fullscreen
+                          ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
+                          : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+                      )}
+                    >
+                      {server.nodes.map((node) => (
+                        <MonitorNodeCard key={node.id} node={node} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )

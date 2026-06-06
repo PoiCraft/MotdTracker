@@ -15,6 +15,7 @@ import {
   Sun,
   Search,
   Globe,
+  ArrowLeft,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/providers/AuthProvider"
 import { useWebSocket } from "@/providers/WebSocketProvider"
+import { useAppStatus } from "@/providers/AppStatusProvider"
 
 const navItems = [
   { path: "/dashboard", label: "nav.dashboard", icon: LayoutDashboard },
@@ -46,6 +48,7 @@ export function TopBar() {
   const location = useLocation()
   const { token } = useAuth()
   const { status: wsStatus } = useWebSocket()
+  const { serverName } = useAppStatus()
   const { theme, setTheme } = useTheme()
   const isDark = theme === "dark"
 
@@ -53,12 +56,13 @@ export function TopBar() {
     setTheme(isDark ? "light" : "dark")
   }
 
-  const currentTitle =
-    navItems.find(
-      (n) =>
-        location.pathname === n.path ||
-        location.pathname.startsWith(n.path + "/")
-    )?.label || "nav.dashboard"
+  const matchedNav = navItems.find(
+    (n) =>
+      location.pathname === n.path ||
+      location.pathname.startsWith(n.path + "/")
+  )
+  const currentTitle = matchedNav?.label || "nav.dashboard"
+  const isDetail = matchedNav && location.pathname.startsWith(matchedNav.path + "/")
 
   const openCmdPalette = useCallback(() => {
     const event = new KeyboardEvent("keydown", {
@@ -78,9 +82,9 @@ export function TopBar() {
             className="flex items-center gap-2 font-semibold text-sm shrink-0 hover:opacity-80 transition-opacity duration-300"
           >
             <div className="h-6 w-6 rounded bg-foreground text-background flex items-center justify-center text-xs font-bold">
-              M
+              {serverName.charAt(0).toUpperCase()}
             </div>
-            <span className="hidden sm:inline">{t("common.appName")}</span>
+            <span className="hidden sm:inline">{serverName}</span>
           </button>
 
           <nav className="hidden md:flex items-center gap-1 ml-2">
@@ -94,7 +98,7 @@ export function TopBar() {
                   variant={active ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => navigate(item.path)}
-                  className={`h-8 text-xs gap-1.5 transition-all duration-300 ${
+                  className={`h-8 text-xs gap-1.5 transition-colors duration-300 focus-visible:ring-0 focus-visible:ring-offset-0 ${
                     active
                       ? "border border-input shadow-sm bg-secondary/80"
                       : ""
@@ -107,8 +111,20 @@ export function TopBar() {
             })}
           </nav>
 
-          <div className="md:hidden flex-1 text-sm font-medium text-muted-foreground truncate">
-            {t(currentTitle)}
+          <div className="md:hidden flex-1 flex items-center gap-1 min-w-0">
+            {isDetail && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 -ml-2 shrink-0"
+                onClick={() => navigate(matchedNav!.path)}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <span className="text-sm font-medium text-muted-foreground truncate">
+              {t(currentTitle)}
+            </span>
           </div>
 
           <div className="flex items-center gap-1 ml-auto">
@@ -145,7 +161,7 @@ export function TopBar() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 transition-all duration-300"
-                  aria-label={t("common.appName")}
+                  aria-label={t("common.language")}
                 >
                   <Globe className="h-4 w-4" />
                 </Button>

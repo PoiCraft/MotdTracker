@@ -3,6 +3,7 @@
     "appName": "MotdTracker",
     "search": "Search...",
     "allGroups": "All Groups",
+    "language": "Language",
     "close": "Close",
     "save": "Save",
     "cancel": "Cancel",
@@ -54,7 +55,28 @@
     "fullscreen": "Fullscreen",
     "exitFullscreen": "Exit",
     "noNodes": "No nodes found",
-    "noNodesHint": "Go to the admin panel to add monitoring nodes."
+    "noNodesHint": "Go to the admin panel to add monitoring nodes.",
+    "stats": {
+      "nodes": "Node Status",
+      "players": "Players",
+      "latency": "Avg Latency",
+      "alerts": "Issues"
+    },
+    "filter": {
+      "all": "All",
+      "online": "Online",
+      "offline": "Offline",
+      "alert": "Issues"
+    },
+    "sort": {
+      "default": "Default",
+      "latency": "Latency",
+      "players": "Players",
+      "uptime": "Uptime"
+    },
+    "searchPlaceholder": "Search nodes...",
+    "showingResults": "Showing {{count}} nodes",
+    "alertsActive": "{{count}} issues"
   },
   "servers": {
     "title": "Servers",
@@ -73,7 +95,12 @@
     "totalPlayers": "Total Players",
     "onlineRate": "Online Rate",
     "nodeList": "Node List",
-    "history": "History"
+    "history": "History",
+    "playerCapacity": "Player Capacity",
+    "avgUptime": "Avg Uptime",
+    "playerTrend": "Player Trend",
+    "nodeTrend": "Node Trend",
+    "currentPlayers": "Current Players"
   },
   "nodes": {
     "title": "Nodes",
@@ -97,7 +124,20 @@
     "playerTrend": "Player Trend",
     "avgLatency": "Avg",
     "minLatency": "Min",
-    "maxLatency": "Max"
+    "maxLatency": "Max",
+    "uptime": "Uptime",
+    "p95Latency": "P95 Latency",
+    "stdDev": "Std Dev",
+    "cv": "CV",
+    "totalChecks": "Total Checks",
+    "onlineChecks": "Online Checks",
+    "edition": "Edition",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "software": "Software",
+    "plugins": "Plugins",
+    "map": "Map",
+    "samplePlayers": "Sample Players"
   },
   "players": {
     "title": "Players",
@@ -122,7 +162,23 @@
     "currentServer": "Current Server",
     "startTime": "Start",
     "duration": "Duration",
-    "server": "Server"
+    "server": "Server",
+    "avgSession": "Avg Session",
+    "longestSession": "Longest Session",
+    "favoriteServer": "Favorite Server",
+    "totalServers": "Servers",
+    "firstSeen": "First Seen",
+    "serverFootprint": "Server Footprint",
+    "endTime": "End",
+    "node": "Node",
+    "noSessions": "No sessions yet",
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat",
+    "sun": "Sun"
   },
   "badges": {
     "title": "Status Badges",
@@ -154,7 +210,7 @@
   },
   "admin": {
     "title": "Admin Panel",
-    "description": "Manage your MotdTracker instance",
+    "description": "Manage your {{name}} instance",
     "config": "Configuration",
     "settings": "Settings",
     "groups": "Groups",
@@ -172,10 +228,11 @@
     "webhookDeltaMinutes": "Delta Minutes",
     "webhookOfflineFrames": "Offline Confirm Frames",
     "webhookOnlineFrames": "Online Confirm Frames",
-    "applyConfig": "Apply Config",
+    "applyConfig": "Apply & Restart",
     "configApplied": "Config applied, poller restarting...",
     "configSynced": "Config synced",
-    "configNotSynced": "Config not synced — click apply",
+    "configNotSynced": "Config saved but not applied — click apply to restart poller",
+    "settingsSaved": "Settings saved",
     "createGroup": "Create Group",
     "editGroup": "Edit Group",
     "groupName": "Group Name",

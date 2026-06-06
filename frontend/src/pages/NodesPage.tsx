@@ -9,11 +9,16 @@ import { NodeCard } from "@/components/shared/NodeCard"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
-import { Network, Search } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Network, Search, Filter } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+type FilterStatus = "all" | "online" | "offline"
 
 export default function NodesPage() {
   const { t } = useTranslation()
   const [search, setSearch] = useState("")
+  const [filter, setFilter] = useState<FilterStatus>("all")
   const debouncedSearch = useDebounce(search, 200)
 
   const { data: nodes = [], isLoading, error } = useQuery({
@@ -21,12 +26,23 @@ export default function NodesPage() {
     queryFn: () => api.nodes.list(),
   })
 
-  const filtered = nodes.filter(
-    (n) =>
+  const filtered = nodes.filter((n) => {
+    const matchesSearch =
       !debouncedSearch ||
       n.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
       n.host.toLowerCase().includes(debouncedSearch.toLowerCase())
-  )
+    const matchesFilter =
+      filter === "all" ||
+      (filter === "online" && n.latest_status?.online) ||
+      (filter === "offline" && !n.latest_status?.online)
+    return matchesSearch && matchesFilter
+  })
+
+  const filters: { key: FilterStatus; label: string }[] = [
+    { key: "all", label: t("monitor.filter.all") },
+    { key: "online", label: t("common.online") },
+    { key: "offline", label: t("common.offline") },
+  ]
 
   const onlineCount = nodes.filter((n) => n.latest_status?.online).length
 
@@ -100,14 +116,35 @@ export default function NodesPage() {
         <StatCard title={t("servers.playersOnline")} value={totalP} />
       </StatGrid>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input
-          placeholder={t("nodes.search")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 bg-card/60 backdrop-blur-sm border-border/60"
-        />
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="flex items-center gap-1.5">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          {filters.map((f) => (
+            <Button
+              key={f.key}
+              variant="ghost"
+              size="sm"
+              onClick={() => setFilter(f.key)}
+              className={cn(
+                "text-xs h-8 px-3 rounded-full transition-all",
+                filter === f.key
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {f.label}
+            </Button>
+          ))}
+        </div>
+        <div className="relative flex-1 sm:max-w-xs sm:ml-auto">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+          <Input
+            placeholder={t("nodes.search")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 bg-card/60 backdrop-blur-sm border-border/60"
+          />
+        </div>
       </div>
 
       {filtered.length === 0 ? (

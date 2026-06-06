@@ -56,6 +56,7 @@ pub struct ChangePasswordRequest {
 pub struct AppSettings {
     pub server_name: String,
     pub poll_interval: u64,
+    #[serde(default)]
     pub port: u16,
     pub webhook_alert: Option<WebhookAlertSettings>,
 }

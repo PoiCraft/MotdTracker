@@ -106,6 +106,12 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
+*:focus-visible {
+  outline: none !important;
+  --tw-ring-shadow: none !important;
+  box-shadow: none !important;
+}
+
 @keyframes fade-in {
   from { opacity: 0; }
 }

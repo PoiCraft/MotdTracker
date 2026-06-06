@@ -3,6 +3,7 @@
     "appName": "MotdTracker",
     "search": "搜索...",
     "allGroups": "全部分组",
+    "language": "选择语言",
     "close": "关闭",
     "save": "保存",
     "cancel": "取消",
@@ -54,7 +55,28 @@
     "fullscreen": "全屏",
     "exitFullscreen": "退出",
     "noNodes": "未找到节点",
-    "noNodesHint": "请前往管理面板添加监控节点。"
+    "noNodesHint": "请前往管理面板添加监控节点。",
+    "stats": {
+      "nodes": "节点状态",
+      "players": "在线玩家",
+      "latency": "平均延迟",
+      "alerts": "异常节点"
+    },
+    "filter": {
+      "all": "全部",
+      "online": "在线",
+      "offline": "离线",
+      "alert": "异常"
+    },
+    "sort": {
+      "default": "默认",
+      "latency": "延迟",
+      "players": "玩家",
+      "uptime": "可用率"
+    },
+    "searchPlaceholder": "搜索节点...",
+    "showingResults": "显示 {{count}} 个节点",
+    "alertsActive": "{{count}} 个异常节点"
   },
   "servers": {
     "title": "服务器列表",
@@ -73,7 +95,12 @@
     "totalPlayers": "总玩家数",
     "onlineRate": "在线率",
     "nodeList": "节点列表",
-    "history": "历史记录"
+    "history": "历史记录",
+    "playerCapacity": "玩家容量",
+    "avgUptime": "平均在线率",
+    "playerTrend": "玩家趋势",
+    "nodeTrend": "节点在线趋势",
+    "currentPlayers": "当前在线玩家"
   },
   "nodes": {
     "title": "节点列表",
@@ -97,7 +124,20 @@
     "playerTrend": "玩家趋势",
     "avgLatency": "平均值",
     "minLatency": "最小值",
-    "maxLatency": "最大值"
+    "maxLatency": "最大值",
+    "uptime": "可用率",
+    "p95Latency": "P95 延迟",
+    "stdDev": "标准差",
+    "cv": "变异系数",
+    "totalChecks": "总检查",
+    "onlineChecks": "在线次数",
+    "edition": "版本类型",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "software": "服务端",
+    "plugins": "插件",
+    "map": "地图",
+    "samplePlayers": "在线样本玩家"
   },
   "players": {
     "title": "玩家列表",
@@ -122,7 +162,23 @@
     "currentServer": "当前所在服务器",
     "startTime": "开始时间",
     "duration": "时长",
-    "server": "服务器"
+    "server": "服务器",
+    "avgSession": "平均会话",
+    "longestSession": "最长会话",
+    "favoriteServer": "最常去服务器",
+    "totalServers": "关联服务器",
+    "firstSeen": "首次发现",
+    "serverFootprint": "服务器足迹",
+    "endTime": "结束时间",
+    "node": "节点",
+    "noSessions": "暂无会话记录",
+    "mon": "一",
+    "tue": "二",
+    "wed": "三",
+    "thu": "四",
+    "fri": "五",
+    "sat": "六",
+    "sun": "日"
   },
   "badges": {
     "title": "状态徽章",
@@ -154,7 +210,7 @@
   },
   "admin": {
     "title": "管理面板",
-    "description": "管理您的 MotdTracker 实例",
+    "description": "管理您的 {{name}} 实例",
     "config": "配置管理",
     "settings": "设置",
     "groups": "服务器组",
@@ -172,10 +228,11 @@
     "webhookDeltaMinutes": "变化间隔（分钟）",
     "webhookOfflineFrames": "离线确认帧数",
     "webhookOnlineFrames": "在线确认帧数",
-    "applyConfig": "应用配置",
+    "applyConfig": "应用并重启",
     "configApplied": "配置已应用，轮询器正在重启...",
     "configSynced": "配置已同步",
-    "configNotSynced": "配置未同步 — 请点击应用",
+    "configNotSynced": "配置已保存但未应用 — 点击应用以重启轮询器",
+    "settingsSaved": "设置已保存",
     "createGroup": "新建分组",
     "editGroup": "编辑分组",
     "groupName": "分组名称",

@@ -7,10 +7,7 @@ import {
   Network,
   Users,
   BadgeCheck,
-  Settings,
-  LogIn,
 } from "lucide-react"
-import { useAuth } from "@/providers/AuthProvider"
 import { cn } from "@/lib/utils"
 
 const navItems = [
@@ -20,26 +17,17 @@ const navItems = [
   { path: "/nodes", label: "nav.nodes", icon: Network },
   { path: "/players", label: "nav.players", icon: Users },
   { path: "/badges", label: "nav.badges", icon: BadgeCheck },
-  { path: "/admin", label: "nav.admin", icon: Settings, auth: true },
-  { path: "/login", label: "nav.login", icon: LogIn, guest: true },
 ]
 
 export function BottomNav() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
-  const { token } = useAuth()
-
-  const visibleItems = navItems.filter((item) => {
-    if (item.auth && !token) return false
-    if (item.guest && token) return false
-    return true
-  })
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border/60 bg-background/60 backdrop-blur-xl">
       <div className="flex justify-around items-center h-14 px-1">
-        {visibleItems.map((item) => {
+        {navItems.map((item) => {
           const active = location.pathname.startsWith(item.path)
           return (
             <button

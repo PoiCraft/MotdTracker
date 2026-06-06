@@ -112,6 +112,10 @@ export interface StatusLog {
   version: string | null
   motd: string | null
   sample_players: string | null
+  software: string | null
+  plugins: string | null
+  map: string | null
+  edition: string | null
 }
 
 export interface PlayerServerEntry {

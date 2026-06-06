@@ -8,6 +8,7 @@ import { ThemeProvider } from "next-themes"
 import { QueryProvider } from "@/providers/QueryProvider"
 import { AuthProvider, useAuth } from "@/providers/AuthProvider"
 import { WebSocketProvider } from "@/providers/WebSocketProvider"
+import { AppStatusProvider } from "@/providers/AppStatusProvider"
 import { AppShell } from "@/components/layout/AppShell"
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -80,13 +81,15 @@ export default function App() {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <QueryProvider>
         <AuthProvider>
-          <WebSocketProvider>
-            <ErrorBoundary>
-              <Suspense fallback={<Fallback />}>
-                <RouterProvider router={router} />
-              </Suspense>
-            </ErrorBoundary>
-          </WebSocketProvider>
+          <AppStatusProvider>
+            <WebSocketProvider>
+              <ErrorBoundary>
+                <Suspense fallback={<Fallback />}>
+                  <RouterProvider router={router} />
+                </Suspense>
+              </ErrorBoundary>
+            </WebSocketProvider>
+          </AppStatusProvider>
         </AuthProvider>
       </QueryProvider>
     </ThemeProvider>

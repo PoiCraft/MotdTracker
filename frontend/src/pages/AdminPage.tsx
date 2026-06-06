@@ -1,4 +1,4 @@
-import { useState, useMemo, type ReactNode } from "react"
+import { useState, useMemo, useEffect, type ReactNode } from "react"
 import { Navigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -31,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/providers/AuthProvider"
+import { useAppStatus } from "@/providers/AppStatusProvider"
 import { cn } from "@/lib/utils"
 import {
   Plus,
@@ -58,6 +59,7 @@ interface SelectedItem {
 export default function AdminPage() {
   const { t } = useTranslation()
   const { token, loading: authLoading, logout } = useAuth()
+  const { serverName } = useAppStatus()
   const queryClient = useQueryClient()
 
   const { data: configStatus } = useQuery({
@@ -84,7 +86,7 @@ export default function AdminPage() {
     <div className="space-y-6">
       <PageHeader
         title={t("admin.title")}
-        description={t("admin.description")}
+        description={t("admin.description", { name: serverName })}
       >
         <Button
           variant="outline"
@@ -188,13 +190,13 @@ function ConfigTab({ token }: { token: string }) {
     queryFn: () => api.admin.listNodes(token),
   })
 
+  const [selected, setSelected] = useState<SelectedItem | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     () => (groups.length === 1 && !selected ? new Set([groups[0].id]) : new Set())
   )
   const [expandedServers, setExpandedServers] = useState<Set<string>>(
     new Set()
   )
-  const [selected, setSelected] = useState<SelectedItem | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
 
   const serversByGroup = useMemo(() => {
@@ -1213,8 +1215,33 @@ function SettingsTab({ token }: { token: string }) {
     queryFn: () => api.admin.settings(token),
   })
 
-  const [form, setForm] = useState<Partial<AdminSettings>>(() => settings ?? {})
+  const [form, setForm] = useState<Partial<AdminSettings>>({})
   const [saved, setSaved] = useState(false)
+
+  // Sync form when settings load or refetch (defer to avoid cascading renders)
+  useEffect(() => {
+    if (!settings) return
+    const handle = setTimeout(() => {
+      setForm((prev) =>
+        Object.keys(prev).length > 0
+          ? prev
+          : {
+              ...settings,
+              webhook_alert: settings.webhook_alert ?? {
+                url: "",
+                method: "POST",
+                headers: {},
+                body: "",
+                delta_minutes: 0,
+                offline_confirm_frames: 0,
+                online_confirm_frames: 0,
+                enable: false,
+              },
+            }
+      )
+    }, 0)
+    return () => clearTimeout(handle)
+  }, [settings])
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -1284,7 +1311,7 @@ function SettingsTab({ token }: { token: string }) {
             {saved && (
               <span className="text-xs text-emerald-500 flex items-center gap-1">
                 <CheckCircle className="h-3 w-3" />
-                {t("admin.configApplied")}
+                {t("admin.settingsSaved")}
               </span>
             )}
             {saveMutation.isError && (
@@ -1455,7 +1482,7 @@ function SettingsTab({ token }: { token: string }) {
             {saved && (
               <span className="text-xs text-emerald-500 flex items-center gap-1">
                 <CheckCircle className="h-3 w-3" />
-                {t("admin.configApplied")}
+                {t("admin.settingsSaved")}
               </span>
             )}
             {saveMutation.isError && (

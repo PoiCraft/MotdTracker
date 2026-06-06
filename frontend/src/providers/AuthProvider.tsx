@@ -13,27 +13,35 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const STORAGE_KEY = "motdtracker_auth_token"
+const STORAGE_KEY = "motdtracker_auth"
 
-function isTokenExpired(token: string | null): boolean {
-  if (!token) return true
+function isExpired(expiresAt: string | null): boolean {
+  if (!expiresAt) return true
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]))
-    return payload.exp * 1000 < Date.now()
+    return new Date(expiresAt).getTime() < Date.now()
   } catch {
     return true
   }
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored && isTokenExpired(stored)) {
+function readStorage(): { token: string | null; expiresAt: string | null } {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return { token: null, expiresAt: null }
+    const parsed = JSON.parse(raw)
+    if (isExpired(parsed.expiresAt)) {
       localStorage.removeItem(STORAGE_KEY)
-      return null
+      return { token: null, expiresAt: null }
     }
-    return stored
-  })
+    return { token: parsed.token ?? null, expiresAt: parsed.expiresAt ?? null }
+  } catch {
+    localStorage.removeItem(STORAGE_KEY)
+    return { token: null, expiresAt: null }
+  }
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [{ token, expiresAt }, setAuth] = useState(readStorage)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -42,8 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null)
     try {
       const res = await api.admin.login(username, password)
-      localStorage.setItem(STORAGE_KEY, res.token)
-      setToken(res.token)
+      const payload = { token: res.token, expiresAt: res.expires_at }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+      setAuth({ token: res.token, expiresAt: res.expires_at })
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Login failed"
       setError(message)
@@ -58,8 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null)
     try {
       const res = await api.admin.setup(username, password)
-      localStorage.setItem(STORAGE_KEY, res.token)
-      setToken(res.token)
+      const payload = { token: res.token, expiresAt: res.expires_at }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+      setAuth({ token: res.token, expiresAt: res.expires_at })
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Setup failed"
       setError(message)
@@ -74,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       api.admin.logout(token).catch(() => {})
     }
     localStorage.removeItem(STORAGE_KEY)
-    setToken(null)
+    setAuth({ token: null, expiresAt: null })
     setError(null)
   }, [token])
 
@@ -82,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         token,
-        isAuthenticated: !!token && !isTokenExpired(token),
+        isAuthenticated: !!token && !isExpired(expiresAt),
         login,
         setup,
         logout,
