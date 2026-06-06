@@ -15,8 +15,7 @@ services:
       - MOTDTRACKER_PORT=5011
       # CORS: 空字符串=禁止跨域（生产推荐），"*"=允许任意（仅开发）
       - MOTDTRACKER_CORS_ORIGIN=""
-      # 可选：覆盖轮询间隔（仅在数据库无配置时生效；若 Web 面板已修改过则优先使用数据库值）
-      # - MOTDTRACKER_POLL_INTERVAL=60
+
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:5011/api/exporter/health"]
       interval: 30s

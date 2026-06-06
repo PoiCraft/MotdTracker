@@ -1,11 +1,11 @@
 [package]
 name = "motdtracker"
-version = "2.0.0"
+version = "2.0.1"
 edition = "2021"
-description = "Minecraft single-server multi-entry-point real-time monitoring system"
+description = "Minecraft multi-server multi-entry-point real-time monitoring system"
 license = "MIT"
 authors = ["PoiCraft"]
-repository = "https://github.com/example/motdtracker-rs"
+repository = "https://github.com/PoiCraft/MotdTracker"
 
 [dependencies]
 # Web framework

@@ -94,7 +94,6 @@ path = "data/motdtracker.db"
 ### 环境变量覆盖
 - `MOTDTRACKER_PORT` — Web 服务端口
 - `MOTDTRACKER_DATABASE_PATH` — SQLite 数据库路径
-- `MOTDTRACKER_POLL_INTERVAL` — 轮询间隔（秒）
 - `MOTDTRACKER_CORS_ORIGIN` — CORS 允许的源（空=禁止跨域，`*`=允许任意，或指定域名）
 
 ### 测试
