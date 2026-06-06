@@ -78,6 +78,7 @@
   "nodes": {
     "title": "Nodes",
     "description": "Browse and filter all monitoring nodes",
+    "search": "Search nodes...",
     "host": "Host",
     "port": "Port",
     "edition": "Edition",

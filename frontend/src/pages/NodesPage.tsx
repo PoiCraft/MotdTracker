@@ -101,9 +101,9 @@ export default function NodesPage() {
       </StatGrid>
 
       <div className="relative">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
         <Input
-          placeholder={t("players.search")}
+          placeholder={t("nodes.search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9 bg-card/60 backdrop-blur-sm border-border/60"

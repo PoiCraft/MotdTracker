@@ -78,6 +78,7 @@
   "nodes": {
     "title": "节点列表",
     "description": "浏览和筛选所有监控节点",
+    "search": "搜索节点...",
     "host": "主机",
     "port": "端口",
     "edition": "版本",

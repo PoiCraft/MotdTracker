@@ -64,22 +64,20 @@ async fn main() {
         }
     };
 
-    // 从数据库加载运行时配置，覆盖文件配置
-    let mut runtime_config = config.clone();
-    if let Ok(Some(val)) = db.get_app_config("poll_interval").await {
-        if let Ok(v) = val.parse::<u64>() {
-            runtime_config.poll_interval = v;
-        }
+    // 环境变量优先级最高，覆盖文件配置
+    if let Err(e) = motdtracker::config::loader::apply_env_overrides(&mut config) {
+        tracing::error!("环境变量覆盖失败: {}", e);
     }
-    if let Ok(Some(val)) = db.get_app_config("port").await {
-        if let Ok(v) = val.parse::<u16>() {
-            runtime_config.port = v;
-        }
-    }
-    config = runtime_config;
+    let db_poll_interval = db
+        .get_app_config("poll_interval")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(60);
     info!(
         "Runtime config: poll_interval={}, port={}",
-        config.poll_interval, config.port
+        db_poll_interval, config.port
     );
 
     let broadcaster = Arc::new(WsBroadcaster::new());

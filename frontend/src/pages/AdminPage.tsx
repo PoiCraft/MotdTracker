@@ -52,6 +52,7 @@ type EntityType = "group" | "server" | "node"
 interface SelectedItem {
   type: EntityType
   id: string
+  parent_id?: string
 }
 
 export default function AdminPage() {
@@ -369,7 +370,7 @@ function ConfigTab({ token }: { token: string }) {
                     setSelected({ type: "group", id: g.id })
                   }
                   onAdd={() => {
-                    setSelected({ type: "server", id: "__new__" })
+                    setSelected({ type: "server", id: "__new__", parent_id: g.id })
                     setExpandedGroups((prev) => new Set(prev).add(g.id))
                   }}
                   onDelete={() => {
@@ -406,7 +407,7 @@ function ConfigTab({ token }: { token: string }) {
                             setSelected({ type: "server", id: s.id })
                           }
                           onAdd={() => {
-                            setSelected({ type: "node", id: "__new__" })
+                            setSelected({ type: "node", id: "__new__", parent_id: s.id })
                             setExpandedServers((prev) =>
                               new Set(prev).add(s.id)
                             )
@@ -496,7 +497,7 @@ function ConfigTab({ token }: { token: string }) {
                         setSelected({ type: "server", id: s.id })
                       }
                       onAdd={() => {
-                        setSelected({ type: "node", id: "__new__" })
+                        setSelected({ type: "node", id: "__new__", parent_id: s.id })
                         setExpandedServers((prev) =>
                           new Set(prev).add(s.id)
                         )
@@ -740,6 +741,7 @@ function DetailPanel({
         token={token}
         serverId={selected.id}
         groups={groups}
+        defaultGroupId={selected.parent_id}
         onSaved={onSaved}
       />
     )
@@ -749,6 +751,7 @@ function DetailPanel({
       token={token}
       nodeId={selected.id}
       servers={servers}
+      defaultServerId={selected.parent_id}
       onSaved={onSaved}
     />
   )
@@ -851,11 +854,13 @@ function ServerForm({
   token,
   serverId,
   groups,
+  defaultGroupId,
   onSaved,
 }: {
   token: string
   serverId: string
   groups: AdminGroup[]
+  defaultGroupId?: string
   onSaved: (newId?: string) => void
 }) {
   const { t } = useTranslation()
@@ -869,7 +874,7 @@ function ServerForm({
   })
 
   const [name, setName] = useState(() => existing?.name ?? "")
-  const [groupId, setGroupId] = useState(() => existing?.group_id ?? "")
+  const [groupId, setGroupId] = useState(() => existing?.group_id ?? defaultGroupId ?? "")
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -966,11 +971,13 @@ function NodeForm({
   token,
   nodeId,
   servers,
+  defaultServerId,
   onSaved,
 }: {
   token: string
   nodeId: string
   servers: AdminServer[]
+  defaultServerId?: string
   onSaved: (newId?: string) => void
 }) {
   const { t } = useTranslation()
@@ -1001,7 +1008,7 @@ function NodeForm({
           edition: "java",
           color: "#1A73E8",
           enabled: true,
-          server_id: "",
+          server_id: defaultServerId ?? "",
         }
   )
 
@@ -1214,9 +1221,6 @@ function SettingsTab({ token }: { token: string }) {
       if (form.poll_interval != null && form.poll_interval < 1) {
         throw new Error(t("admin.pollIntervalTooSmall"))
       }
-      if (form.port != null && (form.port < 1 || form.port > 65535)) {
-        throw new Error(t("admin.portOutOfRange"))
-      }
       if (form.webhook_alert?.enable && form.webhook_alert.url) {
         try {
           new URL(form.webhook_alert.url)
@@ -1259,17 +1263,6 @@ function SettingsTab({ token }: { token: string }) {
               value={form.poll_interval || ""}
               onChange={(e) =>
                 setForm({ ...form, poll_interval: +e.target.value })
-              }
-            />
-          </Field>
-          <Field label={t("admin.port")}>
-            <Input
-              type="number"
-              min={1}
-              max={65535}
-              value={form.port || ""}
-              onChange={(e) =>
-                setForm({ ...form, port: +e.target.value })
               }
             />
           </Field>

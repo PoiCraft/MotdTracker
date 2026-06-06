@@ -30,11 +30,19 @@ async fn get_status(State(state): State<AppState>) -> Json<serde_json::Value> {
         .ok()
         .flatten()
         .unwrap_or_else(|| "MotdTracker".to_string());
+    let poll_interval = state
+        .db
+        .get_app_config("poll_interval")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(60);
 
     Json(serde_json::json!({
         "version": APP_VERSION,
         "server_name": sn,
-        "poll_interval": state.config.poll_interval,
+        "poll_interval": poll_interval,
         "port": state.config.port,
         "group_count": groups,
         "server_count": servers,

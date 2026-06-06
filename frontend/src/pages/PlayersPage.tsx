@@ -87,7 +87,7 @@ export default function PlayersPage() {
       </StatGrid>
 
       <div className="relative">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
         <Input
           placeholder={t("players.search")}
           value={search}

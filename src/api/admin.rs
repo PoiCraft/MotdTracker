@@ -307,14 +307,6 @@ async fn get_settings(
         .flatten()
         .and_then(|v| v.parse().ok())
         .unwrap_or(60);
-    let port: u16 = state
-        .db
-        .get_app_config("port")
-        .await
-        .ok()
-        .flatten()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(5011);
     let wa = state
         .db
         .get_app_config("webhook_alert")
@@ -325,7 +317,7 @@ async fn get_settings(
     Ok(Json(AppSettings {
         server_name: sn,
         poll_interval: pi,
-        port,
+        port: state.config.port,
         webhook_alert: wa,
     }))
 }
@@ -343,11 +335,6 @@ async fn update_settings(
     state
         .db
         .set_app_config("poll_interval", &s.poll_interval.to_string())
-        .await
-        .map_err(super::internal_error)?;
-    state
-        .db
-        .set_app_config("port", &s.port.to_string())
         .await
         .map_err(super::internal_error)?;
     if let Some(ref w) = s.webhook_alert {

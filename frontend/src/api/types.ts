@@ -170,7 +170,6 @@ export interface PlayerDetail {
 export interface AdminSettings {
   server_name: string
   poll_interval: number
-  port: number
   webhook_alert: {
     url: string
     method: string

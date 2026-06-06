@@ -42,11 +42,7 @@ pub fn load_config_from_path<P: AsRef<Path>>(path: P) -> Result<AppConfig, Confi
     Ok(config)
 }
 
-fn apply_env_overrides(config: &mut AppConfig) -> Result<(), ConfigError> {
-    if let Some(value) = read_env_parsed::<u64>("MOTDTRACKER_POLL_INTERVAL")? {
-        config.poll_interval = value;
-    }
-
+pub fn apply_env_overrides(config: &mut AppConfig) -> Result<(), ConfigError> {
     if let Some(value) = read_env_parsed::<u16>("MOTDTRACKER_PORT")? {
         config.port = value;
     }
@@ -118,14 +114,13 @@ mod tests {
     #[test]
     fn test_default_config() {
         let toml_str = r#"
-poll_interval = 30
 port = 8080
 
 [database]
 path = "test.db"
 "#;
         let config: AppConfig = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.poll_interval, 30);
+        assert_eq!(config.port, 8080);
         assert_eq!(config.database.path, "test.db");
     }
 
@@ -137,7 +132,6 @@ path = "test.db"
 path = "data.db"
 "#;
         let config: AppConfig = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.poll_interval, 60);
         assert_eq!(config.port, 5011);
         assert_eq!(config.database.path, "data.db");
     }
@@ -146,7 +140,6 @@ path = "data.db"
     fn test_env_overrides_file_values() {
         let temp_path = std::env::temp_dir().join("motdtracker-config-env-override.toml");
         let toml_str = r#"
-poll_interval = 30
 port = 8080
 
 [database]
@@ -154,18 +147,15 @@ path = "file.db"
 "#;
         std::fs::write(&temp_path, toml_str).unwrap();
 
-        std::env::set_var("MOTDTRACKER_POLL_INTERVAL", "120");
         std::env::set_var("MOTDTRACKER_PORT", "6500");
         std::env::set_var("MOTDTRACKER_DATABASE_PATH", "env.db");
 
         let config = load_config_from_path(&temp_path).unwrap();
 
-        std::env::remove_var("MOTDTRACKER_POLL_INTERVAL");
         std::env::remove_var("MOTDTRACKER_PORT");
         std::env::remove_var("MOTDTRACKER_DATABASE_PATH");
         let _ = std::fs::remove_file(&temp_path);
 
-        assert_eq!(config.poll_interval, 120);
         assert_eq!(config.port, 6500);
         assert_eq!(config.database.path, "env.db");
     }

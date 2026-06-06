@@ -1,6 +1,6 @@
 //! 配置模块
 
-mod loader;
+pub mod loader;
 
 pub use loader::*;
 
@@ -54,10 +54,6 @@ pub struct AppConfig {
     /// 数据库配置
     #[serde(default)]
     pub database: DatabaseConfig,
-
-    /// 轮询间隔（秒）
-    #[serde(default = "default_poll_interval")]
-    pub poll_interval: u64,
 
     /// Web 服务端口
     #[serde(default = "default_port")]
@@ -124,9 +120,6 @@ pub struct UmamiConfig {
 fn default_database() -> String {
     "data/motdtracker.db".to_string()
 }
-fn default_poll_interval() -> u64 {
-    60
-}
 fn default_port() -> u16 {
     5011
 }
@@ -161,7 +154,6 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             database: DatabaseConfig::default(),
-            poll_interval: default_poll_interval(),
             port: default_port(),
             cors_origin: default_cors_origin(),
         }
