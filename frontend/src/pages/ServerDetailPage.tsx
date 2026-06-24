@@ -79,9 +79,9 @@ function extractLatestOnlinePlayers(history: StatusLog[]): string[] {
   // Iterate from latest to oldest to gather sample players
   for (let i = history.length - 1; i >= 0; i--) {
     const log = history[i]
-    if (!log.online || !log.sample_players) continue
+    if (!log.players_online) continue
     try {
-      const players = JSON.parse(log.sample_players) as string[]
+      const players = JSON.parse(log.sample_players || "[]") as string[]
       players.forEach((p) => set.add(p))
     } catch {
       /* ignore */
