@@ -564,7 +564,8 @@ impl Database for SqliteDatabase {
         timestamp: Gmt8Time,
     ) -> Result<(), DbError> {
         let sessions = sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE node_id = ? AND online = 1").bind(node_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
-        let sessions: Vec<PlayerSession> = sessions.into_iter().map(Self::fix_session_times).collect();
+        let sessions: Vec<PlayerSession> =
+            sessions.into_iter().map(Self::fix_session_times).collect();
         let online_set: HashSet<&str> = online_players.iter().map(|s| s.as_str()).collect();
         let ts_str = format_gmt8_naive(timestamp);
         // 预取 node 信息（批量，避免 N+1）
