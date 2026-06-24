@@ -76,6 +76,18 @@ pub fn parse_rfc3339(s: &str) -> Option<Gmt8Time> {
         .ok()
 }
 
+/// 修正从 SQLite 读取的日期时间偏移。
+///
+/// SQLite 存储的是无时区信息的 GMT+8 墙钟时间字符串（如 `"2026-06-24 13:54:05"`），
+/// 但 sqlx 的 `FromRow` 将其解码为 `DateTime<FixedOffset>` 时默认按 UTC（`+00:00`）解释。
+/// 这会导致 `now_gmt8() - db_time` 的差值偏移 8 小时。
+///
+/// 本函数将 sqlx 读出的时间取其墙钟值，重新赋予 `+08:00` 偏移。
+pub fn fix_db_time(dt: Gmt8Time) -> Gmt8Time {
+    let naive = dt.naive_utc();
+    gmt8_offset().from_local_datetime(&naive).unwrap()
+}
+
 /// 获取指定小时前的时间
 pub fn hours_ago(hours: u32) -> Gmt8Time {
     now_gmt8() - chrono::Duration::hours(hours as i64)

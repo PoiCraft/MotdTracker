@@ -13,73 +13,26 @@ Rust 高性能后端 + React/TypeScript 前端 · 单文件部署 · 前端内�
 
 </div>
 
----
 
-## 简介
+- [Rust 1.75+](https://rustup.rs/)
 
-MotdTracker 是一个专为 Minecraft 服务器设计的多入口点实时监控系统，支持同时监控同一台服务器的多个连接入口（节点）。采用 Rust + React/TypeScript 前后端分离架构，前端资源通过 `rust-embed` 编译期嵌入二进制，**单文件即可运行**，无需额外部署静态文件或 Nginx。
-
-### 核心特性
-
-- **单文件部署** - 前端打包进二进制，零依赖启动
-- **三层数据模型** - `服务器组 → 服务器 → 节点`，清晰管理多服多入口场景
-- **双版本支持** - 原生实现 Java 版（TCP/Server List Ping）和基岩版（UDP/RakNet）查询协议
-- **数据库驱动配置** - 业务配置全部存储在 SQLite 中，通过 Web 管理面板操作
-- **管理员系统** - 首次使用时自助创建管理员账号，Argon2 密码哈希 + UUID Token 认证
-- **环境变量覆盖** - 支持 `MOTDTRACKER_*` 环境变量覆盖最小启动配置，适配 Docker/K8s
-- **实时监控** - 原生 WebSocket 推送，轮询完成后自动增量刷新前端
-- **数据可视化** - Recharts 趋势图 + 玩家活跃热力图 + 周统计
-- **玩家追踪** - 会话管理、在线时长统计、每日/每周/每小时分析
-- **延迟分析** - 统计指标（平均/P95/标准差/CV/在线率）
-- **Prometheus 集成** - `/api/exporter/metrics` 节点级指标导出
-- **SVG Badge 生成** - 服务器/节点/玩家状态徽章，可直接嵌入外部页面
-- **通用 Webhook 告警** - 支持自定义 Headers 和 Body 模板，可对接任意通知渠道
-- **SQLite 存储** - 零配置，单文件嵌入式数据库
-- **登录限流** - 基于 IP 的 governor 限流，防止暴力破解
-
----
-
-## 快速开始
-
-### 下载预编译版本
-
-前往 [GitHub Releases](https://github.com/PoiCraft/MotdTracker/releases/latest) 下载对应平台的二进制：
-
-| 平台 | 文件 |
-|------|------|
-| Linux x86_64 | `motdtracker-x86_64-unknown-linux-gnu.tar.gz` |
-| Linux ARM64 | `motdtracker-aarch64-unknown-linux-gnu.tar.gz` |
-| Windows x86_64 | `motdtracker-x86_64-pc-windows-msvc.zip` |
-| macOS x86_64 | `motdtracker-x86_64-apple-darwin.tar.gz` |
-| macOS ARM64 | `motdtracker-aarch64-apple-darwin.tar.gz` |
-
-> 每次 push 到 main 分支会自动构建，可在 [Actions](https://github.com/PoiCraft/MotdTracker/actions/workflows/ci.yml) 下载最新开发版 artifact。
-
-解压后直接运行：
+当前通过 GitHub Container Registry 分发 Docker 镜像；源码构建方式保留在下方，方便本地开发和自定义构建：
 
 ```bash
-# Linux / macOS
-chmod +x motdtracker
-./motdtracker
-
-# Windows
-motdtracker.exe
+docker pull ghcr.io/poicraft/motdtracker:latest
+docker pull ghcr.io/poicraft/motdtracker:dev
 ```
 
-首次启动后访问 `http://localhost:5011`，系统将自动跳转到管理员初始化页面。创建账号后即可通过 Web 面板管理所有配置（服务器组、服务器、节点、轮询间隔等）。
+`latest` 对应 GitHub Release 发布镜像，`dev` 对应每次 push / PR 的 CI 构建镜像。
 
-> 也可以完全不创建 `config.toml`，直接通过环境变量提供端口和数据库路径，程序将使用默认值启动。
+### 从源码构建
 
----
-
-## 从源码构建
-
-### 前置依赖
+#### 前置依赖
 
 - [Rust 1.75+](https://rustup.rs/)
 - [Node.js LTS](https://nodejs.org/)（`build.rs` 会自动调用 `npm run build` 嵌入前端）
 
-### 构建步骤
+#### 构建步骤
 
 ```bash
 # 单命令构建（build.rs 会自动处理前端编译和嵌入）
@@ -88,7 +41,7 @@ cargo build --release
 # 产物位于 target/release/motdtracker（或 .exe）
 ```
 
-### 开发模式
+#### 开发模式
 
 ```bash
 # 终端 1：Rust 后端
@@ -328,8 +281,8 @@ git config core.hooksPath .githooks
 
 ## CI / CD
 
-- **push / PR** → `cargo fmt/check/clippy/test` + 5 平台构建，产物上传到 Actions
-- **GitHub Release published** → 自动构建 + 上传预编译二进制 + SHA256 校验和 + 多架构 Docker 镜像推送到 GHCR
+- **push / PR** → `cargo fmt/check/clippy/test` + Docker 镜像构建，推送或缓存 `dev` 标签
+- **GitHub Release published** → 多架构 Docker 镜像推送到 GHCR，标签包含 `latest` 和语义化版本
 
 ---
 

@@ -7,7 +7,7 @@ use std::path::Path;
 
 use super::{Database, DbError};
 use crate::models::*;
-use crate::utils::time::{format_gmt8_naive, now_gmt8, Gmt8Time};
+use crate::utils::time::{fix_db_time, format_gmt8_naive, now_gmt8, Gmt8Time};
 
 pub struct SqliteDatabase {
     pool: SqlitePool,
@@ -436,22 +436,26 @@ impl Database for SqliteDatabase {
         &self,
         node_id: &str,
     ) -> Result<Vec<PlayerSession>, DbError> {
-        sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE node_id = ? AND online = 1").bind(node_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
+        let rows = sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE node_id = ? AND online = 1").bind(node_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
+        Ok(rows.into_iter().map(Self::fix_session_times).collect())
     }
     async fn get_player_sessions_by_node(
         &self,
         node_id: &str,
     ) -> Result<Vec<PlayerSession>, DbError> {
-        sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE node_id = ? ORDER BY last_seen DESC").bind(node_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
+        let rows = sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE node_id = ? ORDER BY last_seen DESC").bind(node_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
+        Ok(rows.into_iter().map(Self::fix_session_times).collect())
     }
     async fn get_all_player_sessions(
         &self,
         server_id: &str,
     ) -> Result<Vec<PlayerSession>, DbError> {
-        sqlx::query_as::<_, PlayerSession>("SELECT ps.id, ps.node_id, ps.player_name, ps.first_seen, ps.session_start, ps.last_seen, ps.online, ps.duration_seconds FROM player_sessions ps INNER JOIN nodes n ON ps.node_id = n.id WHERE n.server_id = ? ORDER BY ps.last_seen DESC").bind(server_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
+        let rows = sqlx::query_as::<_, PlayerSession>("SELECT ps.id, ps.node_id, ps.player_name, ps.first_seen, ps.session_start, ps.last_seen, ps.online, ps.duration_seconds FROM player_sessions ps INNER JOIN nodes n ON ps.node_id = n.id WHERE n.server_id = ? ORDER BY ps.last_seen DESC").bind(server_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
+        Ok(rows.into_iter().map(Self::fix_session_times).collect())
     }
     async fn get_all_player_sessions_flat(&self) -> Result<Vec<PlayerSession>, DbError> {
-        sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions ORDER BY last_seen DESC").fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
+        let rows = sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions ORDER BY last_seen DESC").fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
+        Ok(rows.into_iter().map(Self::fix_session_times).collect())
     }
     async fn get_player_history(
         &self,
@@ -460,7 +464,8 @@ impl Database for SqliteDatabase {
     ) -> Result<Vec<PlayerSessionHistory>, DbError> {
         let days = days.unwrap_or(30);
         let cutoff = now_gmt8() - chrono::Duration::days(days as i64);
-        sqlx::query_as::<_, PlayerSessionHistory>("SELECT id, server_id, player_name, session_start, session_end FROM player_session_history WHERE player_name = ? AND session_end >= ? ORDER BY session_end DESC").bind(player_name).bind(format_gmt8_naive(cutoff)).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
+        let rows = sqlx::query_as::<_, PlayerSessionHistory>("SELECT id, server_id, player_name, session_start, session_end FROM player_session_history WHERE player_name = ? AND session_end >= ? ORDER BY session_end DESC").bind(player_name).bind(format_gmt8_naive(cutoff)).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
+        Ok(rows.into_iter().map(Self::fix_history_times).collect())
     }
     async fn get_all_player_names(&self) -> Result<Vec<String>, DbError> {
         let rows: Vec<(String,)> = sqlx::query_as("SELECT DISTINCT player_name FROM player_sessions UNION SELECT DISTINCT player_name FROM player_session_history").fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
@@ -559,6 +564,7 @@ impl Database for SqliteDatabase {
         timestamp: Gmt8Time,
     ) -> Result<(), DbError> {
         let sessions = sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE node_id = ? AND online = 1").bind(node_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
+        let sessions: Vec<PlayerSession> = sessions.into_iter().map(Self::fix_session_times).collect();
         let online_set: HashSet<&str> = online_players.iter().map(|s| s.as_str()).collect();
         let ts_str = format_gmt8_naive(timestamp);
         // 预取 node 信息（批量，避免 N+1）
@@ -604,10 +610,16 @@ impl Database for SqliteDatabase {
                 }
             }
         }
-        for (node_id, _, players_opt) in observations {
-            if let Some(players) = players_opt {
+        for (node_id, online, players_opt) in observations {
+            let players: &[String] = players_opt.as_deref().unwrap_or(&[]);
+            if !players.is_empty() {
                 self.update_player_sessions(node_id, players, timestamp)
                     .await?;
+            }
+            // 即使没有 sample_players（服务器返回 0 人在线但无 sample 字段），
+            // 也要调用 end_offline_sessions 来正确关闭已离线的玩家会话。
+            // 仅当节点在线时才需要处理（离线节点由上层逻辑处理）。
+            if *online || !players.is_empty() {
                 self.end_offline_sessions(node_id, players, timestamp)
                     .await?;
             }
@@ -743,6 +755,25 @@ impl SqliteDatabase {
         &self,
         player_name: &str,
     ) -> Result<Vec<PlayerSession>, DbError> {
-        sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE player_name = ? ORDER BY last_seen DESC").bind(player_name).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
+        let sessions = sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE player_name = ? ORDER BY last_seen DESC").bind(player_name).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
+        Ok(sessions.into_iter().map(Self::fix_session_times).collect())
+    }
+
+    /// 修正从数据库读取的时间字段偏移。
+    ///
+    /// SQLite 存储的是 GMT+8 墙钟时间，但 sqlx 解码 naive datetime 时按 UTC 解释，
+    /// 导致所有时间字段偏移了 8 小时。此函数将墙钟值重新赋予 +08:00 偏移。
+    fn fix_session_times(mut s: PlayerSession) -> PlayerSession {
+        s.first_seen = fix_db_time(s.first_seen);
+        s.session_start = s.session_start.map(fix_db_time);
+        s.last_seen = fix_db_time(s.last_seen);
+        s
+    }
+
+    /// 修正 PlayerSessionHistory 的时间字段偏移
+    fn fix_history_times(mut h: PlayerSessionHistory) -> PlayerSessionHistory {
+        h.session_start = fix_db_time(h.session_start);
+        h.session_end = fix_db_time(h.session_end);
+        h
     }
 }

@@ -8,85 +8,11 @@ env:
   CARGO_TERM_COLOR: always
 
 permissions:
-  contents: write
   packages: write
 
 jobs:
-  build:
-    name: Build (${{ matrix.target }})
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            archive: tar.gz
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-24.04-arm
-            archive: tar.gz
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            archive: zip
-          - target: x86_64-apple-darwin
-            os: macos-latest
-            archive: tar.gz
-          - target: aarch64-apple-darwin
-            os: macos-latest
-            archive: tar.gz
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          targets: ${{ matrix.target }}
-
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "lts/*"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Cache cargo registry & build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-
-
-      - name: Build release binary
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Package (unix)
-        if: matrix.archive == 'tar.gz'
-        run: |
-          cd target/${{ matrix.target }}/release
-          tar czf ../../../motdtracker-${{ matrix.target }}.tar.gz motdtracker
-          cd ../../..
-
-      - name: Package (windows)
-        if: matrix.archive == 'zip'
-        shell: pwsh
-        run: |
-          Compress-Archive -Path target/${{ matrix.target }}/release/motdtracker.exe -DestinationPath motdtracker-${{ matrix.target }}.zip
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: motdtracker-${{ matrix.target }}
-          path: motdtracker-${{ matrix.target }}.${{ matrix.archive }}
-
   docker-build:
-    name: Docker Build (${{ matrix.suffix }})
+    name: Docker Build & Push (${{ matrix.suffix }})
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -106,6 +32,11 @@ jobs:
 
       - name: Set lowercase repository name
         run: echo "REPO_LC=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Get release metadata
+        id: release
+        run: |
+          echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
 
       - name: Get commit metadata
         id: commit
@@ -128,6 +59,11 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ env.REPO_LC }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.release.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.release.outputs.tag }}
+            type=semver,pattern={{major}},value=${{ steps.release.outputs.tag }}
+            type=raw,value=latest
 
       - name: Build and push platform image
         uses: docker/build-push-action@v6
@@ -135,7 +71,7 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           push: true
-          tags: ghcr.io/${{ env.REPO_LC }}:${{ github.sha }}-${{ matrix.suffix }}
+          tags: ghcr.io/${{ env.REPO_LC }}:${{ steps.release.outputs.tag }}-${{ matrix.suffix }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             GIT_COMMIT_HASH=${{ steps.commit.outputs.hash }}
@@ -181,44 +117,6 @@ jobs:
         run: |
           while IFS= read -r tag; do
             docker buildx imagetools create -t "$tag" \
-              "ghcr.io/${{ env.REPO_LC }}:${{ github.sha }}-amd64" \
-              "ghcr.io/${{ env.REPO_LC }}:${{ github.sha }}-arm64"
+              "ghcr.io/${{ env.REPO_LC }}:${{ steps.release.outputs.tag }}-amd64" \
+              "ghcr.io/${{ env.REPO_LC }}:${{ steps.release.outputs.tag }}-arm64"
           done <<< "${{ steps.meta.outputs.tags }}"
-
-  release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Remove unwanted artifacts
-        run: |
-          cd artifacts || exit 0
-          # remove temporary/dockerbuild files that should not be uploaded
-          find . -type f -name '*.dockerbuild' -print -delete
-          cd ..
-
-      - name: Generate checksums
-        run: |
-          cd artifacts
-          find . -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec sha256sum {} \; | sed 's|  \./.*/|  |' > ../checksums-sha256.txt
-          cd ..
-          cat checksums-sha256.txt
-
-      - name: Upload selected assets to the published release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            artifacts/**/*.tar.gz
-            artifacts/**/*.zip
-            checksums-sha256.txt
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
