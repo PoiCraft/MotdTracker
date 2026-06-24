@@ -9,7 +9,18 @@ interface WebSocketContextValue {
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null)
 
-const AUTH_STORAGE_KEY = "motdtracker_auth_token"
+const AUTH_STORAGE_KEY = "motdtracker_auth"
+
+function readToken(): string | null {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed.token ?? null
+  } catch {
+    return null
+  }
+}
 
 export function WebSocketProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<WsStatus>("connecting")
@@ -23,7 +34,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
   const connect = useCallback(() => {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:"
-    const token = localStorage.getItem(AUTH_STORAGE_KEY)
+    const token = readToken()
     const qs = token ? `?token=${encodeURIComponent(token)}` : ""
     const ws = new WebSocket(`${proto}//${window.location.host}/api/ws${qs}`)
     wsRef.current = ws
@@ -65,9 +76,13 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     // 监听 localStorage 变化以同步 token
     function handleStorage(e: StorageEvent) {
       if (e.key === AUTH_STORAGE_KEY) {
+        const wasAuthenticated = wsRef.current !== null
         wsRef.current?.close()
         retryCount.current = 0
-        connect()
+        // Token changed or cleared — reconnect only if there's a new token
+        if (readToken() || wasAuthenticated) {
+          connect()
+        }
       }
     }
     window.addEventListener("storage", handleStorage)

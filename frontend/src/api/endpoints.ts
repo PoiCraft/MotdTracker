@@ -19,7 +19,7 @@ import type {
 
 const BASE = ""
 
-const AUTH_STORAGE_KEY = "motdtracker_auth_token"
+const AUTH_STORAGE_KEY = "motdtracker_auth"
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const { headers: customHeaders, ...rest } = options ?? {}

@@ -24,7 +24,15 @@
     "actions": "Actions",
     "back": "Back",
     "copied": "Copied!",
-    "copy": "Copy"
+    "copy": "Copy",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "add": "Add",
+    "navigation": "Navigation",
+    "somethingWentWrong": "Something went wrong",
+    "reload": "Reload",
+    "ungrouped": "Ungrouped",
+    "sessions": "sessions"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -172,6 +180,8 @@
     "endTime": "End",
     "node": "Node",
     "noSessions": "No sessions yet",
+    "less": "Less",
+    "more": "More",
     "mon": "Mon",
     "tue": "Tue",
     "wed": "Wed",
@@ -196,7 +206,21 @@
     "serverLevel": "Server Level",
     "nodeLevel": "Node Level",
     "selectNode": "Select a server or node from the tree on the left",
-    "playerLevel": "Player Level"
+    "playerLevel": "Player Level",
+    "typeStatus": "Status",
+    "typeUptime": "Uptime",
+    "typeLatency": "Latency",
+    "typeLatencyStats": "Latency Stats",
+    "typePlayers": "Players",
+    "typeServerStatus": "Server Status",
+    "typeServerUptime": "Server Uptime",
+    "typeServerPlayers": "Server Players",
+    "typeCurrentSession": "Current Session",
+    "typePeriodPlaytime": "Period Playtime",
+    "typeLive": "Live",
+    "formatUrl": "URL",
+    "formatHtml": "HTML",
+    "formatMarkdown": "Markdown"
   },
   "login": {
     "title": "Login",

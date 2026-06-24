@@ -109,10 +109,7 @@ async fn get_players(
 
         // 过滤
         if let Some(ref allowed) = allowed_server_ids {
-            if !servers
-                .iter()
-                .any(|e| allowed.contains(&e.server_id) || e.server_id.is_empty())
-            {
+            if !servers.iter().any(|e| allowed.contains(&e.server_id)) {
                 continue;
             }
         }
@@ -145,6 +142,10 @@ async fn get_player_detail(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> Result<Json<PlayerDetail>, axum::http::StatusCode> {
+    // 玩家名称长度限制
+    if name.is_empty() || name.len() > 64 {
+        return Err(axum::http::StatusCode::BAD_REQUEST);
+    }
     state
         .db
         .get_player_detail(&name)
@@ -158,13 +159,16 @@ async fn get_player_sessions(
     State(state): State<AppState>,
     Path(name): Path<String>,
     Query(q): Query<SessionsQuery>,
-) -> Json<Vec<PlayerSessionHistory>> {
+) -> Result<Json<Vec<PlayerSessionHistory>>, axum::http::StatusCode> {
+    if name.is_empty() || name.len() > 64 {
+        return Err(axum::http::StatusCode::BAD_REQUEST);
+    }
     state
         .db
         .get_player_history(&name, Some(q.days.unwrap_or(30)))
         .await
-        .unwrap_or_default()
-        .into()
+        .map(Json)
+        .map_err(super::internal_error)
 }
 
 async fn get_player_weekly_stats(
@@ -183,11 +187,14 @@ async fn get_player_heatmap(
     State(state): State<AppState>,
     Path(name): Path<String>,
     Query(q): Query<SessionsQuery>,
-) -> Json<Vec<PlayerHeatmap>> {
+) -> Result<Json<Vec<PlayerHeatmap>>, axum::http::StatusCode> {
+    if name.is_empty() || name.len() > 64 {
+        return Err(axum::http::StatusCode::BAD_REQUEST);
+    }
     state
         .db
         .get_player_heatmap(&name, q.days.unwrap_or(30))
         .await
-        .unwrap_or_default()
-        .into()
+        .map(Json)
+        .map_err(super::internal_error)
 }

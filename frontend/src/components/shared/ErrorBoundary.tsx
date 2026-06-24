@@ -39,13 +39,13 @@ function ErrorFallback({ error }: { error: Error | null }) {
       </div>
       <h2 className="text-xl font-bold">{t("common.error")}</h2>
       <p className="text-sm text-muted-foreground mt-2 max-w-md text-center">
-        {error?.message || "Something went wrong"}
+        {error?.message || t("common.somethingWentWrong")}
       </p>
       <Button
         className="mt-4 transition-all duration-300"
         onClick={() => window.location.reload()}
       >
-        Reload
+        {t("common.reload")}
       </Button>
     </div>
   )

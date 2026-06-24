@@ -43,7 +43,6 @@ async fn get_status(State(state): State<AppState>) -> Json<serde_json::Value> {
         "version": APP_VERSION,
         "server_name": sn,
         "poll_interval": poll_interval,
-        "port": state.config.port,
         "group_count": groups,
         "server_count": servers,
         "node_count": nodes,

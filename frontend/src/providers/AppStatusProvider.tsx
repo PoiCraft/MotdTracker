@@ -12,7 +12,7 @@ export function AppStatusProvider({ children }: { children: ReactNode }) {
   const { data: status } = useQuery({
     queryKey: ["app-status"],
     queryFn: api.status,
-    staleTime: Infinity,
+    staleTime: 60_000,
   })
 
   const serverName = status?.server_name || "MotdTracker"

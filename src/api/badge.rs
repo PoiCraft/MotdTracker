@@ -686,7 +686,17 @@ async fn badge_player_live(State(state): State<AppState>, Path(name): Path<Strin
             if server_names.is_empty() {
                 ("online".to_string(), "#4c1".to_string())
             } else {
-                (server_names.join(", "), "#4c1".to_string())
+                // 截断到前 5 个服务器名，避免 badge 过宽
+                let display = if server_names.len() > 5 {
+                    format!(
+                        "{} +{}",
+                        server_names[..5].join(", "),
+                        server_names.len() - 5
+                    )
+                } else {
+                    server_names.join(", ")
+                };
+                (display, "#4c1".to_string())
             }
         } else {
             let ago = if d.last_seen.timestamp() > 0 {

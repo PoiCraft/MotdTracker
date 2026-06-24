@@ -1,8 +1,8 @@
 //! 数据库抽象 trait
 
 use crate::models::*;
+use crate::utils::time::Gmt8Time;
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -66,6 +66,14 @@ pub trait Database: Send + Sync {
     async fn get_node(&self, id: &str) -> Result<Option<Node>, DbError>;
     async fn update_node(&self, id: &str, params: &UpdateNodeParams<'_>) -> Result<(), DbError>;
     async fn delete_node(&self, id: &str) -> Result<(), DbError>;
+    /// 原子交换两个节点的 sort_order（防竞态）
+    async fn swap_node_sort_orders(
+        &self,
+        id1: &str,
+        sort_order1: i32,
+        id2: &str,
+        sort_order2: i32,
+    ) -> Result<(), DbError>;
 
     // === 状态日志 ===
     async fn log_status(&self, entry: &StatusLogEntry) -> Result<(), DbError>;
@@ -75,8 +83,8 @@ pub trait Database: Send + Sync {
     async fn get_node_history_range(
         &self,
         node_id: &str,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
+        start: Gmt8Time,
+        end: Gmt8Time,
     ) -> Result<Vec<StatusLog>, DbError>;
     async fn get_all_latest_status(&self) -> Result<Vec<StatusLog>, DbError>;
     async fn get_all_history(
@@ -95,7 +103,7 @@ pub trait Database: Send + Sync {
         &self,
         node_id: &str,
         sample_players: &[String],
-        timestamp: DateTime<Utc>,
+        timestamp: Gmt8Time,
     ) -> Result<(), DbError>;
     async fn get_online_players_on_node(
         &self,
@@ -125,12 +133,12 @@ pub trait Database: Send + Sync {
         &self,
         node_id: &str,
         online_players: &[String],
-        timestamp: DateTime<Utc>,
+        timestamp: Gmt8Time,
     ) -> Result<(), DbError>;
     async fn update_player_sessions_aggregate(
         &self,
         observations: &[(String, bool, Option<Vec<String>>)],
-        timestamp: DateTime<Utc>,
+        timestamp: Gmt8Time,
     ) -> Result<(), DbError>;
     async fn get_all_player_sessions(&self, server_id: &str)
         -> Result<Vec<PlayerSession>, DbError>;
@@ -149,7 +157,7 @@ pub trait Database: Send + Sync {
         &self,
         user_id: i64,
         token: &str,
-        expires_at: DateTime<Utc>,
+        expires_at: Gmt8Time,
     ) -> Result<(), DbError>;
     async fn validate_session(&self, token: &str) -> Result<Option<AdminUser>, DbError>;
     async fn cleanup_expired_sessions(&self) -> Result<u64, DbError>;

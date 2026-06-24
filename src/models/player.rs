@@ -1,6 +1,6 @@
 //! 玩家模型
 
-use chrono::{DateTime, Utc};
+use crate::utils::time::Gmt8Time;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -11,11 +11,11 @@ pub struct PlayerSession {
     pub node_id: String,
     pub player_name: String,
     #[serde(with = "crate::utils::time::serde_gmt8")]
-    pub first_seen: DateTime<Utc>,
+    pub first_seen: Gmt8Time,
     #[serde(with = "crate::utils::time::serde_gmt8_opt")]
-    pub session_start: Option<DateTime<Utc>>,
+    pub session_start: Option<Gmt8Time>,
     #[serde(with = "crate::utils::time::serde_gmt8")]
-    pub last_seen: DateTime<Utc>,
+    pub last_seen: Gmt8Time,
     #[serde(default)]
     pub online: bool,
     pub duration_seconds: Option<i64>,
@@ -28,9 +28,9 @@ pub struct PlayerSessionHistory {
     pub server_id: String,
     pub player_name: String,
     #[serde(with = "crate::utils::time::serde_gmt8")]
-    pub session_start: DateTime<Utc>,
+    pub session_start: Gmt8Time,
     #[serde(with = "crate::utils::time::serde_gmt8")]
-    pub session_end: DateTime<Utc>,
+    pub session_end: Gmt8Time,
 }
 
 /// 玩家详情
@@ -39,9 +39,9 @@ pub struct PlayerDetail {
     pub player_name: String,
     pub online: bool,
     #[serde(with = "crate::utils::time::serde_gmt8_opt")]
-    pub session_start: Option<DateTime<Utc>>,
+    pub session_start: Option<Gmt8Time>,
     #[serde(with = "crate::utils::time::serde_gmt8")]
-    pub last_seen: DateTime<Utc>,
+    pub last_seen: Gmt8Time,
     pub duration_seconds: Option<i64>,
     pub servers: Vec<PlayerServerEntry>,
     pub sessions: Vec<PlayerSessionHistory>,
@@ -55,9 +55,9 @@ pub struct PlayerServerEntry {
     pub server_name: String,
     pub online: bool,
     #[serde(with = "crate::utils::time::serde_gmt8")]
-    pub first_seen: DateTime<Utc>,
+    pub first_seen: Gmt8Time,
     #[serde(with = "crate::utils::time::serde_gmt8")]
-    pub last_seen: DateTime<Utc>,
+    pub last_seen: Gmt8Time,
 }
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
@@ -72,9 +72,9 @@ pub struct PlayerListItem {
     pub player_name: String,
     pub online: bool,
     #[serde(with = "crate::utils::time::serde_gmt8_opt")]
-    pub session_start: Option<DateTime<Utc>>,
+    pub session_start: Option<Gmt8Time>,
     #[serde(with = "crate::utils::time::serde_gmt8_opt")]
-    pub last_seen: Option<DateTime<Utc>>,
+    pub last_seen: Option<Gmt8Time>,
     pub duration_seconds: Option<i64>,
     pub servers: Vec<PlayerServerEntry>,
 }

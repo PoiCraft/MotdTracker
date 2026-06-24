@@ -1,14 +1,13 @@
 //! SQLite 数据库实现
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use super::{Database, DbError};
 use crate::models::*;
-use crate::utils::time::{format_gmt8_naive, now_gmt8};
+use crate::utils::time::{format_gmt8_naive, now_gmt8, Gmt8Time};
 
 pub struct SqliteDatabase {
     pool: SqlitePool,
@@ -203,7 +202,8 @@ impl Database for SqliteDatabase {
         Ok(())
     }
     async fn delete_server(&self, id: &str) -> Result<(), DbError> {
-        sqlx::query("UPDATE nodes SET server_id = '' WHERE server_id = ?")
+        // 将孤立节点的 server_id 设为 NULL，与 delete_server_group 保持一致
+        sqlx::query("UPDATE nodes SET server_id = NULL WHERE server_id = ?")
             .bind(id)
             .execute(&self.pool)
             .await
@@ -266,6 +266,35 @@ impl Database for SqliteDatabase {
             .map_err(|e| DbError::DeleteError(e.to_string()))?;
         Ok(())
     }
+    async fn swap_node_sort_orders(
+        &self,
+        id1: &str,
+        sort_order1: i32,
+        id2: &str,
+        sort_order2: i32,
+    ) -> Result<(), DbError> {
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|e| DbError::QueryError(e.to_string()))?;
+        sqlx::query("UPDATE nodes SET sort_order = ?, updated_at = datetime('now') WHERE id = ?")
+            .bind(sort_order1)
+            .bind(id1)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| DbError::UpdateError(e.to_string()))?;
+        sqlx::query("UPDATE nodes SET sort_order = ?, updated_at = datetime('now') WHERE id = ?")
+            .bind(sort_order2)
+            .bind(id2)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| DbError::UpdateError(e.to_string()))?;
+        tx.commit()
+            .await
+            .map_err(|e| DbError::UpdateError(e.to_string()))?;
+        Ok(())
+    }
 
     // ==================== 状态日志 ====================
     async fn log_status(&self, entry: &StatusLogEntry) -> Result<(), DbError> {
@@ -317,8 +346,8 @@ impl Database for SqliteDatabase {
     async fn get_node_history_range(
         &self,
         node_id: &str,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
+        start: Gmt8Time,
+        end: Gmt8Time,
     ) -> Result<Vec<StatusLog>, DbError> {
         sqlx::query_as::<_, StatusLog>("SELECT id, node_id, timestamp, online, latency, players_online, players_max, version, motd, sample_players, software, plugins, map, edition FROM status_logs WHERE node_id = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC").bind(node_id).bind(format_gmt8_naive(start)).bind(format_gmt8_naive(end)).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
     }
@@ -372,11 +401,35 @@ impl Database for SqliteDatabase {
         &self,
         node_id: &str,
         sample_players: &[String],
-        timestamp: DateTime<Utc>,
+        timestamp: Gmt8Time,
     ) -> Result<(), DbError> {
-        for player_name in sample_players {
-            sqlx::query("INSERT INTO player_sessions (node_id, player_name, first_seen, session_start, last_seen, online) VALUES (?, ?, ?, ?, ?, 1) ON CONFLICT(node_id, player_name) DO UPDATE SET last_seen = ?, online = 1, session_start = COALESCE(session_start, ?), duration_seconds = CASE WHEN session_start IS NOT NULL THEN CAST((julianday(?) - julianday(session_start)) * 86400 AS INTEGER) ELSE NULL END").bind(node_id).bind(player_name).bind(format_gmt8_naive(timestamp)).bind(format_gmt8_naive(timestamp)).bind(format_gmt8_naive(timestamp)).bind(format_gmt8_naive(timestamp)).bind(format_gmt8_naive(timestamp)).bind(format_gmt8_naive(timestamp)).execute(&self.pool).await.map_err(|e| DbError::InsertError(e.to_string()))?;
+        if sample_players.is_empty() {
+            return Ok(());
         }
+        let ts_str = format_gmt8_naive(timestamp);
+        // 使用事务批量 INSERT ... ON CONFLICT，避免逐条执行
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|e| DbError::QueryError(e.to_string()))?;
+        for player_name in sample_players {
+            sqlx::query("INSERT INTO player_sessions (node_id, player_name, first_seen, session_start, last_seen, online) VALUES (?, ?, ?, ?, ?, 1) ON CONFLICT(node_id, player_name) DO UPDATE SET last_seen = ?, online = 1, session_start = COALESCE(session_start, ?), duration_seconds = CASE WHEN session_start IS NOT NULL THEN CAST((julianday(?) - julianday(session_start)) * 86400 AS INTEGER) ELSE NULL END")
+                .bind(node_id)
+                .bind(player_name)
+                .bind(&ts_str)
+                .bind(&ts_str)
+                .bind(&ts_str)
+                .bind(&ts_str)
+                .bind(&ts_str)
+                .bind(&ts_str)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| DbError::InsertError(e.to_string()))?;
+        }
+        tx.commit()
+            .await
+            .map_err(|e| DbError::InsertError(e.to_string()))?;
         Ok(())
     }
     async fn get_online_players_on_node(
@@ -406,7 +459,8 @@ impl Database for SqliteDatabase {
         days: Option<u32>,
     ) -> Result<Vec<PlayerSessionHistory>, DbError> {
         let days = days.unwrap_or(30);
-        sqlx::query_as::<_, PlayerSessionHistory>("SELECT id, server_id, player_name, session_start, session_end FROM player_session_history WHERE player_name = ? AND session_end >= datetime('now', ?) ORDER BY session_end DESC").bind(player_name).bind(format!("-{} days", days)).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
+        let cutoff = now_gmt8() - chrono::Duration::days(days as i64);
+        sqlx::query_as::<_, PlayerSessionHistory>("SELECT id, server_id, player_name, session_start, session_end FROM player_session_history WHERE player_name = ? AND session_end >= ? ORDER BY session_end DESC").bind(player_name).bind(format_gmt8_naive(cutoff)).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))
     }
     async fn get_all_player_names(&self) -> Result<Vec<String>, DbError> {
         let rows: Vec<(String,)> = sqlx::query_as("SELECT DISTINCT player_name FROM player_sessions UNION SELECT DISTINCT player_name FROM player_session_history").fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
@@ -502,11 +556,23 @@ impl Database for SqliteDatabase {
         &self,
         node_id: &str,
         online_players: &[String],
-        timestamp: DateTime<Utc>,
+        timestamp: Gmt8Time,
     ) -> Result<(), DbError> {
         let sessions = sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE node_id = ? AND online = 1").bind(node_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
         let online_set: HashSet<&str> = online_players.iter().map(|s| s.as_str()).collect();
         let ts_str = format_gmt8_naive(timestamp);
+        // 预取 node 信息（批量，避免 N+1）
+        let node = self.get_node(node_id).await?;
+        let server_id = node
+            .as_ref()
+            .map(|n| {
+                if n.server_id.is_empty() {
+                    "unknown".to_string()
+                } else {
+                    n.server_id.clone()
+                }
+            })
+            .unwrap_or_else(|| "unknown".to_string());
         for session in &sessions {
             if !online_set.contains(session.player_name.as_str()) {
                 let duration = session
@@ -516,27 +582,6 @@ impl Database for SqliteDatabase {
                     let start_str = format_gmt8_naive(start);
                     let exists: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM player_session_history WHERE player_name = ? AND session_start = ?").bind(&session.player_name).bind(&start_str).fetch_one(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
                     if exists.0 == 0 {
-                        let node = self
-                            .get_node(&session.node_id)
-                            .await?
-                            .unwrap_or_else(|| Node {
-                                id: "".into(),
-                                server_id: "".into(),
-                                name: "".into(),
-                                host: "".into(),
-                                port: 0,
-                                edition: "java".into(),
-                                color: None,
-                                enabled: false,
-                                sort_order: 0,
-                                created_at: now_gmt8(),
-                                updated_at: now_gmt8(),
-                            });
-                        let server_id = if node.server_id.is_empty() {
-                            "unknown".to_string()
-                        } else {
-                            node.server_id.clone()
-                        };
                         sqlx::query("INSERT INTO player_session_history (server_id, player_name, session_start, session_end) VALUES (?, ?, ?, ?)").bind(&server_id).bind(&session.player_name).bind(&start_str).bind(&ts_str).execute(&self.pool).await.map_err(|e| DbError::InsertError(e.to_string()))?;
                     }
                 }
@@ -549,7 +594,7 @@ impl Database for SqliteDatabase {
     async fn update_player_sessions_aggregate(
         &self,
         observations: &[(String, bool, Option<Vec<String>>)],
-        timestamp: DateTime<Utc>,
+        timestamp: Gmt8Time,
     ) -> Result<(), DbError> {
         let mut global_players: HashMap<String, bool> = HashMap::new();
         for (_, _, players_opt) in observations {
@@ -617,7 +662,7 @@ impl Database for SqliteDatabase {
         &self,
         user_id: i64,
         token: &str,
-        expires_at: DateTime<Utc>,
+        expires_at: Gmt8Time,
     ) -> Result<(), DbError> {
         sqlx::query("INSERT INTO admin_sessions (user_id, token, expires_at) VALUES (?, ?, ?)")
             .bind(user_id)

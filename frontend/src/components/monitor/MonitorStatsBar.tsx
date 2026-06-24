@@ -3,6 +3,8 @@ import { Users, Zap, AlertTriangle, Server } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { MonitorStats } from "@/hooks/useMonitorData"
 
+export const HIGH_LATENCY_THRESHOLD = 500
+
 interface MonitorStatsBarProps {
   stats: MonitorStats
 }
@@ -31,13 +33,13 @@ export function MonitorStatsBar({ stats }: MonitorStatsBarProps) {
       label: t("monitor.stats.latency"),
       value: stats.avgLatency != null ? `${stats.avgLatency}ms` : "--",
       sub: "",
-      alert: stats.avgLatency != null && stats.avgLatency > 500,
+      alert: stats.avgLatency != null && stats.avgLatency > HIGH_LATENCY_THRESHOLD,
     },
     {
       icon: <AlertTriangle className="h-4 w-4" />,
       label: t("monitor.stats.alerts"),
       value: `${stats.issueCount}`,
-      sub: stats.highLatencyCount > 0 ? `↑${stats.highLatencyCount}ms` : "",
+      sub: stats.highLatencyCount > 0 ? `↑${stats.highLatencyCount}` : "",
       alert: stats.issueCount > 0,
     },
   ]

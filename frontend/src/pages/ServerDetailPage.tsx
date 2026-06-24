@@ -236,23 +236,23 @@ export default function ServerDetailPage() {
                 <AreaChart data={chartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
-                    stroke="hsl(var(--muted))"
+                    stroke="var(--muted)"
                     opacity={0.3}
                   />
                   <XAxis
                     dataKey="time"
                     tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="var(--muted-foreground)"
                   />
                   <YAxis
                     tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="var(--muted-foreground)"
                     allowDecimals={false}
                   />
                   <ReTooltip
                     contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
+                      backgroundColor: "var(--card)",
+                      border: "1px solid var(--border)",
                       borderRadius: "8px",
                       fontSize: "12px",
                     }}
@@ -281,24 +281,24 @@ export default function ServerDetailPage() {
                 <LineChart data={chartData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
-                    stroke="hsl(var(--muted))"
+                    stroke="var(--muted)"
                     opacity={0.3}
                   />
                   <XAxis
                     dataKey="time"
                     tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="var(--muted-foreground)"
                   />
                   <YAxis
                     tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
+                    stroke="var(--muted-foreground)"
                     allowDecimals={false}
                     domain={[0, "auto"]}
                   />
                   <ReTooltip
                     contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
+                      backgroundColor: "var(--card)",
+                      border: "1px solid var(--border)",
                       borderRadius: "8px",
                       fontSize: "12px",
                     }}

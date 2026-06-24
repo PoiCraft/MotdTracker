@@ -9,7 +9,7 @@ use axum::{
     Json, Router,
 };
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Deserialize)]
 struct NodeQuery {
@@ -45,7 +45,7 @@ async fn list_nodes(
     let filtered: Vec<&Node> = if let Some(ref sid) = q.server_id {
         all_nodes.iter().filter(|n| n.server_id == *sid).collect()
     } else if let Some(ref gid) = q.group_id {
-        let server_ids_in_group: Vec<String> = all_servers
+        let server_ids_in_group: HashSet<String> = all_servers
             .iter()
             .filter(|s| s.group_id.as_deref() == Some(gid.as_str()))
             .map(|s| s.id.clone())

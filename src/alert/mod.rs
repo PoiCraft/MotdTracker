@@ -1,6 +1,5 @@
 //! 告警模块
 
-use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
@@ -8,7 +7,7 @@ use tokio::sync::RwLock;
 use tracing::{info, warn};
 
 use crate::config::WebhookAlertConfig;
-use crate::utils::time::{format_gmt8_naive, now_gmt8};
+use crate::utils::time::{format_gmt8_naive, now_gmt8, Gmt8Time};
 
 /// 告警状态
 #[derive(Debug, Clone)]
@@ -31,7 +30,7 @@ pub struct AlertManager {
     online_streak: AtomicU32,
     offline_streak: AtomicU32,
     /// 上次告警时间
-    last_alert_time: Arc<RwLock<Option<DateTime<Utc>>>>,
+    last_alert_time: Arc<RwLock<Option<Gmt8Time>>>,
     /// HTTP 客户端（复用）
     client: reqwest::Client,
 }
@@ -79,45 +78,85 @@ impl AlertManager {
         let offline_streak = self.offline_streak.load(Ordering::Relaxed);
         let online_streak = self.online_streak.load(Ordering::Relaxed);
 
-        let mut state = self.state.write().await;
-        let current_state = state.clone();
+        // 先在临界区内决定"是否发送、发送什么、是否切换状态"，把所需信息收集到本地变量，
+        // 然后释放锁，再在锁外执行可能阻塞的网络请求（webhook 最多 10s）。
+        // 避免长时间持锁阻塞其他轮询周期。
+        enum PendingAction {
+            None,
+            Send {
+                status: String,
+                transition_to: Option<AlertState>,
+                update_last_alert: bool,
+            },
+        }
 
-        match current_state {
-            AlertState::Online => {
-                // 检查是否需要发送离线告警
-                if !any_online && offline_streak >= self.config.offline_confirm_frames {
-                    warn!("检测到所有节点离线，发送告警");
-                    self.send_webhook("offline", online_count, total_count)
-                        .await;
-                    *state = AlertState::Offline;
-                    *self.last_alert_time.write().await = Some(now_gmt8());
-                }
-            }
-            AlertState::Offline => {
-                // 检查是否需要发送恢复告警
-                if any_online && online_streak >= self.config.online_confirm_frames {
-                    info!("节点已恢复，发送通知");
-                    self.send_webhook("recovery", online_count, total_count)
-                        .await;
-                    *state = AlertState::Online;
-                    *self.last_alert_time.write().await = Some(now_gmt8());
-                } else if !any_online {
-                    // 检查是否需要重复告警
-                    let should_repeat = if let Some(last_time) = *self.last_alert_time.read().await
-                    {
-                        let elapsed = (now_gmt8() - last_time).num_minutes() as u64;
-                        elapsed >= self.config.delta_minutes
-                    } else {
-                        true
-                    };
+        let action = {
+            let mut state = self.state.write().await;
+            let current_state = state.clone();
+            let mut action = PendingAction::None;
 
-                    if should_repeat {
-                        warn!("所有节点仍然离线，重复发送告警");
-                        self.send_webhook("offline", online_count, total_count)
-                            .await;
-                        *self.last_alert_time.write().await = Some(now_gmt8());
+            match current_state {
+                AlertState::Online => {
+                    if !any_online && offline_streak >= self.config.offline_confirm_frames {
+                        warn!("检测到所有节点离线，发送告警");
+                        action = PendingAction::Send {
+                            status: "offline".to_string(),
+                            transition_to: Some(AlertState::Offline),
+                            update_last_alert: true,
+                        };
                     }
                 }
+                AlertState::Offline => {
+                    if any_online && online_streak >= self.config.online_confirm_frames {
+                        info!("节点已恢复，发送通知");
+                        action = PendingAction::Send {
+                            status: "recovery".to_string(),
+                            transition_to: Some(AlertState::Online),
+                            update_last_alert: true,
+                        };
+                    } else if !any_online {
+                        // 检查是否需要重复告警
+                        let should_repeat =
+                            if let Some(last_time) = *self.last_alert_time.read().await {
+                                let elapsed = (now_gmt8() - last_time).num_minutes() as u64;
+                                elapsed >= self.config.delta_minutes
+                            } else {
+                                true
+                            };
+
+                        if should_repeat {
+                            warn!("所有节点仍然离线，重复发送告警");
+                            action = PendingAction::Send {
+                                status: "offline".to_string(),
+                                transition_to: None,
+                                update_last_alert: true,
+                            };
+                        }
+                    }
+                }
+            }
+
+            // 在释放 state 锁之前应用状态转换，避免丢帧
+            if let PendingAction::Send {
+                transition_to: Some(ref new_state),
+                ..
+            } = action
+            {
+                *state = new_state.clone();
+            }
+            action
+        }; // state 写锁在此释放
+
+        // 锁外执行网络请求
+        if let PendingAction::Send {
+            status,
+            update_last_alert,
+            ..
+        } = action
+        {
+            self.send_webhook(&status, online_count, total_count).await;
+            if update_last_alert {
+                *self.last_alert_time.write().await = Some(now_gmt8());
             }
         }
     }

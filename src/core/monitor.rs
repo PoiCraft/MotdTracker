@@ -368,6 +368,10 @@ impl MinecraftQuerier {
         state: u8,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let host_bytes = host.as_bytes();
+        // Validate host length fits in VarInt (Minecraft protocol uses VarInt for string length)
+        if host_bytes.len() > 255 {
+            return Err("主机名超过 255 字节".into());
+        }
         let host_len = host_bytes.len() as u8;
 
         // 构建握手包
@@ -426,20 +430,26 @@ impl MinecraftQuerier {
         // 读取数据包长度（变长整数）
         let len = Self::read_var_int(stream).await?;
 
+        // 防止恶意服务器返回超大长度导致 OOM
+        let len = len.max(0) as usize;
+        if len > 1024 * 1024 {
+            return Err("数据包过大 (>1MB)，可能是恶意服务器".into());
+        }
+
         // 读取数据包内容
-        let mut buffer = vec![0u8; len as usize];
+        let mut buffer = vec![0u8; len];
         stream.read_exact(&mut buffer).await?;
 
         // 解析数据包 ID
         let mut offset = 0;
-        let packet_id = Self::read_var_int_from_slice(&buffer, &mut offset);
+        let packet_id = Self::read_var_int_from_slice(&buffer, &mut offset)?;
 
         if packet_id != 0 {
             return Err(format!("意外的数据包 ID: {}", packet_id).into());
         }
 
         // 读取 JSON 长度
-        let json_len = Self::read_var_int_from_slice(&buffer, &mut offset);
+        let json_len = Self::read_var_int_from_slice(&buffer, &mut offset)?;
         let json_start = offset;
         let json_end = json_start + json_len as usize;
 
@@ -598,11 +608,17 @@ impl MinecraftQuerier {
     }
 
     /// 从切片读取变长整数
-    fn read_var_int_from_slice(buffer: &[u8], offset: &mut usize) -> i32 {
+    fn read_var_int_from_slice(
+        buffer: &[u8],
+        offset: &mut usize,
+    ) -> Result<i32, Box<dyn std::error::Error + Send + Sync>> {
         let mut result = 0;
         let mut shift = 0;
 
         loop {
+            if *offset >= buffer.len() {
+                return Err("缓冲区数据不足，无法读取变长整数".into());
+            }
             let byte = buffer[*offset];
             *offset += 1;
 
@@ -612,9 +628,13 @@ impl MinecraftQuerier {
             if byte & 0x80 == 0 {
                 break;
             }
+
+            if shift >= 32 {
+                return Err("变长整数过长".into());
+            }
         }
 
-        result
+        Ok(result)
     }
 }
 
@@ -649,6 +669,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "依赖外网连接，CI 环境可能不可用"]
     async fn test_query_java_server() {
         let status =
             MinecraftQuerier::query_java_server("mc.hypixel.net", 25565, Duration::from_secs(5))
@@ -658,6 +679,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "依赖外网连接，CI 环境可能不可用"]
     async fn test_query_bedrock_server() {
         let status = MinecraftQuerier::query_bedrock_server(
             "play.nethergames.org",

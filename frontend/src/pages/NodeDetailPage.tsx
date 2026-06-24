@@ -293,7 +293,7 @@ export default function NodeDetailPage() {
               {t("node.cv")}
             </div>
             <div className="text-2xl font-bold font-mono tracking-tight tabular-nums">
-              {stats.cv != null ? `${(stats.cv * 100).toFixed(1)}%` : "--"}
+              {stats.cv != null ? `${stats.cv.toFixed(1)}%` : "--"}
             </div>
           </div>
         </div>
@@ -451,8 +451,8 @@ export default function NodeDetailPage() {
               />
               <ReTooltip
                 contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
+                  backgroundColor: "var(--card)",
+                  border: "1px solid var(--border)",
                   borderRadius: "8px",
                   fontSize: "12px",
                 }}
@@ -492,8 +492,8 @@ export default function NodeDetailPage() {
               />
               <ReTooltip
                 contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
+                  backgroundColor: "var(--card)",
+                  border: "1px solid var(--border)",
                   borderRadius: "8px",
                   fontSize: "12px",
                 }}

@@ -2,9 +2,34 @@
 
 use axum::{extract::State, http::StatusCode, response::Response, routing::get, Router};
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 use super::AppState;
 use crate::utils::calculate_latency_stats;
+
+/// Prometheus label 值转义
+fn escape_label_value(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+}
+
+/// 带缓存的 Prometheus 指标
+struct MetricsCache {
+    data: std::sync::Mutex<Option<(Instant, String)>>,
+    ttl: Duration,
+}
+
+impl MetricsCache {
+    fn new(ttl: Duration) -> Self {
+        Self {
+            data: std::sync::Mutex::new(None),
+            ttl,
+        }
+    }
+}
+
+static METRICS_CACHE: std::sync::OnceLock<MetricsCache> = std::sync::OnceLock::new();
 
 pub fn create_router() -> Router<AppState> {
     Router::new()
@@ -13,6 +38,39 @@ pub fn create_router() -> Router<AppState> {
 }
 
 async fn prometheus_metrics(State(state): State<AppState>) -> Response {
+    let cache = METRICS_CACHE.get_or_init(|| MetricsCache::new(Duration::from_secs(30)));
+
+    let should_recompute = {
+        let guard = cache.data.lock().unwrap();
+        match &*guard {
+            Some((ts, _)) => ts.elapsed() >= cache.ttl,
+            None => true,
+        }
+    };
+
+    let data = if should_recompute {
+        let computed = compute_metrics(&state).await;
+        let mut guard = cache.data.lock().unwrap();
+        *guard = Some((Instant::now(), computed.clone()));
+        computed
+    } else {
+        cache
+            .data
+            .lock()
+            .unwrap()
+            .as_ref()
+            .expect("cache should be populated")
+            .1
+            .clone()
+    };
+
+    Response::builder()
+        .header("Content-Type", "text/plain; version=0.0.4")
+        .body(data.into())
+        .unwrap()
+}
+
+async fn compute_metrics(state: &AppState) -> String {
     let nodes = state.db.get_all_nodes().await.unwrap_or_default();
     let servers = state.db.get_all_servers().await.unwrap_or_default();
     let groups = state.db.get_all_server_groups().await.unwrap_or_default();
@@ -37,14 +95,12 @@ async fn prometheus_metrics(State(state): State<AppState>) -> Response {
         let sv = node.and_then(|n| server_map.get(n.server_id.as_str()));
         let grp = sv.and_then(|srv| srv.group_id.as_deref().and_then(|gid| group_map.get(gid)));
         m.push_str(&format!(
-            "motd_node_online{{node_id=\"{}\",node_name=\"{}\",host=\"{}\",port=\"{}\",server_id=\"{}\",server_name=\"{}\",group_name=\"{}\"}} {}\n",
-            s.node_id,
-            node.map(|n| n.name.as_str()).unwrap_or(""),
-            node.map(|n| n.host.as_str()).unwrap_or(""),
-            node.map(|n| n.port).unwrap_or(0),
-            sv.map(|srv| srv.id.as_str()).unwrap_or(""),
-            sv.map(|srv| srv.name.as_str()).unwrap_or(""),
-            grp.map(|g| g.name.as_str()).unwrap_or(""),
+            "motd_node_online{{node_id=\"{}\",node_name=\"{}\",server_id=\"{}\",server_name=\"{}\",group_name=\"{}\"}} {}\n",
+            escape_label_value(&s.node_id),
+            escape_label_value(node.map(|n| n.name.as_str()).unwrap_or("")),
+            escape_label_value(sv.map(|srv| srv.id.as_str()).unwrap_or("")),
+            escape_label_value(sv.map(|srv| srv.name.as_str()).unwrap_or("")),
+            escape_label_value(grp.map(|g| g.name.as_str()).unwrap_or("")),
             if s.online { 1 } else { 0 }
         ));
     }
@@ -55,8 +111,8 @@ async fn prometheus_metrics(State(state): State<AppState>) -> Response {
         let node = node_map.get(s.node_id.as_str());
         m.push_str(&format!(
             "motd_node_players_online{{node_id=\"{}\",node_name=\"{}\"}} {}\n",
-            s.node_id,
-            node.map(|n| n.name.as_str()).unwrap_or(""),
+            escape_label_value(&s.node_id),
+            escape_label_value(node.map(|n| n.name.as_str()).unwrap_or("")),
             s.players_online.unwrap_or(0)
         ));
     }
@@ -67,8 +123,8 @@ async fn prometheus_metrics(State(state): State<AppState>) -> Response {
         let node = node_map.get(s.node_id.as_str());
         m.push_str(&format!(
             "motd_node_players_max{{node_id=\"{}\",node_name=\"{}\"}} {}\n",
-            s.node_id,
-            node.map(|n| n.name.as_str()).unwrap_or(""),
+            escape_label_value(&s.node_id),
+            escape_label_value(node.map(|n| n.name.as_str()).unwrap_or("")),
             s.players_max.unwrap_or(0)
         ));
     }
@@ -80,8 +136,8 @@ async fn prometheus_metrics(State(state): State<AppState>) -> Response {
             let node = node_map.get(s.node_id.as_str());
             m.push_str(&format!(
                 "motd_node_latency_ms{{node_id=\"{}\",node_name=\"{}\"}} {:.2}\n",
-                s.node_id,
-                node.map(|n| n.name.as_str()).unwrap_or(""),
+                escape_label_value(&s.node_id),
+                escape_label_value(node.map(|n| n.name.as_str()).unwrap_or("")),
                 lat
             ));
         }
@@ -95,8 +151,8 @@ async fn prometheus_metrics(State(state): State<AppState>) -> Response {
         let stats = calculate_latency_stats(logs);
         m.push_str(&format!(
             "motd_node_uptime_ratio{{node_id=\"{}\",node_name=\"{}\"}} {:.4}\n",
-            node_id,
-            node.map(|n| n.name.as_str()).unwrap_or(""),
+            escape_label_value(node_id),
+            escape_label_value(node.map(|n| n.name.as_str()).unwrap_or("")),
             stats.uptime_percentage / 100.0
         ));
     }
@@ -109,8 +165,8 @@ async fn prometheus_metrics(State(state): State<AppState>) -> Response {
         if let Some(avg) = stats.avg_latency {
             m.push_str(&format!(
                 "motd_node_avg_latency_ms{{node_id=\"{}\",node_name=\"{}\"}} {:.2}\n",
-                node_id,
-                node.map(|n| n.name.as_str()).unwrap_or(""),
+                escape_label_value(node_id),
+                escape_label_value(node.map(|n| n.name.as_str()).unwrap_or("")),
                 avg
             ));
         }
@@ -139,10 +195,7 @@ async fn prometheus_metrics(State(state): State<AppState>) -> Response {
     m.push_str("# TYPE motd_players_total gauge\n");
     m.push_str(&format!("motd_players_total {}\n", total_players));
 
-    Response::builder()
-        .header("Content-Type", "text/plain; version=0.0.4")
-        .body(m.into())
-        .unwrap()
+    m
 }
 
 async fn health_check(State(state): State<AppState>) -> Response {

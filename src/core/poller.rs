@@ -1,6 +1,5 @@
 //! 轮询器模块
 
-use chrono::{DateTime, Utc};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -14,7 +13,7 @@ use crate::alert::AlertManager;
 use crate::core::monitor::MinecraftQuerier;
 use crate::db::Database;
 use crate::models::*;
-use crate::utils::time::now_gmt8;
+use crate::utils::time::{now_gmt8, Gmt8Time};
 use crate::ws::WsBroadcaster;
 
 fn compute_config_hash(interval: u64, nodes: &[Node]) -> u64 {
@@ -54,7 +53,18 @@ impl ServerPoller {
         self.poll_all().await;
         let mut interval = tokio::time::interval(Duration::from_secs(self.poll_interval));
         loop {
-            tokio::select! { _ = interval.tick() => self.poll_all().await, result = shutdown_rx.changed() => { if result.is_ok() || result.is_err() { info!("轮询器收到关闭信号"); break; } } }
+            tokio::select! {
+                _ = interval.tick() => self.poll_all().await,
+                result = shutdown_rx.changed() => {
+                    // 无论 changed() 成功或失败（sender dropped）都应退出
+                    if result.is_ok() {
+                        info!("轮询器收到关闭信号");
+                    } else {
+                        warn!("轮询器关闭通道已关闭");
+                    }
+                    break;
+                }
+            }
         }
     }
 
@@ -127,7 +137,7 @@ impl ServerPoller {
         debug!("轮询完成: {}/{}", online, total);
     }
 
-    async fn poll_single(node: &Node, ts: DateTime<Utc>) -> (StatusLogEntry, Option<Vec<String>>) {
+    async fn poll_single(node: &Node, ts: Gmt8Time) -> (StatusLogEntry, Option<Vec<String>>) {
         let edition: crate::config::ServerEdition = node
             .edition
             .as_str()
@@ -143,7 +153,7 @@ impl ServerPoller {
         let spj = st
             .sample_players
             .as_ref()
-            .map(|p| serde_json::to_string(p).unwrap_or_default());
+            .and_then(|p| serde_json::to_string(p).ok());
         let ej = st.edition.as_ref().map(|e| e.to_string());
         let entry = StatusLogEntry {
             node_id: node.id.clone(),

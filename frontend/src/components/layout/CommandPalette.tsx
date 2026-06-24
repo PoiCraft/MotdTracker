@@ -71,7 +71,7 @@ export function CommandPalette() {
       />
       <CommandList>
         <CommandEmpty>{t("common.noData")}</CommandEmpty>
-        <CommandGroup heading={t("nav.dashboard")}>
+        <CommandGroup heading={t("common.navigation")}>
           {filteredPages.map((page) => (
             <CommandItem
               key={page.path}

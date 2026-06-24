@@ -42,6 +42,8 @@ import {
   Lock,
   KeyRound,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Folder,
   Server,
   Network,
@@ -191,13 +193,21 @@ function ConfigTab({ token }: { token: string }) {
   })
 
   const [selected, setSelected] = useState<SelectedItem | null>(null)
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    () => (groups.length === 1 && !selected ? new Set([groups[0].id]) : new Set())
-  )
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [expandedServers, setExpandedServers] = useState<Set<string>>(
     new Set()
   )
   const [dragOver, setDragOver] = useState<string | null>(null)
+  const [autoExpandChecked, setAutoExpandChecked] = useState(false)
+
+  // Auto-expand when there's exactly one group and nothing selected yet.
+  // Use a flag to avoid cascading renders: only run once after first groups load.
+  if (!autoExpandChecked && groups.length === 1 && expandedGroups.size === 0 && !selected) {
+    setExpandedGroups(new Set([groups[0].id]))
+    setAutoExpandChecked(true)
+  } else if (!autoExpandChecked && groups.length > 0) {
+    setAutoExpandChecked(true)
+  }
 
   const serversByGroup = useMemo(() => {
     const map = new Map<string, AdminServer[]>()
@@ -999,7 +1009,7 @@ function NodeForm({
           host: existing.host,
           port: existing.port,
           edition: existing.edition,
-          color: existing.color,
+          color: existing.color ?? "#1A73E8",
           enabled: existing.enabled,
           server_id: existing.server_id,
         }
@@ -1060,7 +1070,7 @@ function NodeForm({
                 className="h-7 w-7"
                 onClick={() => moveMut.mutate("up")}
               >
-                <ChevronRight className="h-3.5 w-3.5 -rotate-90" />
+                <ChevronUp className="h-3.5 w-3.5" />
               </Button>
               <Button
                 variant="ghost"
@@ -1068,7 +1078,7 @@ function NodeForm({
                 className="h-7 w-7"
                 onClick={() => moveMut.mutate("down")}
               >
-                <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+                <ChevronDown className="h-3.5 w-3.5" />
               </Button>
             </>
           )}
@@ -1109,6 +1119,8 @@ function NodeForm({
           <Field label={t("admin.nodePort")}>
             <Input
               type="number"
+              min={1}
+              max={65535}
               value={form.port}
               onChange={(e) =>
                 setForm({ ...form, port: +e.target.value })
@@ -1217,6 +1229,7 @@ function SettingsTab({ token }: { token: string }) {
 
   const [form, setForm] = useState<Partial<AdminSettings>>({})
   const [saved, setSaved] = useState(false)
+  const [headersInvalid, setHeadersInvalid] = useState(false)
 
   // Sync form when settings load or refetch (defer to avoid cascading renders)
   useEffect(() => {
@@ -1391,13 +1404,17 @@ function SettingsTab({ token }: { token: string }) {
                     ...form,
                     webhook_alert: { ...form.webhook_alert!, headers },
                   })
+                  setHeadersInvalid(false)
                 } catch {
-                  // invalid JSON — ignore
+                  setHeadersInvalid(true)
                 }
               }}
               rows={3}
-              className="font-mono text-xs"
+              className={cn("font-mono text-xs", headersInvalid && "border-destructive focus-visible:ring-destructive")}
             />
+            {headersInvalid && (
+              <p className="text-[10px] text-destructive mt-1">{t("common.error")}: JSON</p>
+            )}
           </Field>
           <Field label={t("admin.webhookBody")}>
             <Textarea

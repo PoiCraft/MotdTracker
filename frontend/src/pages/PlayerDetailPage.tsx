@@ -131,13 +131,13 @@ export default function PlayerDetailPage() {
 
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000)
+    const id = setInterval(() => setNow(Date.now()), 5000)
     return () => clearInterval(id)
   }, [])
 
   const recentSessions = useMemo(() => {
     if (!detail) return []
-    return detail.sessions.slice(-30).reverse().map((s) => ({
+    return detail.sessions.slice(0, 30).map((s) => ({
       ...s,
       isActive: detail.online && s.session_end === null,
       duration:
@@ -245,7 +245,7 @@ export default function PlayerDetailPage() {
           title={t("player.avgSession")}
           value={stats ? formatDuration(Math.round(stats.avg)) : "--"}
           icon={Timer}
-          subtitle={stats && stats.avg > 0 ? `${stats.favCount} closed` : ""}
+          subtitle={stats && stats.avg > 0 ? `${detail.sessions.length} ${t("common.sessions")}` : ""}
         />
         <StatCard
           title={t("player.longestSession")}
@@ -311,20 +311,20 @@ export default function PlayerDetailPage() {
         <h3 className="text-sm font-medium mb-4">{t("player.hourlyActivity")}</h3>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={hourly}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--muted)" opacity={0.3} />
             <XAxis
               dataKey="hour"
               tick={{ fontSize: 11 }}
-              stroke="hsl(var(--muted-foreground))"
+              stroke="var(--muted-foreground)"
             />
             <YAxis
               tick={{ fontSize: 11 }}
-              stroke="hsl(var(--muted-foreground))"
+              stroke="var(--muted-foreground)"
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
+                backgroundColor: "var(--card)",
+                border: "1px solid var(--border)",
                 borderRadius: "8px",
                 fontSize: "12px",
               }}
@@ -354,21 +354,21 @@ export default function PlayerDetailPage() {
                 return filled
               })()}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" opacity={0.3} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--muted)" opacity={0.3} />
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 10 }}
                 tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                stroke="hsl(var(--muted-foreground))"
+                stroke="var(--muted-foreground)"
               />
               <YAxis
                 tick={{ fontSize: 11 }}
-                stroke="hsl(var(--muted-foreground))"
+                stroke="var(--muted-foreground)"
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
+                  backgroundColor: "var(--card)",
+                  border: "1px solid var(--border)",
                   borderRadius: "8px",
                   fontSize: "12px",
                 }}
@@ -384,7 +384,7 @@ export default function PlayerDetailPage() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium">{t("player.weeklyHeatmap")}</h3>
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-muted-foreground">Less</span>
+              <span className="text-[10px] text-muted-foreground">{t("player.less")}</span>
               {[0.15, 0.35, 0.55, 0.75, 0.95].map((a, i) => (
                 <div
                   key={i}
@@ -392,7 +392,7 @@ export default function PlayerDetailPage() {
                   style={{ backgroundColor: `rgba(59, 130, 246, ${a})` }}
                 />
               ))}
-              <span className="text-[10px] text-muted-foreground">More</span>
+              <span className="text-[10px] text-muted-foreground">{t("player.more")}</span>
             </div>
           </div>
           <div className="flex gap-1">

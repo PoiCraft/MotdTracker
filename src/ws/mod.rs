@@ -3,13 +3,12 @@
 mod handler;
 
 use axum::extract::ws::{Message, WebSocket};
-use chrono::{DateTime, Utc};
 use futures::{SinkExt, StreamExt};
 use std::sync::Arc;
 use tokio::sync::{broadcast, watch, RwLock};
 use tracing::{debug, error, info};
 
-use crate::utils::time::format_gmt8_naive;
+use crate::utils::time::{format_gmt8_naive, Gmt8Time};
 
 /// WebSocket 广播器
 pub struct WsBroadcaster {
@@ -52,11 +51,7 @@ impl WsBroadcaster {
     }
 
     /// 广播轮询完成事件（带节点状态上下文）
-    pub async fn broadcast_poll_complete(
-        &self,
-        timestamp: DateTime<Utc>,
-        nodes: Vec<WsNodeSnapshot>,
-    ) {
+    pub async fn broadcast_poll_complete(&self, timestamp: Gmt8Time, nodes: Vec<WsNodeSnapshot>) {
         let message = WsMessage {
             event: "poll_complete".to_string(),
             data: serde_json::json!({
@@ -151,15 +146,14 @@ pub async fn handle_socket(
                     _ => {}
                 }
             }
-            result = shutdown_rx.changed() => {
-                if result.is_ok() || result.is_err() {
-                    info!("WebSocket 收到关闭信号，发送 close frame");
-                    let _ = tx.send(Message::Close(Some(axum::extract::ws::CloseFrame {
-                        code: 1001,
-                        reason: "Server shutting down".into(),
-                    }))).await;
-                    break;
-                }
+            _result = shutdown_rx.changed() => {
+                // 无论 changed() 返回 Ok 还是 Err（发送端 drop），都应关闭连接
+                info!("WebSocket 收到关闭信号，发送 close frame");
+                let _ = tx.send(Message::Close(Some(axum::extract::ws::CloseFrame {
+                    code: 1001,
+                    reason: "Server shutting down".into(),
+                }))).await;
+                break;
             }
         }
     }

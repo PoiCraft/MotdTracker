@@ -11,6 +11,14 @@ struct Assets;
 
 pub async fn embedded_static_handler(uri: Uri) -> Response {
     let path = uri.path().trim_start_matches('/');
+    // 路径遍历防护：rust-embed 本身从编译时嵌入的资源中查找，不会读取文件系统，
+    // 但仍拒绝包含 ".." 的请求路径，避免误导性请求。
+    if path.contains("..") {
+        return Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body(Body::from("Bad Request"))
+            .unwrap();
+    }
 
     match Assets::get(path) {
         Some(content) => {

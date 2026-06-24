@@ -4,7 +4,6 @@ export interface AppStatus {
   version: string
   server_name: string
   poll_interval: number
-  port: number
   group_count: number
   server_count: number
   node_count: number
@@ -208,7 +207,7 @@ export interface AdminNode {
   host: string
   port: number
   edition: string
-  color: string
+  color: string | null
   enabled: boolean
   sort_order: number
   created_at: string

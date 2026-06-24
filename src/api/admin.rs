@@ -7,7 +7,7 @@ use axum::{
     routing::{get, post, put},
     Json, Router,
 };
-use chrono::{Duration, Utc};
+use chrono::Duration;
 use serde_json::{json, Value};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -18,6 +18,20 @@ use crate::auth::token::{generate_session_token, validate_token_format};
 use crate::db::Database;
 use crate::models::ServerEntity;
 use crate::models::*; // alias to avoid confusion with API ServerEntity
+use crate::utils::time::now_gmt8;
+
+/// 生成一个合法的 Argon2 dummy hash，用于防时序攻击（用户名不存在时消耗等量时间）
+fn get_dummy_hash() -> &'static str {
+    static DUMMY_HASH: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    DUMMY_HASH.get_or_init(|| {
+        hash_password("dummy_password_for_timing_attack_prevention_only")
+            .unwrap_or_else(|_| {
+                // 极端情况下 hash_password 失败，退回到一个预生成的合法 hash
+                "$argon2id$v=19$m=65536,t=3,p=1$YgAAAAAAAABkAAAAAAAAAAAAAA$LTv8YdJz7m9vAa1ZzqPqYnGqY7cQ6Q6Q6Q6Q6Q6Q6Q6"
+                    .to_string()
+            })
+    })
+}
 
 // ─── Strongly-typed request DTOs ───────────────────────────────────────────
 
@@ -130,6 +144,27 @@ async fn authenticate(
         .ok_or(StatusCode::UNAUTHORIZED)
 }
 
+/// 统一鉴权中间件：所有 protected 路由自动经过此中间件
+/// 注意：由于 axum 0.7 的 Router state 绑定机制，此中间件需要在外层（main.rs 中 with_state 之后）应用。
+/// 当前各 protected handler 内部已手动调用 authenticate()，确保鉴权不遗漏。
+#[allow(dead_code)]
+async fn auth_middleware(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    mut req: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> Result<axum::response::Response, StatusCode> {
+    // logout 不需要严格校验（允许无效 token 登出）
+    let path = req.uri().path();
+    if path.ends_with("/logout") {
+        return Ok(next.run(req).await);
+    }
+    let user = authenticate(&headers, &state.db).await?;
+    // 将用户信息注入 request extensions，handler 可选择使用
+    req.extensions_mut().insert(user);
+    Ok(next.run(req).await)
+}
+
 fn is_private_ip(ip: &std::net::IpAddr) -> bool {
     match ip {
         std::net::IpAddr::V4(ip) => ip.is_private() || ip.is_loopback(),
@@ -192,7 +227,7 @@ async fn handle_setup(
         .await
         .map_err(super::internal_error)?;
     let token = generate_session_token();
-    let expires_at = Utc::now() + Duration::hours(24);
+    let expires_at = now_gmt8() + Duration::hours(24);
     state
         .db
         .create_session(user_id, &token, expires_at)
@@ -223,7 +258,7 @@ async fn handle_login(
         .get_admin_user(&req.username)
         .await
         .map_err(super::internal_error)?;
-    let dummy = "$argon2id$v=19$m=65536,t=3,p=1$dGVzdHNhbHQ$invalidhashvalue00000000000000";
+    let dummy = get_dummy_hash();
     let hash = user
         .as_ref()
         .map(|u| u.password_hash.as_str())
@@ -234,7 +269,7 @@ async fn handle_login(
     }
     let user = user.unwrap();
     let token = generate_session_token();
-    let expires_at = Utc::now() + Duration::hours(24);
+    let expires_at = now_gmt8() + Duration::hours(24);
     state
         .db
         .create_session(user.id, &token, expires_at)
@@ -342,6 +377,13 @@ async fn update_settings(
         state
             .db
             .set_app_config("webhook_alert", &j)
+            .await
+            .map_err(super::internal_error)?;
+    } else {
+        // webhook_alert 为 null 时清除已有配置
+        state
+            .db
+            .delete_app_config("webhook_alert")
             .await
             .map_err(super::internal_error)?;
     }
@@ -467,34 +509,9 @@ async fn move_node_up(
     }
     let cur = &nodes[pos];
     let prev = &nodes[pos - 1];
-    let cur_params = UpdateNodeParams {
-        name: &cur.name,
-        host: &cur.host,
-        port: cur.port as u16,
-        edition: &cur.edition,
-        color: cur.color.as_deref(),
-        enabled: cur.enabled,
-        server_id: &cur.server_id,
-        sort_order: prev.sort_order,
-    };
     state
         .db
-        .update_node(&cur.id, &cur_params)
-        .await
-        .map_err(super::internal_error)?;
-    let prev_params = UpdateNodeParams {
-        name: &prev.name,
-        host: &prev.host,
-        port: prev.port as u16,
-        edition: &prev.edition,
-        color: prev.color.as_deref(),
-        enabled: prev.enabled,
-        server_id: &prev.server_id,
-        sort_order: cur.sort_order,
-    };
-    state
-        .db
-        .update_node(&prev.id, &prev_params)
+        .swap_node_sort_orders(&cur.id, prev.sort_order, &prev.id, cur.sort_order)
         .await
         .map_err(super::internal_error)?;
     Ok(StatusCode::NO_CONTENT)
@@ -519,34 +536,9 @@ async fn move_node_down(
     }
     let cur = &nodes[pos];
     let next = &nodes[pos + 1];
-    let cur_params = UpdateNodeParams {
-        name: &cur.name,
-        host: &cur.host,
-        port: cur.port as u16,
-        edition: &cur.edition,
-        color: cur.color.as_deref(),
-        enabled: cur.enabled,
-        server_id: &cur.server_id,
-        sort_order: next.sort_order,
-    };
     state
         .db
-        .update_node(&cur.id, &cur_params)
-        .await
-        .map_err(super::internal_error)?;
-    let next_params = UpdateNodeParams {
-        name: &next.name,
-        host: &next.host,
-        port: next.port as u16,
-        edition: &next.edition,
-        color: next.color.as_deref(),
-        enabled: next.enabled,
-        server_id: &next.server_id,
-        sort_order: cur.sort_order,
-    };
-    state
-        .db
-        .update_node(&next.id, &next_params)
+        .swap_node_sort_orders(&cur.id, next.sort_order, &next.id, cur.sort_order)
         .await
         .map_err(super::internal_error)?;
     Ok(StatusCode::NO_CONTENT)

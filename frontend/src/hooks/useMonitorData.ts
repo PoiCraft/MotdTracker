@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/api/endpoints"
 import type { NodeWithStats, ServerItem, GroupItem } from "@/api/types"
@@ -35,6 +36,7 @@ const HIGH_LATENCY_THRESHOLD = 500
 const HIGH_LOAD_THRESHOLD = 0.85
 
 export function useMonitorData() {
+  const { t } = useTranslation()
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all")
   const [sortMode, setSortMode] = useState<SortMode>("default")
   const [searchQuery, setSearchQuery] = useState("")
@@ -160,7 +162,7 @@ export function useMonitorData() {
           case "latency": {
             const la = a.latest_status?.latency ?? Infinity
             const lb = b.latest_status?.latency ?? Infinity
-            return lb - la
+            return la - lb
           }
           case "players": {
             const pa = a.latest_status?.players_online ?? 0
@@ -170,7 +172,7 @@ export function useMonitorData() {
           case "uptime": {
             const ua = a.latency_stats?.uptime_percentage ?? 0
             const ub = b.latency_stats?.uptime_percentage ?? 0
-            return ua - ub
+            return ub - ua
           }
           default:
             return 0
@@ -180,7 +182,7 @@ export function useMonitorData() {
       result.sort((a, b) => {
         const aOnline = a.latest_status?.online ?? false
         const bOnline = b.latest_status?.online ?? false
-        if (aOnline !== bOnline) return aOnline ? 1 : -1
+        if (aOnline !== bOnline) return aOnline ? -1 : 1
         const aHigh = (a.latest_status?.latency ?? 0) > HIGH_LATENCY_THRESHOLD
         const bHigh = (b.latest_status?.latency ?? 0) > HIGH_LATENCY_THRESHOLD
         if (aHigh !== bHigh) return aHigh ? -1 : 1
@@ -249,7 +251,7 @@ export function useMonitorData() {
       const group = groupMap.get(groupId)
       result.push({
         groupId,
-        groupName: group?.name || (groupId === "__ungrouped" ? "未分组" : groupId),
+        groupName: group?.name || (groupId === "__ungrouped" ? t("admin.ungrouped") : groupId),
         sortOrder: group?.sort_order ?? 9999,
         servers: serverList,
       })
@@ -257,7 +259,7 @@ export function useMonitorData() {
 
     result.sort((a, b) => a.sortOrder - b.sortOrder)
     return result
-  }, [grouped, servers, groups])
+  }, [grouped, servers, groups, t])
 
   return {
     nodes,

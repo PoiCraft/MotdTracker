@@ -27,30 +27,30 @@ import {
 import { cn } from "@/lib/utils"
 
 const NODE_BADGE_TYPES = [
-  { value: "status", label: "Status" },
-  { value: "uptime", label: "Uptime" },
-  { value: "latency", label: "Latency" },
-  { value: "latency-stats", label: "Latency Stats" },
-  { value: "players", label: "Players" },
+  { value: "status", labelKey: "badges.typeStatus" },
+  { value: "uptime", labelKey: "badges.typeUptime" },
+  { value: "latency", labelKey: "badges.typeLatency" },
+  { value: "latency-stats", labelKey: "badges.typeLatencyStats" },
+  { value: "players", labelKey: "badges.typePlayers" },
 ]
 
 const SERVER_BADGE_TYPES = [
-  { value: "status", label: "Server Status" },
-  { value: "uptime", label: "Server Uptime" },
-  { value: "players", label: "Server Players" },
+  { value: "status", labelKey: "badges.typeServerStatus" },
+  { value: "uptime", labelKey: "badges.typeServerUptime" },
+  { value: "players", labelKey: "badges.typeServerPlayers" },
 ]
 
 const PLAYER_BADGE_TYPES = [
-  { value: "status", label: "Status" },
-  { value: "current-session", label: "Current Session" },
-  { value: "period-playtime", label: "Period Playtime" },
-  { value: "live", label: "Live" },
+  { value: "status", labelKey: "badges.typeStatus" },
+  { value: "current-session", labelKey: "badges.typeCurrentSession" },
+  { value: "period-playtime", labelKey: "badges.typePeriodPlaytime" },
+  { value: "live", labelKey: "badges.typeLive" },
 ]
 
 const FORMATS = [
-  { value: "url", label: "URL" },
-  { value: "html", label: "HTML" },
-  { value: "markdown", label: "Markdown" },
+  { value: "url", labelKey: "badges.formatUrl" },
+  { value: "html", labelKey: "badges.formatHtml" },
+  { value: "markdown", labelKey: "badges.formatMarkdown" },
 ]
 
 type SelectionType = "server" | "node" | "player"
@@ -503,7 +503,7 @@ export default function BadgesPage() {
                         <SelectContent>
                           {badgeTypes.map((bt) => (
                             <SelectItem key={bt.value} value={bt.value}>
-                              {bt.label}
+                              {t(bt.labelKey)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -524,7 +524,7 @@ export default function BadgesPage() {
                         <SelectContent>
                           {FORMATS.map((f) => (
                             <SelectItem key={f.value} value={f.value}>
-                              {f.label}
+                              {t(f.labelKey)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -608,6 +608,7 @@ function TreeRow({
   onToggle?: () => void
   onSelect?: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <div
       className={cn(
@@ -621,7 +622,7 @@ function TreeRow({
       {onToggle ? (
         <button
           type="button"
-          title={expanded ? "Collapse" : "Expand"}
+          title={expanded ? t("common.collapse") : t("common.expand")}
           onClick={(e) => {
             e.stopPropagation()
             onToggle()

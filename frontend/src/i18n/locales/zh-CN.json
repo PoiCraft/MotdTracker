@@ -24,7 +24,15 @@
     "actions": "操作",
     "back": "返回",
     "copied": "已复制！",
-    "copy": "复制"
+    "copy": "复制",
+    "collapse": "折叠",
+    "expand": "展开",
+    "add": "添加",
+    "navigation": "导航",
+    "somethingWentWrong": "发生了错误",
+    "reload": "重新加载",
+    "ungrouped": "未分组",
+    "sessions": "个会话"
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -172,6 +180,8 @@
     "endTime": "结束时间",
     "node": "节点",
     "noSessions": "暂无会话记录",
+    "less": "少",
+    "more": "多",
     "mon": "一",
     "tue": "二",
     "wed": "三",
@@ -196,7 +206,21 @@
     "serverLevel": "服务器级别",
     "nodeLevel": "节点级别",
     "selectNode": "从左侧树形结构中选择一个服务器或节点",
-    "playerLevel": "玩家级别"
+    "playerLevel": "玩家级别",
+    "typeStatus": "状态",
+    "typeUptime": "可用率",
+    "typeLatency": "延迟",
+    "typeLatencyStats": "延迟统计",
+    "typePlayers": "玩家",
+    "typeServerStatus": "服务器状态",
+    "typeServerUptime": "服务器可用率",
+    "typeServerPlayers": "服务器玩家",
+    "typeCurrentSession": "当前会话",
+    "typePeriodPlaytime": "时段时长",
+    "typeLive": "实时",
+    "formatUrl": "URL",
+    "formatHtml": "HTML",
+    "formatMarkdown": "Markdown"
   },
   "login": {
     "title": "登录管理服务器",

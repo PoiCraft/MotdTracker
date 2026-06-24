@@ -89,19 +89,18 @@ async fn get_group(
         .ok_or(axum::http::StatusCode::NOT_FOUND)?;
 
     let all_servers = state.db.get_servers_by_group(&id).await.unwrap_or_default();
-    let all_nodes = state.db.get_all_nodes().await.unwrap_or_default();
     let latest_status = state.db.get_all_latest_status().await.unwrap_or_default();
     let latest_map: HashMap<&str, &StatusLog> = latest_status
         .iter()
         .map(|s| (s.node_id.as_str(), s))
         .collect();
 
-    let mut server_nodes: HashMap<&str, Vec<&Node>> = HashMap::new();
-    for n in &all_nodes {
-        server_nodes
-            .entry(n.server_id.as_str())
-            .or_default()
-            .push(n);
+    // 按 server_id 批量查询节点，而非全表加载
+    let mut server_nodes: HashMap<&str, Vec<Node>> = HashMap::new();
+    for sv in &all_servers {
+        if let Ok(nodes) = state.db.get_nodes_by_server(&sv.id).await {
+            server_nodes.insert(sv.id.as_str(), nodes);
+        }
     }
 
     let mut servers_with_stats: Vec<serde_json::Value> = Vec::new();
@@ -113,7 +112,7 @@ async fn get_group(
                     .map(|n| {
                         let ls = latest_map.get(n.id.as_str());
                         NodeWithStats {
-                            node: (*n).clone(),
+                            node: n.clone(),
                             latest_status: ls.map(|s| NodeStatus {
                                 timestamp: s.timestamp,
                                 online: s.online,

@@ -1,6 +1,6 @@
 //! 服务器组、服务器、节点模型 (UUID)
 
-use chrono::{DateTime, Utc};
+use crate::utils::time::Gmt8Time;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -10,8 +10,8 @@ pub struct ServerGroup {
     pub id: String,
     pub name: String,
     pub sort_order: i32,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Gmt8Time,
+    pub updated_at: Gmt8Time,
 }
 
 /// MC 服务器实例
@@ -21,8 +21,8 @@ pub struct ServerEntity {
     pub group_id: Option<String>,
     pub name: String,
     pub sort_order: i32,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Gmt8Time,
+    pub updated_at: Gmt8Time,
 }
 
 /// 添加节点参数
@@ -63,8 +63,8 @@ pub struct Node {
     pub color: Option<String>,
     pub enabled: bool,
     pub sort_order: i32,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub created_at: Gmt8Time,
+    pub updated_at: Gmt8Time,
 }
 
 /// 节点带状态
@@ -79,7 +79,7 @@ pub struct NodeWithStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeStatus {
     #[serde(with = "crate::utils::time::serde_gmt8")]
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: Gmt8Time,
     pub online: bool,
     pub latency: Option<f64>,
     pub players_online: Option<i32>,
