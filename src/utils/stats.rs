@@ -2,6 +2,13 @@
 
 use crate::models::{LatencyStats, StatusLog};
 
+/// 根据轮询间隔计算覆盖指定小时数所需的检查记录数
+pub fn history_limit_for_hours(poll_interval: u64, hours: u32) -> i32 {
+    const SECONDS_PER_HOUR: u64 = 3600;
+    let target = hours as u64 * SECONDS_PER_HOUR;
+    ((target / poll_interval.max(1)) as i32).max(1)
+}
+
 /// 计算延迟统计
 pub fn calculate_latency_stats(history: &[StatusLog]) -> LatencyStats {
     let total_checks = history.len() as u32;

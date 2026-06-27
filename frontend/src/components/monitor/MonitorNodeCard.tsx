@@ -196,7 +196,7 @@ export const MonitorNodeCard = memo(function MonitorNodeCard({
                 {uptime.toFixed(1)}%
               </span>
               <span className="text-[9px] text-muted-foreground">
-                {t("dashboard.uptime")}
+                {t("node.uptime")}
               </span>
             </div>
           )}

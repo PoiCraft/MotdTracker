@@ -56,15 +56,22 @@ function aggregateHistory(histories: StatusLog[][], sampleCount = 12) {
     let online = 0
     let players = 0
     for (const serverLogs of histories) {
-      const inWindow = serverLogs.filter((l) => {
-        const t = new Date(l.timestamp).getTime()
-        return t >= windowStart && t < windowEnd
-      })
-      const latest = inWindow[inWindow.length - 1]
-      if (latest) {
-        if (latest.online) {
+      // 按节点分组，取每个节点在时间窗口内最新的一条日志
+      const latestByNode = new Map<string, StatusLog>()
+      for (const log of serverLogs) {
+        const t = new Date(log.timestamp).getTime()
+        if (t >= windowStart && t < windowEnd) {
+          const existing = latestByNode.get(log.node_id)
+          if (!existing || t > new Date(existing.timestamp).getTime()) {
+            latestByNode.set(log.node_id, log)
+          }
+        }
+      }
+      // 统计该服务器在窗口内在线的节点
+      for (const log of latestByNode.values()) {
+        if (log.online) {
           online++
-          players += latest.players_online ?? 0
+          players += log.players_online ?? 0
         }
       }
     }
@@ -172,7 +179,7 @@ export default function DashboardPage() {
           }
           subtitle={
             totalNodes > 0
-              ? `${Math.round((totalOnlineNodes / totalNodes) * 100)}% ${t("dashboard.uptime")}`
+              ? `${Math.round((totalOnlineNodes / totalNodes) * 100)}% ${t("dashboard.onlineRate")}`
               : undefined
           }
           sparklineData={trend?.onlineNodes}

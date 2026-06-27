@@ -10,6 +10,7 @@ use std::collections::HashMap;
 
 use super::AppState;
 use crate::models::*;
+use crate::utils::{calculate_latency_stats, history_limit_for_hours};
 
 /// 从节点列表和最新状态映射计算聚合指标
 pub fn compute_aggregate(
@@ -140,25 +141,41 @@ async fn get_server(
         .map(|s| (s.node_id.as_str(), s))
         .collect();
 
-    let nodes_with_stats: Vec<NodeWithStats> = all_nodes
-        .iter()
-        .map(|n| {
-            let ls = latest_map.get(n.id.as_str());
-            NodeWithStats {
-                node: n.clone(),
-                latest_status: ls.map(|s| NodeStatus {
-                    timestamp: s.timestamp,
-                    online: s.online,
-                    latency: s.latency,
-                    players_online: s.players_online,
-                    players_max: s.players_max,
-                    version: s.version.clone(),
-                    motd: s.motd.clone(),
-                }),
-                latency_stats: None,
-            }
-        })
-        .collect();
+    // 根据轮询间隔计算覆盖 24 小时所需的检查记录数
+    let poll_interval = state
+        .db
+        .get_app_config("poll_interval")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(60);
+    let history_limit = history_limit_for_hours(poll_interval, 24);
+
+    let mut nodes_with_stats: Vec<NodeWithStats> = Vec::with_capacity(all_nodes.len());
+    for n in &all_nodes {
+        let ls = latest_map.get(n.id.as_str());
+        let stats = state
+            .db
+            .get_node_history(&n.id, history_limit)
+            .await
+            .ok()
+            .filter(|h| !h.is_empty())
+            .map(|h| calculate_latency_stats(&h));
+        nodes_with_stats.push(NodeWithStats {
+            node: n.clone(),
+            latest_status: ls.map(|s| NodeStatus {
+                timestamp: s.timestamp,
+                online: s.online,
+                latency: s.latency,
+                players_online: s.players_online,
+                players_max: s.players_max,
+                version: s.version.clone(),
+                motd: s.motd.clone(),
+            }),
+            latency_stats: stats,
+        });
+    }
 
     let node_refs: Vec<&Node> = all_nodes.iter().collect();
     let aggregate = compute_aggregate(&node_refs, &latest_map);

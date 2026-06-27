@@ -2,7 +2,7 @@
 
 use super::AppState;
 use crate::models::*;
-use crate::utils::calculate_latency_stats;
+use crate::utils::{calculate_latency_stats, history_limit_for_hours};
 use axum::{
     extract::{Path, Query, State},
     routing::get,
@@ -41,6 +41,17 @@ async fn list_nodes(
         .map(|s| (s.node_id.as_str(), s))
         .collect();
 
+    // 根据轮询间隔计算覆盖 24 小时所需的检查记录数
+    let poll_interval = state
+        .db
+        .get_app_config("poll_interval")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(60);
+    let history_limit = history_limit_for_hours(poll_interval, 24);
+
     // 按 group_id 或 server_id 过滤
     let filtered: Vec<&Node> = if let Some(ref sid) = q.server_id {
         all_nodes.iter().filter(|n| n.server_id == *sid).collect()
@@ -63,7 +74,7 @@ async fn list_nodes(
         let ls = latest_map.get(n.id.as_str());
         let stats = state
             .db
-            .get_node_history(&n.id, 720)
+            .get_node_history(&n.id, history_limit)
             .await
             .ok()
             .filter(|h| !h.is_empty())
@@ -97,9 +108,17 @@ async fn get_node(
         .map_err(super::internal_error)?
         .ok_or(axum::http::StatusCode::NOT_FOUND)?;
     let latest = state.db.get_node_latest_status(&id).await.ok().flatten();
+    let poll_interval = state
+        .db
+        .get_app_config("poll_interval")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(60);
     let history = state
         .db
-        .get_node_history(&id, 720)
+        .get_node_history(&id, history_limit_for_hours(poll_interval, 24))
         .await
         .unwrap_or_default();
     let stats = if !history.is_empty() {
