@@ -1,8 +1,8 @@
 //! 管理后台 API
 
 use axum::{
-    extract::{ConnectInfo, State},
-    http::{header, StatusCode},
+    extract::{ConnectInfo, Extension, State},
+    http::StatusCode,
     response::IntoResponse,
     routing::{get, post, put},
     Json, Router,
@@ -10,12 +10,11 @@ use axum::{
 use chrono::Duration;
 use serde_json::{json, Value};
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use super::AppState;
 use crate::auth::password::{hash_password, verify_password};
-use crate::auth::token::{generate_session_token, validate_token_format};
-use crate::db::Database;
+use crate::auth::session::authenticate;
+use crate::auth::token::generate_session_token;
 use crate::models::ServerEntity;
 use crate::models::*; // alias to avoid confusion with API ServerEntity
 use crate::utils::time::now_gmt8;
@@ -88,14 +87,16 @@ struct MoveNodeToServerDto {
     server_id: String,
 }
 
-pub fn create_router() -> Router<AppState> {
-    let public = Router::new()
+pub fn create_public_router() -> Router<AppState> {
+    Router::new()
         .route("/setup", post(handle_setup))
         .route("/login", post(handle_login))
-        .route("/status", get(handle_status));
-
-    let protected = Router::new()
+        .route("/status", get(handle_status))
         .route("/logout", post(handle_logout))
+}
+
+pub fn create_protected_router() -> Router<AppState> {
+    Router::new()
         .route("/change-password", post(handle_change_password))
         .route("/config-status", get(config_status))
         .route("/settings", get(get_settings).put(update_settings))
@@ -119,47 +120,18 @@ pub fn create_router() -> Router<AppState> {
         .route("/servers/:server_id/group", put(move_server_to_group))
         .route("/nodes/:node_id/server", put(move_node_to_server))
         .route("/apply", post(apply_settings))
-        .route("/sessions/cleanup", post(cleanup_sessions));
-
-    public.merge(protected)
-}
-
-fn extract_token(headers: &axum::http::HeaderMap) -> Option<String> {
-    headers
-        .get(header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .filter(|t| validate_token_format(t))
-        .map(|t| t.to_string())
-}
-
-async fn authenticate(
-    headers: &axum::http::HeaderMap,
-    db: &Arc<dyn Database>,
-) -> Result<AdminUser, StatusCode> {
-    let token = extract_token(headers).ok_or(StatusCode::UNAUTHORIZED)?;
-    db.validate_session(&token)
-        .await
-        .map_err(super::internal_error)?
-        .ok_or(StatusCode::UNAUTHORIZED)
+        .route("/sessions/cleanup", post(cleanup_sessions))
 }
 
 /// 统一鉴权中间件：所有 protected 路由自动经过此中间件
 /// 注意：由于 axum 0.7 的 Router state 绑定机制，此中间件需要在外层（main.rs 中 with_state 之后）应用。
-/// 当前各 protected handler 内部已手动调用 authenticate()，确保鉴权不遗漏。
-#[allow(dead_code)]
-async fn auth_middleware(
+pub async fn auth_middleware(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     mut req: axum::http::Request<axum::body::Body>,
     next: axum::middleware::Next,
 ) -> Result<axum::response::Response, StatusCode> {
-    // logout 不需要严格校验（允许无效 token 登出）
-    let path = req.uri().path();
-    if path.ends_with("/logout") {
-        return Ok(next.run(req).await);
-    }
-    let user = authenticate(&headers, &state.db).await?;
+    let user = authenticate(&headers, state.db.as_ref()).await?;
     // 将用户信息注入 request extensions，handler 可选择使用
     req.extensions_mut().insert(user);
     Ok(next.run(req).await)
@@ -287,16 +259,15 @@ async fn handle_logout(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
 ) -> Result<StatusCode, StatusCode> {
-    let token = extract_token(&headers).unwrap_or_default();
+    let token = crate::auth::session::extract_token(&headers).unwrap_or_default();
     let _ = state.db.delete_session(&token).await;
     Ok(StatusCode::NO_CONTENT)
 }
 async fn handle_change_password(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
+    Extension(user): Extension<AdminUser>,
     Json(req): Json<ChangePasswordRequest>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let user = authenticate(&headers, &state.db).await?;
     if req.new_password.len() < 6 || req.new_password.len() > 128 {
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -322,11 +293,7 @@ async fn handle_status(State(state): State<AppState>) -> Result<Json<Value>, Sta
     Ok(Json(json!({"initialized": has})))
 }
 
-async fn get_settings(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-) -> Result<Json<AppSettings>, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
+async fn get_settings(State(state): State<AppState>) -> Result<Json<AppSettings>, StatusCode> {
     let sn = state
         .db
         .get_app_config("server_name")
@@ -358,10 +325,8 @@ async fn get_settings(
 }
 async fn update_settings(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     Json(s): Json<AppSettings>,
 ) -> Result<StatusCode, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     state
         .db
         .set_app_config("server_name", &s.server_name)
@@ -391,11 +356,7 @@ async fn update_settings(
 }
 
 // === Nodes ===
-async fn list_nodes(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-) -> Result<Json<Vec<Node>>, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
+async fn list_nodes(State(state): State<AppState>) -> Result<Json<Vec<Node>>, StatusCode> {
     state
         .db
         .get_all_nodes()
@@ -405,10 +366,8 @@ async fn list_nodes(
 }
 async fn get_node(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<Json<Node>, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     state
         .db
         .get_node(&id)
@@ -419,10 +378,8 @@ async fn get_node(
 }
 async fn add_node(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     Json(req): Json<NodeRequestDto>,
 ) -> Result<Json<Node>, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     if req.name.trim().is_empty() || req.host.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -451,11 +408,9 @@ async fn add_node(
 }
 async fn update_node(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
     Json(req): Json<NodeRequestDto>,
 ) -> Result<StatusCode, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     if req.name.trim().is_empty() || req.host.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -478,10 +433,8 @@ async fn update_node(
 }
 async fn delete_node(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     state
         .db
         .delete_node(&id)
@@ -491,10 +444,8 @@ async fn delete_node(
 }
 async fn move_node_up(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     let nodes = state
         .db
         .get_all_nodes()
@@ -518,10 +469,8 @@ async fn move_node_up(
 }
 async fn move_node_down(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     let nodes = state
         .db
         .get_all_nodes()
@@ -545,11 +494,9 @@ async fn move_node_down(
 }
 async fn move_node_to_server(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
     Json(req): Json<MoveNodeToServerDto>,
 ) -> Result<StatusCode, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     let node = state
         .db
         .get_node(&id)
@@ -575,11 +522,7 @@ async fn move_node_to_server(
 }
 
 // === Groups ===
-async fn list_groups(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-) -> Result<Json<Vec<Value>>, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
+async fn list_groups(State(state): State<AppState>) -> Result<Json<Vec<Value>>, StatusCode> {
     let groups = state
         .db
         .get_all_server_groups()
@@ -606,10 +549,8 @@ async fn list_groups(
 }
 async fn get_group(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<Json<Value>, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     let g = state
         .db
         .get_server_group(&id)
@@ -627,10 +568,8 @@ async fn get_group(
 }
 async fn add_group(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     Json(req): Json<GroupRequestDto>,
 ) -> Result<Json<Value>, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     if req.name.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -645,11 +584,9 @@ async fn add_group(
 }
 async fn update_group(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
     Json(req): Json<GroupRequestDto>,
 ) -> Result<StatusCode, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     if req.name.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -662,10 +599,8 @@ async fn update_group(
 }
 async fn delete_group(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     state
         .db
         .delete_server_group(&id)
@@ -677,9 +612,7 @@ async fn delete_group(
 // === Servers ===
 async fn list_servers(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
 ) -> Result<Json<Vec<ServerEntity>>, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     state
         .db
         .get_all_servers()
@@ -689,10 +622,8 @@ async fn list_servers(
 }
 async fn get_server(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<Json<ServerEntity>, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     state
         .db
         .get_server(&id)
@@ -703,10 +634,8 @@ async fn get_server(
 }
 async fn add_server(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     Json(req): Json<ServerRequestDto>,
 ) -> Result<Json<ServerEntity>, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     if req.name.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -725,11 +654,9 @@ async fn add_server(
 }
 async fn update_server(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
     Json(req): Json<ServerRequestDto>,
 ) -> Result<StatusCode, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     if req.name.trim().is_empty() {
         return Err(StatusCode::BAD_REQUEST);
     }
@@ -742,10 +669,8 @@ async fn update_server(
 }
 async fn delete_server(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     state
         .db
         .delete_server(&id)
@@ -755,11 +680,9 @@ async fn delete_server(
 }
 async fn move_server_to_group(
     State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
     axum::extract::Path(id): axum::extract::Path<String>,
     Json(req): Json<MoveServerToGroupDto>,
 ) -> Result<StatusCode, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
     let s = state
         .db
         .get_server(&id)
@@ -774,29 +697,17 @@ async fn move_server_to_group(
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn apply_settings(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-) -> Result<Json<Value>, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
+async fn apply_settings(State(state): State<AppState>) -> Result<Json<Value>, StatusCode> {
     state.poller_manager.restart();
     Ok(Json(
         json!({"status": "ok", "message": "配置已应用，轮询器正在重启"}),
     ))
 }
-async fn config_status(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-) -> Result<Json<Value>, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
+async fn config_status(State(state): State<AppState>) -> Result<Json<Value>, StatusCode> {
     let synced = state.poller_manager.config_synced().await;
     Ok(Json(json!({"synced": synced})))
 }
-async fn cleanup_sessions(
-    State(state): State<AppState>,
-    headers: axum::http::HeaderMap,
-) -> Result<Json<Value>, StatusCode> {
-    let _ = authenticate(&headers, &state.db).await?;
+async fn cleanup_sessions(State(state): State<AppState>) -> Result<Json<Value>, StatusCode> {
     let c = state
         .db
         .cleanup_expired_sessions()

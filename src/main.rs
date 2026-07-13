@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::{routing::get, Router};
+use axum::{middleware, routing::get, Router};
 use governor::{Quota, RateLimiter};
 use std::num::NonZeroU32;
 use tokio::sync::watch;
@@ -127,7 +127,12 @@ async fn main() {
         .nest("/api/players", api::player::create_router())
         .nest("/api/badges", api::badge::create_router())
         .nest("/api/exporter", api::exporter::create_router())
-        .nest("/api/admin", api::admin::create_router())
+        .nest("/api/admin", {
+            let protected = api::admin::create_protected_router().route_layer(
+                middleware::from_fn_with_state(app_state.clone(), api::admin::auth_middleware),
+            );
+            api::admin::create_public_router().merge(protected)
+        })
         .route("/api/ws", get(api::ws_handler))
         .fallback(motdtracker::embedded::embedded_static_handler)
         .layer(TraceLayer::new_for_http())
