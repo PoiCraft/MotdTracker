@@ -4,9 +4,9 @@
 
 **Blocked by:** 02 — DashboardSnapshot 核心 + node 列表迁移
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] compute_metrics 的独立聚合（约 130 行）删除，改从快照取数
-- [ ] 快照 → Prometheus 文本为纯函数，有构造数据的单元测试
-- [ ] 指标名称、标签、缓存行为与迁移前一致
-- [ ] 加载失败时端点返回 500
+- [x] compute_metrics 的独立聚合（约 130 行）删除，改从快照取数
+- [x] 快照 → Prometheus 文本为纯函数，有构造数据的单元测试
+- [x] 指标名称、标签、缓存行为与迁移前一致
+- [x] 加载失败时端点返回 500

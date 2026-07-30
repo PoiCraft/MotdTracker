@@ -1719,6 +1719,7 @@ dependencies = [
  "futures",
  "governor",
  "mime_guess",
+ "parking_lot",
  "prometheus",
  "rand 0.10.1",
  "reqwest",
