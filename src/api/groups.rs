@@ -114,7 +114,7 @@ async fn get_group(
                         NodeWithStats {
                             node: n.clone(),
                             latest_status: ls.map(|s| NodeStatus {
-                                timestamp: s.timestamp,
+                                timestamp: *s.timestamp,
                                 online: s.online,
                                 latency: s.latency,
                                 players_online: s.players_online,

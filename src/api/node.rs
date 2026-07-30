@@ -82,7 +82,7 @@ async fn list_nodes(
         result.push(NodeWithStats {
             node: (*n).clone(),
             latest_status: ls.map(|s| NodeStatus {
-                timestamp: s.timestamp,
+                timestamp: *s.timestamp,
                 online: s.online,
                 latency: s.latency,
                 players_online: s.players_online,
@@ -130,7 +130,7 @@ async fn get_node(
     Ok(Json(NodeWithStats {
         node,
         latest_status: latest.map(|s| NodeStatus {
-            timestamp: s.timestamp,
+            timestamp: *s.timestamp,
             online: s.online,
             latency: s.latency,
             players_online: s.players_online,

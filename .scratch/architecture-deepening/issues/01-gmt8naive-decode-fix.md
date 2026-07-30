@@ -4,9 +4,9 @@
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] 新类型实现 sqlx 的 Decode/Type，解码时应用 +8h 修正
-- [ ] 所有返回时间的模型字段切换为该类型，8 处手动修正调用全部删除
-- [ ] 内存 SQLite 往返测试：写入墙钟字符串，读出断言修正已应用
-- [ ] 现有集成测试原样通过
+- [x] 新类型实现 sqlx 的 Decode/Type，解码时应用 +8h 修正
+- [x] 所有返回时间的模型字段切换为该类型，8 处手动修正调用全部删除
+- [x] 内存 SQLite 往返测试：写入墙钟字符串，读出断言修正已应用
+- [x] 现有集成测试原样通过

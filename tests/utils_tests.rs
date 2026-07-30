@@ -14,7 +14,7 @@ mod tests {
         StatusLog {
             id: 0,
             node_id: "1".to_string(),
-            timestamp: now_gmt8(),
+            timestamp: now_gmt8().into(),
             online,
             latency,
             players_online: None,

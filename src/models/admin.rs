@@ -1,6 +1,6 @@
 //! 管理员与配置模型
 
-use crate::utils::time::Gmt8Time;
+use crate::utils::time::{Gmt8Naive, Gmt8Time};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -9,8 +9,8 @@ pub struct AdminUser {
     pub id: i64,
     pub username: String,
     pub password_hash: String,
-    pub created_at: Gmt8Time,
-    pub last_login_at: Option<Gmt8Time>,
+    pub created_at: Gmt8Naive,
+    pub last_login_at: Option<Gmt8Naive>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -18,15 +18,15 @@ pub struct AdminSession {
     pub id: i64,
     pub user_id: i64,
     pub token: String,
-    pub expires_at: Gmt8Time,
-    pub created_at: Gmt8Time,
+    pub expires_at: Gmt8Naive,
+    pub created_at: Gmt8Naive,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct AppConfigEntry {
     pub key: String,
     pub value: String,
-    pub updated_at: Gmt8Time,
+    pub updated_at: Gmt8Naive,
 }
 
 #[derive(Debug, Deserialize)]

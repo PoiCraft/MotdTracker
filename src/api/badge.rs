@@ -643,15 +643,15 @@ async fn badge_player_period_playtime(
     let mut total_secs = 0i64;
 
     for h in &history {
-        if h.session_end <= h.session_start {
+        if *h.session_end <= *h.session_start {
             continue;
         }
-        let start = if h.session_start < cutoff {
+        let start = if *h.session_start < cutoff {
             cutoff
         } else {
-            h.session_start
+            *h.session_start
         };
-        let dur = (h.session_end - start).num_seconds();
+        let dur = (*h.session_end - start).num_seconds();
         if dur > 0 {
             total_secs += dur;
         }

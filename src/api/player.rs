@@ -101,8 +101,8 @@ async fn get_players(
                     server_id: server_id.to_string(),
                     server_name: server_name.to_string(),
                     online: s.online,
-                    first_seen: s.first_seen,
-                    last_seen: s.last_seen,
+                    first_seen: s.first_seen.0,
+                    last_seen: s.last_seen.0,
                 }
             })
             .collect();
@@ -117,12 +117,12 @@ async fn get_players(
         result.push(PlayerListItem {
             player_name: name,
             online: is_online,
-            session_start: latest_session.and_then(|s| s.session_start),
-            last_seen: latest_session.map(|s| s.last_seen),
+            session_start: latest_session.and_then(|s| s.session_start).map(Into::into),
+            last_seen: latest_session.map(|s| s.last_seen.0),
             duration_seconds: latest_session
                 .filter(|s| s.online)
                 .and_then(|s| s.session_start)
-                .map(|start| (crate::utils::time::now_gmt8() - start).num_seconds()),
+                .map(|start| (crate::utils::time::now_gmt8() - start.0).num_seconds()),
             servers,
         });
     }

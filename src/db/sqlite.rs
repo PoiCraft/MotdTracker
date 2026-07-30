@@ -7,7 +7,7 @@ use std::path::Path;
 
 use super::{Database, DbError};
 use crate::models::*;
-use crate::utils::time::{fix_db_time, format_gmt8_naive, now_gmt8, Gmt8Time};
+use crate::utils::time::{format_gmt8_naive, now_gmt8, Gmt8Time};
 
 pub struct SqliteDatabase {
     pool: SqlitePool,
@@ -437,25 +437,25 @@ impl Database for SqliteDatabase {
         node_id: &str,
     ) -> Result<Vec<PlayerSession>, DbError> {
         let rows = sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE node_id = ? AND online = 1").bind(node_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
-        Ok(rows.into_iter().map(Self::fix_session_times).collect())
+        Ok(rows)
     }
     async fn get_player_sessions_by_node(
         &self,
         node_id: &str,
     ) -> Result<Vec<PlayerSession>, DbError> {
         let rows = sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE node_id = ? ORDER BY last_seen DESC").bind(node_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
-        Ok(rows.into_iter().map(Self::fix_session_times).collect())
+        Ok(rows)
     }
     async fn get_all_player_sessions(
         &self,
         server_id: &str,
     ) -> Result<Vec<PlayerSession>, DbError> {
         let rows = sqlx::query_as::<_, PlayerSession>("SELECT ps.id, ps.node_id, ps.player_name, ps.first_seen, ps.session_start, ps.last_seen, ps.online, ps.duration_seconds FROM player_sessions ps INNER JOIN nodes n ON ps.node_id = n.id WHERE n.server_id = ? ORDER BY ps.last_seen DESC").bind(server_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
-        Ok(rows.into_iter().map(Self::fix_session_times).collect())
+        Ok(rows)
     }
     async fn get_all_player_sessions_flat(&self) -> Result<Vec<PlayerSession>, DbError> {
         let rows = sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions ORDER BY last_seen DESC").fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
-        Ok(rows.into_iter().map(Self::fix_session_times).collect())
+        Ok(rows)
     }
     async fn get_player_history(
         &self,
@@ -465,7 +465,7 @@ impl Database for SqliteDatabase {
         let days = days.unwrap_or(30);
         let cutoff = now_gmt8() - chrono::Duration::days(days as i64);
         let rows = sqlx::query_as::<_, PlayerSessionHistory>("SELECT id, server_id, player_name, session_start, session_end FROM player_session_history WHERE player_name = ? AND session_end >= ? ORDER BY session_end DESC").bind(player_name).bind(format_gmt8_naive(cutoff)).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
-        Ok(rows.into_iter().map(Self::fix_history_times).collect())
+        Ok(rows)
     }
     async fn get_all_player_names(&self) -> Result<Vec<String>, DbError> {
         let rows: Vec<(String,)> = sqlx::query_as("SELECT DISTINCT player_name FROM player_sessions UNION SELECT DISTINCT player_name FROM player_session_history").fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
@@ -488,7 +488,10 @@ impl Database for SqliteDatabase {
                 player_name: player_name.to_string(),
                 online: false,
                 session_start: None,
-                last_seen: hist.first().map(|h| h.session_end).unwrap_or_else(now_gmt8),
+                last_seen: hist
+                    .first()
+                    .map(|h| h.session_end.0)
+                    .unwrap_or_else(now_gmt8),
                 duration_seconds: None,
                 servers: Vec::new(),
                 sessions: hist,
@@ -509,20 +512,20 @@ impl Database for SqliteDatabase {
                 server_id: server.map(|sv| sv.id.clone()).unwrap_or_default(),
                 server_name: server.map(|sv| sv.name.clone()).unwrap_or_default(),
                 online: s.online,
-                first_seen: s.first_seen,
-                last_seen: s.last_seen,
+                first_seen: s.first_seen.0,
+                last_seen: s.last_seen.0,
             });
         }
 
         Ok(Some(PlayerDetail {
             player_name: player_name.to_string(),
             online: is_online,
-            session_start: latest.and_then(|s| s.session_start),
-            last_seen: latest.map(|s| s.last_seen).unwrap_or_else(now_gmt8),
+            session_start: latest.and_then(|s| s.session_start).map(Into::into),
+            last_seen: latest.map(|s| s.last_seen.0).unwrap_or_else(now_gmt8),
             duration_seconds: latest
                 .filter(|s| s.online)
                 .and_then(|s| s.session_start)
-                .map(|start| (now_gmt8() - start).num_seconds()),
+                .map(|start| (now_gmt8() - start.0).num_seconds()),
             servers: server_entries,
             sessions: history,
         }))
@@ -564,8 +567,6 @@ impl Database for SqliteDatabase {
         timestamp: Gmt8Time,
     ) -> Result<(), DbError> {
         let sessions = sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE node_id = ? AND online = 1").bind(node_id).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
-        let sessions: Vec<PlayerSession> =
-            sessions.into_iter().map(Self::fix_session_times).collect();
         let online_set: HashSet<&str> = online_players.iter().map(|s| s.as_str()).collect();
         let ts_str = format_gmt8_naive(timestamp);
         // 预取 node 信息（批量，避免 N+1）
@@ -584,9 +585,9 @@ impl Database for SqliteDatabase {
             if !online_set.contains(session.player_name.as_str()) {
                 let duration = session
                     .session_start
-                    .map(|start| (timestamp - start).num_seconds());
+                    .map(|start| (timestamp - start.0).num_seconds());
                 if let Some(start) = session.session_start {
-                    let start_str = format_gmt8_naive(start);
+                    let start_str = format_gmt8_naive(start.0);
                     let exists: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM player_session_history WHERE player_name = ? AND session_start = ?").bind(&session.player_name).bind(&start_str).fetch_one(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
                     if exists.0 == 0 {
                         sqlx::query("INSERT INTO player_session_history (server_id, player_name, session_start, session_end) VALUES (?, ?, ?, ?)").bind(&server_id).bind(&session.player_name).bind(&start_str).bind(&ts_str).execute(&self.pool).await.map_err(|e| DbError::InsertError(e.to_string()))?;
@@ -757,24 +758,6 @@ impl SqliteDatabase {
         player_name: &str,
     ) -> Result<Vec<PlayerSession>, DbError> {
         let sessions = sqlx::query_as::<_, PlayerSession>("SELECT id, node_id, player_name, first_seen, session_start, last_seen, online, duration_seconds FROM player_sessions WHERE player_name = ? ORDER BY last_seen DESC").bind(player_name).fetch_all(&self.pool).await.map_err(|e| DbError::QueryError(e.to_string()))?;
-        Ok(sessions.into_iter().map(Self::fix_session_times).collect())
-    }
-
-    /// 修正从数据库读取的时间字段偏移。
-    ///
-    /// SQLite 存储的是 GMT+8 墙钟时间，但 sqlx 解码 naive datetime 时按 UTC 解释，
-    /// 导致所有时间字段偏移了 8 小时。此函数将墙钟值重新赋予 +08:00 偏移。
-    fn fix_session_times(mut s: PlayerSession) -> PlayerSession {
-        s.first_seen = fix_db_time(s.first_seen);
-        s.session_start = s.session_start.map(fix_db_time);
-        s.last_seen = fix_db_time(s.last_seen);
-        s
-    }
-
-    /// 修正 PlayerSessionHistory 的时间字段偏移
-    fn fix_history_times(mut h: PlayerSessionHistory) -> PlayerSessionHistory {
-        h.session_start = fix_db_time(h.session_start);
-        h.session_end = fix_db_time(h.session_end);
-        h
+        Ok(sessions)
     }
 }

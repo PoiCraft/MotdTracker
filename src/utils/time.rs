@@ -88,6 +88,74 @@ pub fn fix_db_time(dt: Gmt8Time) -> Gmt8Time {
     gmt8_offset().from_local_datetime(&naive).unwrap()
 }
 
+/// 数据库时间字段类型：解码时自动应用 +8h 修正的 `Gmt8Time` 新类型。
+///
+/// SQLite 存储无时区的 GMT+8 墙钟字符串，sqlx 将其按 UTC 解码。
+/// 该类型在 sqlx `Decode` 接缝处调用 [`fix_db_time`]，修正对查询方法不可见 ——
+/// 新增返回时间的查询天然正确，不存在漏调修正的风险。
+///
+/// 序列化输出与 [`serde_gmt8`] 一致（`%Y-%m-%d %H:%M:%S` 无时区字符串）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Gmt8Naive(pub Gmt8Time);
+
+impl Gmt8Naive {
+    pub fn into_inner(self) -> Gmt8Time {
+        self.0
+    }
+}
+
+impl From<Gmt8Time> for Gmt8Naive {
+    fn from(dt: Gmt8Time) -> Self {
+        Gmt8Naive(dt)
+    }
+}
+
+impl From<Gmt8Naive> for Gmt8Time {
+    fn from(dt: Gmt8Naive) -> Self {
+        dt.0
+    }
+}
+
+impl std::ops::Deref for Gmt8Naive {
+    type Target = Gmt8Time;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl serde::Serialize for Gmt8Naive {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&format_gmt8_naive(self.0))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Gmt8Naive {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = <String as serde::Deserialize>::deserialize(deserializer)?;
+        parse_gmt8_naive(&s)
+            .map(Gmt8Naive)
+            .ok_or_else(|| serde::de::Error::custom("invalid GMT+8 naive datetime"))
+    }
+}
+
+impl sqlx::Type<sqlx::Sqlite> for Gmt8Naive {
+    fn type_info() -> sqlx::sqlite::SqliteTypeInfo {
+        <Gmt8Time as sqlx::Type<sqlx::Sqlite>>::type_info()
+    }
+
+    fn compatible(ty: &sqlx::sqlite::SqliteTypeInfo) -> bool {
+        <Gmt8Time as sqlx::Type<sqlx::Sqlite>>::compatible(ty)
+    }
+}
+
+impl<'r> sqlx::Decode<'r, sqlx::Sqlite> for Gmt8Naive {
+    fn decode(value: sqlx::sqlite::SqliteValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
+        let dt = <Gmt8Time as sqlx::Decode<'r, sqlx::Sqlite>>::decode(value)?;
+        Ok(Gmt8Naive(fix_db_time(dt)))
+    }
+}
+
 /// 获取指定小时前的时间
 pub fn hours_ago(hours: u32) -> Gmt8Time {
     now_gmt8() - chrono::Duration::hours(hours as i64)

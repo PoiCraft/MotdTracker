@@ -1,6 +1,6 @@
 //! 玩家模型
 
-use crate::utils::time::Gmt8Time;
+use crate::utils::time::{Gmt8Naive, Gmt8Time};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -10,12 +10,9 @@ pub struct PlayerSession {
     pub id: i64,
     pub node_id: String,
     pub player_name: String,
-    #[serde(with = "crate::utils::time::serde_gmt8")]
-    pub first_seen: Gmt8Time,
-    #[serde(with = "crate::utils::time::serde_gmt8_opt")]
-    pub session_start: Option<Gmt8Time>,
-    #[serde(with = "crate::utils::time::serde_gmt8")]
-    pub last_seen: Gmt8Time,
+    pub first_seen: Gmt8Naive,
+    pub session_start: Option<Gmt8Naive>,
+    pub last_seen: Gmt8Naive,
     #[serde(default)]
     pub online: bool,
     pub duration_seconds: Option<i64>,
@@ -27,10 +24,8 @@ pub struct PlayerSessionHistory {
     pub id: i64,
     pub server_id: String,
     pub player_name: String,
-    #[serde(with = "crate::utils::time::serde_gmt8")]
-    pub session_start: Gmt8Time,
-    #[serde(with = "crate::utils::time::serde_gmt8")]
-    pub session_end: Gmt8Time,
+    pub session_start: Gmt8Naive,
+    pub session_end: Gmt8Naive,
 }
 
 /// 玩家详情

@@ -1,6 +1,6 @@
 //! 状态日志模型
 
-use crate::utils::time::Gmt8Time;
+use crate::utils::time::{Gmt8Naive, Gmt8Time};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -8,8 +8,7 @@ use sqlx::FromRow;
 pub struct StatusLog {
     pub id: i64,
     pub node_id: String,
-    #[serde(with = "crate::utils::time::serde_gmt8")]
-    pub timestamp: Gmt8Time,
+    pub timestamp: Gmt8Naive,
     pub online: bool,
     pub latency: Option<f64>,
     pub players_online: Option<i32>,

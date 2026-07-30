@@ -500,3 +500,80 @@ async fn test_app_config() {
 
     cleanup_db(db_path);
 }
+
+/// Gmt8Naive 解码接缝测试：写入 GMT+8 墙钟时间，读出时必须自动应用 +8h 修正 ——
+/// 与 now_gmt8() 的差值应接近 0（修正缺失时为 8 小时），且偏移为 +08:00。
+#[tokio::test]
+async fn test_gmt8naive_decode_applies_correction() {
+    let db_path = "test_gmt8naive.db";
+    let db = setup_db(db_path).await;
+
+    let server_id = db
+        .create_server("TestServer", None, 0)
+        .await
+        .expect("Failed to create server");
+    let params = AddNodeParams {
+        name: "Node1",
+        host: "localhost",
+        port: 25565,
+        edition: "java",
+        color: None,
+        enabled: true,
+        server_id: &server_id,
+        sort_order: 0,
+    };
+    let node_id = db.add_node(&params).await.expect("Failed to add node");
+
+    // 状态日志时间字段
+    let entry = StatusLogEntry {
+        node_id: node_id.clone(),
+        timestamp: now_gmt8(),
+        online: true,
+        latency: Some(1.0),
+        players_online: None,
+        players_max: None,
+        version: None,
+        motd: None,
+        sample_players: None,
+        software: None,
+        plugins: None,
+        map: None,
+        edition: None,
+    };
+    db.log_status(&entry).await.expect("Failed to log status");
+    let status = db
+        .get_node_latest_status(&node_id)
+        .await
+        .expect("Failed to get latest status")
+        .expect("latest status should exist");
+    assert_eq!(
+        status.timestamp.offset().local_minus_utc(),
+        8 * 3600,
+        "decoded timestamp must carry +08:00 offset"
+    );
+    let skew = (now_gmt8() - status.timestamp.0).num_seconds().abs();
+    assert!(
+        skew < 120,
+        "decoded timestamp must be arithmetically correct (skew {skew}s, uncorrected would be ~8h)"
+    );
+
+    // 玩家会话时间字段
+    db.update_player_sessions(&node_id, &["Player1".to_string()], now_gmt8())
+        .await
+        .expect("Failed to update player sessions");
+    let sessions = db
+        .get_online_players_on_node(&node_id)
+        .await
+        .expect("Failed to get online players");
+    assert_eq!(sessions.len(), 1);
+    let session = &sessions[0];
+    assert_eq!(session.first_seen.offset().local_minus_utc(), 8 * 3600);
+    assert_eq!(session.last_seen.offset().local_minus_utc(), 8 * 3600);
+    let session_skew = (now_gmt8() - session.last_seen.0).num_seconds().abs();
+    assert!(
+        session_skew < 120,
+        "session last_seen must be arithmetically correct (skew {session_skew}s)"
+    );
+
+    cleanup_db(db_path);
+}
