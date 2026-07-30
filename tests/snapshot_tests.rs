@@ -192,3 +192,47 @@ async fn test_snapshot_error_propagates() {
 
     cleanup_db(db_path);
 }
+
+#[tokio::test]
+async fn test_snapshot_aggregates_and_json_shape() {
+    let db_path = "test_snapshot_agg.db";
+    let db = setup_db(db_path).await;
+    let fx = build_fixture(&db).await;
+
+    let snap = DashboardSnapshot::load(&db, None, Some(24))
+        .await
+        .expect("load snapshot");
+
+    // 服务器聚合：最新一条离线，players 不计在线与否（与旧 compute_aggregate 一致）
+    let server = &snap.groups[0].servers[0];
+    assert_eq!(server.aggregate.total_node_count, 1);
+    assert_eq!(server.aggregate.online_node_count, 0);
+    assert!(!server.aggregate.online);
+    assert_eq!(server.aggregate.total_players_online, 3);
+    assert_eq!(server.aggregate.total_players_max, 20);
+    assert_eq!(server.aggregate.avg_latency, None);
+
+    // 组统计：只计在线节点（与旧 list_groups 一致）
+    let group = &snap.groups[0];
+    assert_eq!(group.server_count, 1);
+    assert_eq!(group.total_node_count, 1);
+    assert_eq!(group.online_node_count, 0);
+    assert_eq!(group.total_players_online, 0);
+
+    // 未分组服务器：无状态，聚合全零
+    let ungrouped = &snap.ungrouped_servers[0];
+    assert_eq!(ungrouped.aggregate.total_node_count, 1);
+    assert_eq!(ungrouped.aggregate.online_node_count, 0);
+    assert_eq!(ungrouped.aggregate.total_players_online, 0);
+
+    // 序列化为嵌套树 JSON：组 → 服务器 → 节点路径可达
+    let json = serde_json::to_value(&snap).expect("serialize snapshot");
+    let node_json = &json["groups"][0]["servers"][0]["nodes"][0];
+    assert_eq!(node_json["id"], fx.node_in_group);
+    assert_eq!(node_json["latest_status"]["online"], false);
+    assert!(node_json["latency_stats"]["total_checks"].is_number());
+    assert_eq!(json["groups"][0]["total_node_count"], 1);
+    assert!(json["poll_interval"].is_number());
+
+    cleanup_db(db_path);
+}

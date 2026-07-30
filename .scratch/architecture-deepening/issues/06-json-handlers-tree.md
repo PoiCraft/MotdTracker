@@ -4,10 +4,10 @@
 
 **Blocked by:** 02 — DashboardSnapshot 核心 + node 列表迁移
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] servers/groups 列表与详情接口从快照取数，嵌套树序列化
-- [ ] compute_aggregate 及各 handler 内联聚合删除
-- [ ] 响应中的聚合字段（在线数、玩家数、延迟）与迁移前数值一致
-- [ ] 加载失败返回 500
-- [ ] 格式适配器有纯函数测试：构造快照 → 断言 JSON 结构
+- [x] servers/groups 列表与详情接口从快照取数，嵌套树序列化
+- [x] compute_aggregate 及各 handler 内联聚合删除
+- [x] 响应中的聚合字段（在线数、玩家数、延迟）与迁移前数值一致
+- [x] 加载失败返回 500
+- [x] 格式适配器有纯函数测试：构造快照 → 断言 JSON 结构

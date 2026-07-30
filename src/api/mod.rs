@@ -9,6 +9,7 @@ pub mod player;
 pub mod servers;
 pub mod snapshot;
 pub mod status;
+pub mod tree;
 
 use axum::http::StatusCode;
 use axum::response::Response;

@@ -18,6 +18,55 @@ use crate::db::{Database, DbError};
 use crate::models::*;
 use crate::utils::calculate_latency_stats;
 
+/// 从节点列表和最新状态映射计算聚合指标（服务器/组级别共用）
+pub fn aggregate_latest(
+    nodes: &[&Node],
+    latest_map: &HashMap<&str, &StatusLog>,
+) -> AggregateStatus {
+    let online_count = nodes
+        .iter()
+        .filter(|n| {
+            latest_map
+                .get(n.id.as_str())
+                .map(|s| s.online)
+                .unwrap_or(false)
+        })
+        .count() as u32;
+    let total_players: u32 = nodes
+        .iter()
+        .filter_map(|n| {
+            latest_map
+                .get(n.id.as_str())
+                .and_then(|s| s.players_online.map(|p| p as u32))
+        })
+        .sum();
+    let total_players_max: u32 = nodes
+        .iter()
+        .filter_map(|n| {
+            latest_map
+                .get(n.id.as_str())
+                .and_then(|s| s.players_max.map(|p| p as u32))
+        })
+        .sum();
+    let lats: Vec<f64> = nodes
+        .iter()
+        .filter_map(|n| latest_map.get(n.id.as_str()).and_then(|s| s.latency))
+        .collect();
+
+    AggregateStatus {
+        online: online_count > 0,
+        online_node_count: online_count,
+        total_node_count: nodes.len() as u32,
+        total_players_online: total_players,
+        total_players_max,
+        avg_latency: if !lats.is_empty() {
+            Some(lats.iter().sum::<f64>() / lats.len() as f64)
+        } else {
+            None
+        },
+    }
+}
+
 /// 节点 + 最新状态 + 可选的逐节点统计
 #[derive(Debug, Clone, Serialize)]
 pub struct SnapshotNode {
@@ -27,19 +76,24 @@ pub struct SnapshotNode {
     pub latency_stats: Option<LatencyStats>,
 }
 
-/// 服务器 + 其节点
+/// 服务器 + 聚合状态 + 其节点
 #[derive(Debug, Clone, Serialize)]
 pub struct SnapshotServer {
     #[serde(flatten)]
     pub server: ServerEntity,
+    pub aggregate: AggregateStatus,
     pub nodes: Vec<SnapshotNode>,
 }
 
-/// 服务器组 + 其服务器
+/// 服务器组 + 统计 + 其服务器
 #[derive(Debug, Clone, Serialize)]
 pub struct SnapshotGroup {
     #[serde(flatten)]
     pub group: ServerGroup,
+    pub server_count: u32,
+    pub online_node_count: u32,
+    pub total_node_count: u32,
+    pub total_players_online: u32,
     pub servers: Vec<SnapshotServer>,
 }
 
@@ -128,9 +182,12 @@ impl DashboardSnapshot {
         let mut servers_by_group: HashMap<&str, Vec<SnapshotServer>> = HashMap::new();
         let mut ungrouped_servers = Vec::new();
         for s in servers {
+            let snap_nodes = nodes_by_server.remove(s.id.as_str()).unwrap_or_default();
+            let node_refs: Vec<&Node> = snap_nodes.iter().map(|sn| &sn.node).collect();
             let snap_server = SnapshotServer {
                 server: s.clone(),
-                nodes: nodes_by_server.remove(s.id.as_str()).unwrap_or_default(),
+                aggregate: aggregate_latest(&node_refs, &latest_map),
+                nodes: snap_nodes,
             };
             match s.group_id.as_deref() {
                 Some(gid) if known_group_ids.contains(gid) => {
@@ -153,7 +210,30 @@ impl DashboardSnapshot {
             .filter(|g| group_id.is_none() || Some(g.id.as_str()) == group_id)
             .map(|g| {
                 let servers = servers_by_group.remove(g.id.as_str()).unwrap_or_default();
-                SnapshotGroup { group: g, servers }
+                // 组统计：只统计在线节点（与旧 list_groups 语义一致）
+                let server_count = servers.len() as u32;
+                let mut total_node_count = 0u32;
+                let mut online_node_count = 0u32;
+                let mut total_players_online = 0u32;
+                for sv in &servers {
+                    for n in &sv.nodes {
+                        total_node_count += 1;
+                        if let Some(ls) = &n.latest_status {
+                            if ls.online {
+                                online_node_count += 1;
+                                total_players_online += ls.players_online.unwrap_or(0) as u32;
+                            }
+                        }
+                    }
+                }
+                SnapshotGroup {
+                    group: g,
+                    server_count,
+                    online_node_count,
+                    total_node_count,
+                    total_players_online,
+                    servers,
+                }
             })
             .collect();
 

@@ -127,6 +127,7 @@ async fn main() {
         .nest("/api/players", api::player::create_router())
         .nest("/api/badges", api::badge::create_router())
         .nest("/api/exporter", api::exporter::create_router())
+        .nest("/api/tree", api::tree::create_router())
         .nest("/api/admin", {
             let protected = api::admin::create_protected_router().route_layer(
                 middleware::from_fn_with_state(app_state.clone(), api::admin::auth_middleware),
