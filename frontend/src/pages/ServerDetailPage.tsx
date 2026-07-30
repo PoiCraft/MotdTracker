@@ -3,7 +3,11 @@ import { useQuery } from "@tanstack/react-query"
 import { useParams, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { api } from "@/api/endpoints"
-import type { StatusLog, NodeWithStats } from "@/api/types"
+import {
+  aggregateServerHistory,
+  buildLatencyChartData,
+  extractLatestOnlinePlayers,
+} from "@/lib/history"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { StatCard, StatGrid } from "@/components/shared/StatCard"
 import { EmptyState } from "@/components/shared/EmptyState"
@@ -37,140 +41,6 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts"
-
-function aggregateServerHistory(history: StatusLog[], totalNodes: number) {
-  if (history.length === 0) return []
-
-  // Group by timestamp, keeping latest log per node
-  const byTime = new Map<string, Map<string, StatusLog>>()
-  for (const log of history) {
-    if (!byTime.has(log.timestamp)) {
-      byTime.set(log.timestamp, new Map())
-    }
-    byTime.get(log.timestamp)!.set(log.node_id, log)
-  }
-
-  const sorted = Array.from(byTime.entries()).sort(
-    (a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()
-  )
-
-  return sorted.map(([timestamp, nodeMap]) => {
-    let onlineNodes = 0
-    let totalPlayers = 0
-    for (const log of nodeMap.values()) {
-      if (log.online) {
-        onlineNodes++
-        totalPlayers += log.players_online ?? 0
-      }
-    }
-    return {
-      time: new Date(timestamp).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      onlineNodes,
-      totalPlayers,
-      totalNodes,
-    }
-  })
-}
-
-function extractLatestOnlinePlayers(history: StatusLog[]): string[] {
-  const set = new Set<string>()
-  // Iterate from latest to oldest to gather sample players
-  for (let i = history.length - 1; i >= 0; i--) {
-    const log = history[i]
-    if (!log.players_online) continue
-    try {
-      const players = JSON.parse(log.sample_players || "[]") as string[]
-      players.forEach((p) => set.add(p))
-    } catch {
-      /* ignore */
-    }
-  }
-  return Array.from(set).sort()
-}
-
-/** 图表使用的调色板 */
-const LATENCY_CHART_COLORS = [
-  "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6",
-  "#EC4899", "#06B6D4", "#84CC16", "#F97316", "#6366F1",
-  "#14B8A6", "#A855F7",
-]
-
-/** 将 StatusLog[] 转换为多节点延迟趋势图表数据 */
-function buildLatencyChartData(
-  history: StatusLog[],
-  serverNodes: NodeWithStats[]
-): {
-  data: Record<string, number | string | null>[]
-  nodes: { id: string; name: string; color: string }[]
-} {
-  if (history.length === 0) return { data: [], nodes: [] }
-
-  // 从服务器节点列表构建 id -> { name, color } 映射
-  const nodeMeta = new Map<string, { name: string; color: string | null }>()
-  for (const n of serverNodes) {
-    nodeMeta.set(n.id, { name: n.name, color: n.color && n.color.trim() ? n.color : null })
-  }
-
-  // 收集历史记录中出现的所有节点 id（保持 serverNodes 顺序，再追加未在列表中的）
-  const seenIds = new Set<string>()
-  const orderedIds: string[] = []
-  for (const n of serverNodes) {
-    orderedIds.push(n.id)
-    seenIds.add(n.id)
-  }
-  for (const log of history) {
-    if (!seenIds.has(log.node_id)) {
-      orderedIds.push(log.node_id)
-      seenIds.add(log.node_id)
-    }
-  }
-
-  // 按时间戳分组，每个时间戳下按 node_id 取最新一条
-  const byTime = new Map<string, Map<string, StatusLog>>()
-  for (const log of history) {
-    if (!byTime.has(log.timestamp)) {
-      byTime.set(log.timestamp, new Map())
-    }
-    byTime.get(log.timestamp)!.set(log.node_id, log)
-  }
-
-  const sorted = Array.from(byTime.entries()).sort(
-    (a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()
-  )
-
-  // 构建图表数据：每个时间点一个对象 { time, [nodeId]: latency | null }
-  const data = sorted.map(([timestamp, nodeMap]) => {
-    const point: Record<string, number | string | null> = {
-      time: new Date(timestamp).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    }
-    for (const nodeId of orderedIds) {
-      const log = nodeMap.get(nodeId)
-      // 离线或无延迟数据时设为 null（图表断线）
-      point[nodeId] = log && log.online && log.latency != null
-        ? Math.round(log.latency)
-        : null
-    }
-    return point
-  })
-
-  const nodes = orderedIds.map((id, i) => {
-    const meta = nodeMeta.get(id)
-    return {
-      id,
-      name: meta?.name ?? id,
-      // 优先使用节点配置的颜色，没有则用调色板
-      color: meta?.color ?? LATENCY_CHART_COLORS[i % LATENCY_CHART_COLORS.length],
-    }
-  })
-
-  return { data, nodes }
-}
 
 export default function ServerDetailPage() {
   const { serverId } = useParams<{ serverId: string }>()

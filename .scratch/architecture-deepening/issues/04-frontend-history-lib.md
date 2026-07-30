@@ -4,9 +4,9 @@
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] 纯模块收编全部五类派生逻辑，页面只保留取数与 JSX
-- [ ] vitest 作为 devDependency 引入，含运行脚本
-- [ ] 单测覆盖：分桶对齐、UTC+8 边界、离线断线（null）、玩家提取的 JSON 容错
-- [ ] 四个页面渲染结果与迁移前一致（人工冒烟）
+- [x] 纯模块收编全部五类派生逻辑，页面只保留取数与 JSX
+- [x] vitest 作为 devDependency 引入，含运行脚本
+- [x] 单测覆盖：分桶对齐、UTC+8 边界、离线断线（null）、玩家提取的 JSON 容错
+- [x] 四个页面渲染结果与迁移前一致（人工冒烟）

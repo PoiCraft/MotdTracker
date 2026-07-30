@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { api } from "@/api/endpoints"
-import type { StatusLog } from "@/api/types"
+import { aggregateHistory } from "@/lib/history"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { StatCard, StatGrid } from "@/components/shared/StatCard"
 import { ServerCard } from "@/components/shared/ServerCard"
@@ -29,57 +29,6 @@ async function promiseAllLimit<T>(
   }
   await Promise.all(executing)
   return results
-}
-
-function aggregateHistory(histories: StatusLog[][], sampleCount = 12) {
-  if (histories.length === 0) return { onlineNodes: [] as number[], totalPlayers: [] as number[] }
-
-  const allTimestamps = histories
-    .flat()
-    .map((l) => new Date(l.timestamp).getTime())
-    .sort((a, b) => a - b)
-
-  if (allTimestamps.length === 0) return { onlineNodes: [] as number[], totalPlayers: [] as number[] }
-
-  const minTime = allTimestamps[0]
-  const maxTime = allTimestamps[allTimestamps.length - 1]
-  const range = maxTime - minTime || 1
-  const step = range / sampleCount
-
-  const onlineNodes: number[] = []
-  const totalPlayers: number[] = []
-
-  for (let i = 0; i < sampleCount; i++) {
-    const windowStart = minTime + step * i
-    const windowEnd = minTime + step * (i + 1)
-
-    let online = 0
-    let players = 0
-    for (const serverLogs of histories) {
-      // 按节点分组，取每个节点在时间窗口内最新的一条日志
-      const latestByNode = new Map<string, StatusLog>()
-      for (const log of serverLogs) {
-        const t = new Date(log.timestamp).getTime()
-        if (t >= windowStart && t < windowEnd) {
-          const existing = latestByNode.get(log.node_id)
-          if (!existing || t > new Date(existing.timestamp).getTime()) {
-            latestByNode.set(log.node_id, log)
-          }
-        }
-      }
-      // 统计该服务器在窗口内在线的节点
-      for (const log of latestByNode.values()) {
-        if (log.online) {
-          online++
-          players += log.players_online ?? 0
-        }
-      }
-    }
-    onlineNodes.push(online)
-    totalPlayers.push(players)
-  }
-
-  return { onlineNodes, totalPlayers }
 }
 
 export default function DashboardPage() {

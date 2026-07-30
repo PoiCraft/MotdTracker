@@ -35,65 +35,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
-import type { PlayerSessionHistory, PlayerServerEntry } from "@/api/types"
-
-function aggregateHourly(
-  sessions: Array<{ session_start: string; session_end: string | null }>
-): Array<{ hour: number; minutes: number }> {
-  const buckets = new Map<number, number>()
-  for (const s of sessions) {
-    const start = new Date(s.session_start).getTime()
-    const end = s.session_end ? new Date(s.session_end).getTime() : Date.now()
-    if (end <= start) continue
-    let cursor = start
-    while (cursor < end) {
-      const hourStart = new Date(cursor)
-      hourStart.setMinutes(0, 0, 0)
-      const nextHour = hourStart.getTime() + 3600_000
-      const chunkEnd = Math.min(nextHour, end)
-      const minutes = (chunkEnd - cursor) / 1000 / 60
-      const h = new Date(cursor).getHours()
-      buckets.set(h, (buckets.get(h) || 0) + minutes)
-      cursor = chunkEnd
-    }
-  }
-  // Fill all 24 hours with 0 for missing buckets
-  return Array.from({ length: 24 }, (_, hour) => ({
-    hour,
-    minutes: Math.round(buckets.get(hour) || 0),
-  }))
-}
-
-function computeSessionStats(sessions: PlayerSessionHistory[]) {
-  let total = 0
-  let longest = 0
-  const serverFreq = new Map<string, number>()
-
-  for (const s of sessions) {
-    const start = new Date(s.session_start).getTime()
-    const end = s.session_end ? new Date(s.session_end).getTime() : Date.now()
-    const dur = Math.max(0, (end - start) / 1000)
-    if (s.session_end) {
-      total += dur
-      longest = Math.max(longest, dur)
-    }
-    serverFreq.set(s.server_id, (serverFreq.get(s.server_id) || 0) + 1)
-  }
-
-  const closed = sessions.filter((s) => s.session_end != null).length
-  const avg = closed > 0 ? total / closed : 0
-
-  let favorite = ""
-  let favCount = 0
-  for (const [sid, count] of serverFreq) {
-    if (count > favCount) {
-      favCount = count
-      favorite = sid
-    }
-  }
-
-  return { avg, longest, favorite, favCount }
-}
+import type { PlayerServerEntry } from "@/api/types"
+import { aggregateHourly, computeSessionStats } from "@/lib/history"
 
 function useServerNameMap(servers: PlayerServerEntry[]) {
   return useMemo(() => {

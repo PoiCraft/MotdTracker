@@ -22,6 +22,7 @@ import {
   Percent,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { parseSamplePlayers } from "@/lib/history"
 import {
   LineChart,
   Line,
@@ -94,14 +95,7 @@ export default function NodeDetailPage() {
 
   // Parse sample_players JSON string from the latest history entry
   const latestHistory = history[0]
-  const samplePlayers: string[] = (() => {
-    if (!latestHistory?.sample_players) return []
-    try {
-      return JSON.parse(latestHistory.sample_players) as string[]
-    } catch {
-      return []
-    }
-  })()
+  const samplePlayers = parseSamplePlayers(latestHistory?.sample_players)
 
   const glassCard = cn(
     "rounded-xl p-4",
