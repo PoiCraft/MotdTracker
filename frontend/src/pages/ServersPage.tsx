@@ -13,15 +13,15 @@ export default function ServersPage() {
   const { t } = useTranslation()
   const groupFilter = useGroupFilter()
 
-  const { data: groups = [], error: groupsError } = useQuery({
-    queryKey: ["groups"],
-    queryFn: api.groups.list,
+  const { data: tree, isLoading, error } = useQuery({
+    queryKey: ["tree", groupFilter],
+    queryFn: () => api.tree.get(groupFilter),
   })
-
-  const { data: servers = [], isLoading, error: serversError } = useQuery({
-    queryKey: ["servers", groupFilter],
-    queryFn: () => api.servers.list(groupFilter),
-  })
+  const groups = tree?.groups ?? []
+  const servers = [
+    ...groups.flatMap((g) => g.servers),
+    ...(tree?.ungrouped_servers ?? []),
+  ]
 
   const onlineN = servers.reduce((s, rv) => s + rv.aggregate.online_node_count, 0)
   const totalN = servers.reduce((s, rv) => s + rv.aggregate.total_node_count, 0)
@@ -38,15 +38,6 @@ export default function ServersPage() {
           validLat.length
       )
     : 0
-
-  const byGroup = new Map<string | null, typeof servers>()
-  for (const s of servers) {
-    const k = s.group_id
-    if (!byGroup.has(k)) byGroup.set(k, [])
-    byGroup.get(k)!.push(s)
-  }
-
-  const error = groupsError || serversError
 
   if (isLoading) {
     return (
@@ -110,7 +101,7 @@ export default function ServersPage() {
 
       <div className="space-y-4">
         {groups.map((g) => {
-          const gs = byGroup.get(g.id) || []
+          const gs = g.servers
           if (gs.length === 0) return null
           return (
             <div key={g.id} className="space-y-3">

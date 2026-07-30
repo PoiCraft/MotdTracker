@@ -2,7 +2,7 @@ import { useState, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/api/endpoints"
-import type { NodeWithStats, ServerItem, GroupItem } from "@/api/types"
+import type { NodeWithStats } from "@/api/types"
 import { HIGH_LATENCY_THRESHOLD, HIGH_LOAD_THRESHOLD } from "@/lib/thresholds"
 
 export type FilterStatus = "all" | "online" | "offline" | "issues"
@@ -27,7 +27,7 @@ export interface GroupedNodes {
 }
 
 export interface MonitorGroup {
-  groupId: string
+  groupId: string | null
   groupName: string
   sortOrder: number
   servers: GroupedNodes[]
@@ -40,27 +40,31 @@ export function useMonitorData() {
   const [searchQuery, setSearchQuery] = useState("")
 
   const {
-    data: nodes = [],
+    data: tree,
     isLoading: nodesLoading,
     error: nodesError,
   } = useQuery({
-    queryKey: ["nodes"],
-    queryFn: () => api.nodes.list(),
+    queryKey: ["tree"],
+    queryFn: () => api.tree.get(),
     staleTime: 5000,
     refetchInterval: 30000,
   })
 
-  const { data: servers = [] } = useQuery({
-    queryKey: ["servers"],
-    queryFn: () => api.servers.list(),
-    staleTime: 60000,
-  })
-
-  const { data: groups = [] } = useQuery({
-    queryKey: ["groups"],
-    queryFn: () => api.groups.list(),
-    staleTime: 60000,
-  })
+  const groups = useMemo(() => tree?.groups ?? [], [tree])
+  const servers = useMemo(
+    () => [
+      ...groups.flatMap((g) => g.servers),
+      ...(tree?.ungrouped_servers ?? []),
+    ],
+    [groups, tree]
+  )
+  const nodes = useMemo(
+    () => [
+      ...servers.flatMap((s) => s.nodes),
+      ...(tree?.orphan_nodes ?? []),
+    ],
+    [servers, tree]
+  )
 
   const stats: MonitorStats = useMemo(() => {
     let online = 0
@@ -192,72 +196,59 @@ export function useMonitorData() {
   }, [nodes, filterStatus, sortMode, searchQuery])
 
   const grouped: GroupedNodes[] = useMemo(() => {
-    const serverMap = new Map<string, ServerItem>()
+    const visible = new Set(filteredAndSorted.map((n) => n.id))
+    const out: GroupedNodes[] = []
     for (const s of servers) {
-      serverMap.set(s.id, s)
+      const list = s.nodes.filter((n) => visible.has(n.id))
+      if (list.length > 0) {
+        out.push({ serverId: s.id, serverName: s.name, nodes: list })
+      }
     }
-
-    const map = new Map<string, NodeWithStats[]>()
-    for (const node of filteredAndSorted) {
-      const list = map.get(node.server_id) || []
-      list.push(node)
-      map.set(node.server_id, list)
+    // 孤儿节点（server_id 悬空）按 server_id 各自成组，保持可见
+    const orphanByServer = new Map<string, NodeWithStats[]>()
+    for (const n of tree?.orphan_nodes ?? []) {
+      if (!visible.has(n.id)) continue
+      const list = orphanByServer.get(n.server_id) ?? []
+      list.push(n)
+      orphanByServer.set(n.server_id, list)
     }
-
-    const groups: GroupedNodes[] = []
-    for (const [serverId, nodeList] of map) {
-      const server = serverMap.get(serverId)
-      groups.push({
-        serverId,
-        serverName: server?.name || serverId,
-        nodes: nodeList,
-      })
+    for (const [serverId, list] of orphanByServer) {
+      out.push({ serverId, serverName: serverId, nodes: list })
     }
-
-    groups.sort((a, b) => {
-      const sa = serverMap.get(a.serverId)
-      const sb = serverMap.get(b.serverId)
-      return (sa?.sort_order ?? 0) - (sb?.sort_order ?? 0)
-    })
-
-    return groups
-  }, [filteredAndSorted, servers])
+    return out
+  }, [filteredAndSorted, servers, tree])
 
   const groupedByGroup: MonitorGroup[] = useMemo(() => {
-    const serverMap = new Map<string, ServerItem>()
-    for (const s of servers) {
-      serverMap.set(s.id, s)
-    }
-
-    const groupMap = new Map<string, GroupItem>()
-    for (const g of groups) {
-      groupMap.set(g.id, g)
-    }
-
-    // Map group_id -> list of server groupings
-    const byGroup = new Map<string, GroupedNodes[]>()
-    for (const sg of grouped) {
-      const server = serverMap.get(sg.serverId)
-      const gid = server?.group_id || "__ungrouped"
-      const list = byGroup.get(gid) || []
-      list.push(sg)
-      byGroup.set(gid, list)
-    }
-
+    const byServerId = new Map(grouped.map((g) => [g.serverId, g]))
     const result: MonitorGroup[] = []
-    for (const [groupId, serverList] of byGroup) {
-      const group = groupMap.get(groupId)
+    for (const g of groups) {
+      const serverList = g.servers
+        .map((s) => byServerId.get(s.id))
+        .filter((x): x is GroupedNodes => x !== undefined)
+      if (serverList.length > 0) {
+        result.push({
+          groupId: g.id,
+          groupName: g.name,
+          sortOrder: g.sort_order,
+          servers: serverList,
+        })
+      }
+    }
+    const ungroupedList = (tree?.ungrouped_servers ?? [])
+      .map((s) => byServerId.get(s.id))
+      .filter((x): x is GroupedNodes => x !== undefined)
+    if (ungroupedList.length > 0) {
       result.push({
-        groupId,
-        groupName: group?.name || (groupId === "__ungrouped" ? t("admin.ungrouped") : groupId),
-        sortOrder: group?.sort_order ?? 9999,
-        servers: serverList,
+        groupId: null,
+        groupName: t("admin.ungrouped"),
+        sortOrder: 9999,
+        servers: ungroupedList,
       })
     }
 
     result.sort((a, b) => a.sortOrder - b.sortOrder)
     return result
-  }, [grouped, servers, groups, t])
+  }, [grouped, groups, tree, t])
 
   return {
     nodes,

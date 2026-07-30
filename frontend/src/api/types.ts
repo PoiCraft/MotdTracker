@@ -19,21 +19,7 @@ export interface GroupItem {
   total_players_online: number
 }
 
-export interface GroupDetail {
-  id: string
-  name: string
-  sort_order: number
-  servers: Array<{
-    id: string
-    name: string
-    group_id: string | null
-    sort_order: number
-    node_count: number
-    online_node_count: number
-    total_players_online: number
-    avg_latency: number | null
-  }>
-}
+export type GroupDetail = TreeGroup
 
 export interface ServerAggregate {
   online: boolean
@@ -50,6 +36,38 @@ export interface ServerItem {
   name: string
   sort_order: number
   aggregate: ServerAggregate
+}
+
+/** GET /api/tree — 组 → 服务器 → 节点嵌套树 */
+export interface TreeServer {
+  id: string
+  group_id: string | null
+  name: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+  aggregate: ServerAggregate
+  nodes: NodeWithStats[]
+}
+
+export interface TreeGroup {
+  id: string
+  name: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+  server_count: number
+  online_node_count: number
+  total_node_count: number
+  total_players_online: number
+  servers: TreeServer[]
+}
+
+export interface DashboardTree {
+  groups: TreeGroup[]
+  ungrouped_servers: TreeServer[]
+  orphan_nodes: NodeWithStats[]
+  poll_interval: number
 }
 
 export interface ServerDetail {

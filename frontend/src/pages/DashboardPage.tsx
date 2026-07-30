@@ -34,15 +34,13 @@ async function promiseAllLimit<T>(
 export default function DashboardPage() {
   const { t } = useTranslation()
 
-  const { data: groups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
-    queryKey: ["groups"],
-    queryFn: api.groups.list,
+  const { data: tree, isLoading: loading, error } = useQuery({
+    queryKey: ["tree"],
+    queryFn: () => api.tree.get(),
   })
-
-  const { data: servers = [], isLoading: serversLoading, error: serversError } = useQuery({
-    queryKey: ["servers"],
-    queryFn: () => api.servers.list(),
-  })
+  const groups = tree?.groups ?? []
+  const ungrouped = tree?.ungrouped_servers ?? []
+  const servers = [...groups.flatMap((g) => g.servers), ...ungrouped]
 
   const serverIds = servers.map((s) => s.id)
 
@@ -62,16 +60,6 @@ export default function DashboardPage() {
     0
   )
   const totalPlayers = groups.reduce((sum, g) => sum + g.total_players_online, 0)
-
-  const serversByGroup = new Map<string | null, typeof servers>()
-  for (const s of servers) {
-    const key = s.group_id
-    if (!serversByGroup.has(key)) serversByGroup.set(key, [])
-    serversByGroup.get(key)!.push(s)
-  }
-
-  const loading = groupsLoading || serversLoading
-  const error = groupsError || serversError
 
   if (loading) {
     return (
@@ -150,7 +138,7 @@ export default function DashboardPage() {
 
       <div className="space-y-4">
         {groups.map((group) => {
-          const groupServers = serversByGroup.get(group.id) || []
+          const groupServers = group.servers
           return (
             <div key={group.id} className="space-y-3">
               <div className="flex items-center gap-2">
@@ -176,22 +164,18 @@ export default function DashboardPage() {
         })}
 
         {/* 未分组服务器 */}
-        {(() => {
-          const ungrouped = serversByGroup.get(null) || []
-          if (ungrouped.length === 0) return null
-          return (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold">{t("admin.ungrouped")}</h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {ungrouped.map((s) => (
-                  <ServerCard key={s.id} server={s} />
-                ))}
-              </div>
+        {ungrouped.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">{t("admin.ungrouped")}</h2>
             </div>
-          )
-        })()}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {ungrouped.map((s) => (
+                <ServerCard key={s.id} server={s} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -64,25 +64,22 @@ interface TreeSelection {
 export default function BadgesPage() {
   const { t } = useTranslation()
 
-  const { data: groups = [], isLoading: groupsLoading } = useQuery({
-    queryKey: ["groups"],
-    queryFn: api.groups.list,
-  })
-  const { data: servers = [], isLoading: serversLoading } = useQuery({
-    queryKey: ["servers"],
-    queryFn: () => api.servers.list(),
-  })
-  const { data: nodes = [], isLoading: nodesLoading } = useQuery({
-    queryKey: ["nodes"],
-    queryFn: () => api.nodes.list(),
+  const { data: tree, isLoading: treeLoading } = useQuery({
+    queryKey: ["tree"],
+    queryFn: () => api.tree.get(),
   })
   const { data: players = [], isLoading: playersLoading } = useQuery({
     queryKey: ["players"],
     queryFn: () => api.players.list(),
   })
 
-  const loading =
-    groupsLoading || serversLoading || nodesLoading || playersLoading
+  const groups = useMemo(() => tree?.groups ?? [], [tree])
+  const ungroupedServers = useMemo(
+    () => tree?.ungrouped_servers ?? [],
+    [tree]
+  )
+
+  const loading = treeLoading || playersLoading
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [expandedServers, setExpandedServers] = useState<Set<string>>(
@@ -94,25 +91,6 @@ export default function BadgesPage() {
   const [selectedType, setSelectedType] = useState("status")
   const [selectedFormat, setSelectedFormat] = useState("url")
   const [copied, setCopied] = useState(false)
-
-  const serversByGroup = useMemo(() => {
-    const map = new Map<string, typeof servers>()
-    for (const s of servers) {
-      const gid = s.group_id || "__ungrouped"
-      if (!map.has(gid)) map.set(gid, [])
-      map.get(gid)!.push(s)
-    }
-    return map
-  }, [servers])
-
-  const nodesByServer = useMemo(() => {
-    const map = new Map<string, typeof nodes>()
-    for (const n of nodes) {
-      if (!map.has(n.server_id)) map.set(n.server_id, [])
-      map.get(n.server_id)!.push(n)
-    }
-    return map
-  }, [nodes])
 
   function toggleGroup(id: string) {
     setExpandedGroups((prev) => {
@@ -180,7 +158,6 @@ export default function BadgesPage() {
       </div>
     )
 
-  const ungroupedServers = serversByGroup.get("__ungrouped") || []
   const onlinePlayers = players.filter((p) => p.online)
   const offlinePlayers = players.filter((p) => !p.online)
 
@@ -216,7 +193,7 @@ export default function BadgesPage() {
           </div>
           <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
             {groups.map((g) => {
-              const groupServers = serversByGroup.get(g.id) || []
+              const groupServers = g.servers
               const isExpanded = expandedGroups.has(g.id)
 
               return (
@@ -231,7 +208,7 @@ export default function BadgesPage() {
                   />
                   {isExpanded &&
                     groupServers.map((s) => {
-                      const serverNodes = nodesByServer.get(s.id) || []
+                      const serverNodes = s.nodes
                       const isServerExpanded = expandedServers.has(s.id)
                       const isServerSelected =
                         selected?.type === "server" && selected.id === s.id
@@ -302,7 +279,7 @@ export default function BadgesPage() {
                   {t("admin.ungrouped")}
                 </p>
                 {ungroupedServers.map((s) => {
-                  const serverNodes = nodesByServer.get(s.id) || []
+                  const serverNodes = s.nodes
                   const isServerExpanded = expandedServers.has(s.id)
                   const isServerSelected =
                     selected?.type === "server" && selected.id === s.id
@@ -437,7 +414,7 @@ export default function BadgesPage() {
             )}
 
             {groups.length === 0 &&
-              servers.length === 0 &&
+              ungroupedServers.length === 0 &&
               players.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                   <Folder className="h-8 w-8 mb-2 opacity-40" />

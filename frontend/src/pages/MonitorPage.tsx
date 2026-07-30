@@ -164,7 +164,7 @@ export default function MonitorPage() {
       ) : (
         <div className="space-y-8">
           {groupedByGroup.map((group) => (
-            <div key={group.groupId}>
+            <div key={group.groupId ?? "ungrouped"}>
               <div className="flex items-center gap-2 mb-4">
                 <Folder className="h-4 w-4 text-amber-500" />
                 <h2 className="text-sm font-semibold">{group.groupName}</h2>

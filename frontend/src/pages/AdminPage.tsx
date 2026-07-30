@@ -3,12 +3,7 @@ import { Navigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "@/api/endpoints"
-import type {
-  AdminSettings,
-  AdminGroup,
-  AdminServer,
-  AdminNode,
-} from "@/api/types"
+import type { AdminSettings, AdminGroup, AdminServer } from "@/api/types"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -179,18 +174,20 @@ function ConfigTab({ token }: { token: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
 
-  const { data: groups = [] } = useQuery({
-    queryKey: ["admin-groups"],
-    queryFn: () => api.admin.listGroups(token),
+  const { data: tree } = useQuery({
+    queryKey: ["tree"],
+    queryFn: () => api.tree.get(),
   })
-  const { data: servers = [] } = useQuery({
-    queryKey: ["admin-servers"],
-    queryFn: () => api.admin.listServers(token),
-  })
-  const { data: nodes = [] } = useQuery({
-    queryKey: ["admin-nodes"],
-    queryFn: () => api.admin.listNodes(token),
-  })
+  const groups = useMemo(() => tree?.groups ?? [], [tree])
+  const ungroupedServers = useMemo(
+    () => tree?.ungrouped_servers ?? [],
+    [tree]
+  )
+  const servers = useMemo(
+    () => [...groups.flatMap((g) => g.servers), ...ungroupedServers],
+    [groups, ungroupedServers]
+  )
+  const nodes = useMemo(() => servers.flatMap((s) => s.nodes), [servers])
 
   const [selected, setSelected] = useState<SelectedItem | null>(null)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
@@ -208,25 +205,6 @@ function ConfigTab({ token }: { token: string }) {
   } else if (!autoExpandChecked && groups.length > 0) {
     setAutoExpandChecked(true)
   }
-
-  const serversByGroup = useMemo(() => {
-    const map = new Map<string, AdminServer[]>()
-    for (const s of servers) {
-      const gid = s.group_id || "__ungrouped"
-      if (!map.has(gid)) map.set(gid, [])
-      map.get(gid)!.push(s)
-    }
-    return map
-  }, [servers])
-
-  const nodesByServer = useMemo(() => {
-    const map = new Map<string, AdminNode[]>()
-    for (const n of nodes) {
-      if (!map.has(n.server_id)) map.set(n.server_id, [])
-      map.get(n.server_id)!.push(n)
-    }
-    return map
-  }, [nodes])
 
   function toggleGroup(id: string) {
     setExpandedGroups((prev) => {
@@ -262,7 +240,7 @@ function ConfigTab({ token }: { token: string }) {
     mutationFn: ({ serverId, groupId }: { serverId: string; groupId: string }) =>
       api.admin.updateServer(token, serverId, { group_id: groupId || undefined }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-servers"] })
+      queryClient.invalidateQueries({ queryKey: ["tree"] })
       queryClient.invalidateQueries({ queryKey: ["servers"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
     },
@@ -272,7 +250,7 @@ function ConfigTab({ token }: { token: string }) {
     mutationFn: ({ nodeId, serverId }: { nodeId: string; serverId: string }) =>
       api.admin.moveNodeServer(token, nodeId, serverId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-nodes"] })
+      queryClient.invalidateQueries({ queryKey: ["tree"] })
       queryClient.invalidateQueries({ queryKey: ["nodes"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
     },
@@ -281,7 +259,7 @@ function ConfigTab({ token }: { token: string }) {
   const deleteGroupMut = useMutation({
     mutationFn: (id: string) => api.admin.deleteGroup(token, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-groups"] })
+      queryClient.invalidateQueries({ queryKey: ["tree"] })
       queryClient.invalidateQueries({ queryKey: ["groups"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
       if (selected?.type === "group") setSelected(null)
@@ -291,7 +269,7 @@ function ConfigTab({ token }: { token: string }) {
   const deleteServerMut = useMutation({
     mutationFn: (id: string) => api.admin.deleteServer(token, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-servers"] })
+      queryClient.invalidateQueries({ queryKey: ["tree"] })
       queryClient.invalidateQueries({ queryKey: ["servers"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
       if (selected?.type === "server") setSelected(null)
@@ -301,14 +279,12 @@ function ConfigTab({ token }: { token: string }) {
   const deleteNodeMut = useMutation({
     mutationFn: (id: string) => api.admin.deleteNode(token, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-nodes"] })
+      queryClient.invalidateQueries({ queryKey: ["tree"] })
       queryClient.invalidateQueries({ queryKey: ["nodes"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
       if (selected?.type === "node") setSelected(null)
     },
   })
-
-  const ungroupedServers = serversByGroup.get("__ungrouped") || []
 
   function handleDragStart(e: React.DragEvent, type: EntityType, id: string) {
     e.dataTransfer.setData("text/plain", `${type}:${id}`)
@@ -361,7 +337,7 @@ function ConfigTab({ token }: { token: string }) {
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
           {groups.map((g) => {
-            const groupServers = serversByGroup.get(g.id) || []
+            const groupServers = g.servers
             const isGroupExpanded = expandedGroups.has(g.id)
             const isGroupSelected =
               selected?.type === "group" && selected.id === g.id
@@ -396,7 +372,7 @@ function ConfigTab({ token }: { token: string }) {
                 />
                 {isGroupExpanded &&
                   groupServers.map((s) => {
-                    const serverNodes = nodesByServer.get(s.id) || []
+                    const serverNodes = s.nodes
                     const isServerExpanded = expandedServers.has(s.id)
                     const isServerSelected =
                       selected?.type === "server" && selected.id === s.id
@@ -487,7 +463,7 @@ function ConfigTab({ token }: { token: string }) {
                 {t("admin.ungrouped")}
               </p>
               {ungroupedServers.map((s) => {
-                const serverNodes = nodesByServer.get(s.id) || []
+                const serverNodes = s.nodes
                 const isServerExpanded = expandedServers.has(s.id)
                 const isServerSelected =
                   selected?.type === "server" && selected.id === s.id
@@ -802,7 +778,7 @@ function GroupForm({
       }
     },
     onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ["admin-groups"] })
+      queryClient.invalidateQueries({ queryKey: ["tree"] })
       queryClient.invalidateQueries({ queryKey: ["groups"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
       onSaved(created?.id)
@@ -904,7 +880,7 @@ function ServerForm({
       }
     },
     onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ["admin-servers"] })
+      queryClient.invalidateQueries({ queryKey: ["tree"] })
       queryClient.invalidateQueries({ queryKey: ["servers"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
       onSaved(created?.id)
@@ -1034,7 +1010,7 @@ function NodeForm({
       }
     },
     onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ["admin-nodes"] })
+      queryClient.invalidateQueries({ queryKey: ["tree"] })
       queryClient.invalidateQueries({ queryKey: ["nodes"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
       onSaved(created?.id)
@@ -1047,7 +1023,7 @@ function NodeForm({
         ? api.admin.moveNodeUp(token, nodeId)
         : api.admin.moveNodeDown(token, nodeId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-nodes"] })
+      queryClient.invalidateQueries({ queryKey: ["tree"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
     },
   })

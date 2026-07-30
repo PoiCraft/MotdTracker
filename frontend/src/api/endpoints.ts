@@ -15,6 +15,7 @@ import type {
   AdminGroup,
   AdminServer,
   AdminNode,
+  DashboardTree,
 } from "./types"
 
 const BASE = ""
@@ -53,6 +54,15 @@ export const api = {
   groups: {
     list: () => request<GroupItem[]>("/api/groups"),
     detail: (id: string) => request<GroupDetail>(`/api/groups/${id}`),
+  },
+
+  tree: {
+    get: (groupId?: string | null) => {
+      const p = new URLSearchParams()
+      if (groupId) p.set("group_id", groupId)
+      const qs = p.toString()
+      return request<DashboardTree>(`/api/tree${qs ? `?${qs}` : ""}`)
+    },
   },
 
   servers: {
