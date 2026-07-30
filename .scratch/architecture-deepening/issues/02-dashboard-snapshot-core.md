@@ -4,10 +4,10 @@
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] 快照模块提供单入口 load(db, group_id, history_hours)，返回 Result
-- [ ] 可选历史层级：一次全量历史查询 + 逐节点统计，替代逐节点循环查询
-- [ ] node 列表接口改走快照，行为等价（过滤、统计字段一致）
-- [ ] 加载失败时接口返回 500，不再静默空数据
-- [ ] 快照经内存 SQLite 集成测试：树形结构、组过滤、逐节点统计、错误传播
+- [x] 快照模块提供单入口 load(db, group_id, history_hours)，返回 Result
+- [x] 可选历史层级：一次全量历史查询 + 逐节点统计，替代逐节点循环查询
+- [x] node 列表接口改走快照，行为等价（过滤、统计字段一致）
+- [x] 加载失败时接口返回 500，不再静默空数据
+- [x] 快照经内存 SQLite 集成测试：树形结构、组过滤、逐节点统计、错误传播

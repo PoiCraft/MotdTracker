@@ -7,6 +7,7 @@ pub mod groups;
 pub mod node;
 pub mod player;
 pub mod servers;
+pub mod snapshot;
 pub mod status;
 
 use axum::http::StatusCode;

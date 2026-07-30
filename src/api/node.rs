@@ -1,5 +1,6 @@
 //! 节点公开 API
 
+use super::snapshot::{DashboardSnapshot, SnapshotNode};
 use super::AppState;
 use crate::models::*;
 use crate::utils::{calculate_latency_stats, history_limit_for_hours};
@@ -9,7 +10,6 @@ use axum::{
     Json, Router,
 };
 use serde::Deserialize;
-use std::collections::{HashMap, HashSet};
 
 #[derive(Deserialize)]
 struct NodeQuery {
@@ -28,71 +28,21 @@ pub fn create_router() -> Router<AppState> {
 async fn list_nodes(
     State(state): State<AppState>,
     Query(q): Query<NodeQuery>,
-) -> Result<Json<Vec<NodeWithStats>>, axum::http::StatusCode> {
-    let all_nodes = state
-        .db
-        .get_all_nodes()
+) -> Result<Json<Vec<SnapshotNode>>, axum::http::StatusCode> {
+    // 快照一次加载全部 join + 逐节点 24h 统计（替代原先的逐节点历史查询 N+1）
+    let snapshot = DashboardSnapshot::load(&state.db, q.group_id.as_deref(), Some(24))
         .await
         .map_err(super::internal_error)?;
-    let all_servers = state.db.get_all_servers().await.unwrap_or_default();
-    let latest_status = state.db.get_all_latest_status().await.unwrap_or_default();
-    let latest_map: HashMap<&str, &StatusLog> = latest_status
-        .iter()
-        .map(|s| (s.node_id.as_str(), s))
+
+    let result: Vec<SnapshotNode> = snapshot
+        .nodes()
+        .filter(|n| {
+            q.server_id
+                .as_deref()
+                .is_none_or(|sid| n.node.server_id == sid)
+        })
+        .cloned()
         .collect();
-
-    // 根据轮询间隔计算覆盖 24 小时所需的检查记录数
-    let poll_interval = state
-        .db
-        .get_app_config("poll_interval")
-        .await
-        .ok()
-        .flatten()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(60);
-    let history_limit = history_limit_for_hours(poll_interval, 24);
-
-    // 按 group_id 或 server_id 过滤
-    let filtered: Vec<&Node> = if let Some(ref sid) = q.server_id {
-        all_nodes.iter().filter(|n| n.server_id == *sid).collect()
-    } else if let Some(ref gid) = q.group_id {
-        let server_ids_in_group: HashSet<String> = all_servers
-            .iter()
-            .filter(|s| s.group_id.as_deref() == Some(gid.as_str()))
-            .map(|s| s.id.clone())
-            .collect();
-        all_nodes
-            .iter()
-            .filter(|n| server_ids_in_group.contains(&n.server_id))
-            .collect()
-    } else {
-        all_nodes.iter().collect()
-    };
-
-    let mut result = Vec::with_capacity(filtered.len());
-    for n in filtered {
-        let ls = latest_map.get(n.id.as_str());
-        let stats = state
-            .db
-            .get_node_history(&n.id, history_limit)
-            .await
-            .ok()
-            .filter(|h| !h.is_empty())
-            .map(|h| calculate_latency_stats(&h));
-        result.push(NodeWithStats {
-            node: (*n).clone(),
-            latest_status: ls.map(|s| NodeStatus {
-                timestamp: *s.timestamp,
-                online: s.online,
-                latency: s.latency,
-                players_online: s.players_online,
-                players_max: s.players_max,
-                version: s.version.clone(),
-                motd: s.motd.clone(),
-            }),
-            latency_stats: stats,
-        });
-    }
 
     Ok(Json(result))
 }
