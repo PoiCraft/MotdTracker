@@ -30,9 +30,19 @@ async fn list_nodes(
     Query(q): Query<NodeQuery>,
 ) -> Result<Json<Vec<SnapshotNode>>, axum::http::StatusCode> {
     // 快照一次加载全部 join + 逐节点 24h 统计（替代原先的逐节点历史查询 N+1）
-    let snapshot = DashboardSnapshot::load(&state.db, q.group_id.as_deref(), Some(24))
-        .await
-        .map_err(super::internal_error)?;
+    // server_id 优先于 group_id（与迁移前的过滤语义一致）
+    let group_filter = if q.server_id.is_some() {
+        None
+    } else {
+        q.group_id.as_deref()
+    };
+    let snapshot = DashboardSnapshot::load(
+        &state.db,
+        group_filter,
+        Some(super::snapshot::DEFAULT_HISTORY_HOURS),
+    )
+    .await
+    .map_err(super::internal_error)?;
 
     let result: Vec<SnapshotNode> = snapshot
         .nodes()
@@ -72,15 +82,7 @@ async fn get_node(
 
     Ok(Json(NodeWithStats {
         node,
-        latest_status: latest.map(|s| NodeStatus {
-            timestamp: *s.timestamp,
-            online: s.online,
-            latency: s.latency,
-            players_online: s.players_online,
-            players_max: s.players_max,
-            version: s.version,
-            motd: s.motd,
-        }),
+        latest_status: latest.map(|s| (&s).into()),
         latency_stats: stats,
     }))
 }

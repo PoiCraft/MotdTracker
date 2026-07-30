@@ -241,7 +241,6 @@ function ConfigTab({ token }: { token: string }) {
       api.admin.updateServer(token, serverId, { group_id: groupId || undefined }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tree"] })
-      queryClient.invalidateQueries({ queryKey: ["servers"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
     },
   })
@@ -260,7 +259,6 @@ function ConfigTab({ token }: { token: string }) {
     mutationFn: (id: string) => api.admin.deleteGroup(token, id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tree"] })
-      queryClient.invalidateQueries({ queryKey: ["groups"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
       if (selected?.type === "group") setSelected(null)
     },
@@ -270,7 +268,6 @@ function ConfigTab({ token }: { token: string }) {
     mutationFn: (id: string) => api.admin.deleteServer(token, id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tree"] })
-      queryClient.invalidateQueries({ queryKey: ["servers"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
       if (selected?.type === "server") setSelected(null)
     },
@@ -779,7 +776,6 @@ function GroupForm({
     },
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["tree"] })
-      queryClient.invalidateQueries({ queryKey: ["groups"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
       onSaved(created?.id)
     },
@@ -881,7 +877,6 @@ function ServerForm({
     },
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ["tree"] })
-      queryClient.invalidateQueries({ queryKey: ["servers"] })
       queryClient.invalidateQueries({ queryKey: ["admin-config-status"] })
       onSaved(created?.id)
     },

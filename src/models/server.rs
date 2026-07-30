@@ -88,6 +88,20 @@ pub struct NodeStatus {
     pub motd: Option<String>,
 }
 
+impl From<&crate::models::StatusLog> for NodeStatus {
+    fn from(s: &crate::models::StatusLog) -> Self {
+        NodeStatus {
+            timestamp: *s.timestamp,
+            online: s.online,
+            latency: s.latency,
+            players_online: s.players_online,
+            players_max: s.players_max,
+            version: s.version.clone(),
+            motd: s.motd.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LatencyStats {
     pub uptime_percentage: f64,

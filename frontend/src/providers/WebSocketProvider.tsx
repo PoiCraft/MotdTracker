@@ -56,10 +56,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         const data = JSON.parse(event.data)
         if (data.event === "poll_complete") {
           queryClient.invalidateQueries({ queryKey: ["tree"] })
-          queryClient.invalidateQueries({ queryKey: ["servers"] })
           queryClient.invalidateQueries({ queryKey: ["nodes"] })
           queryClient.invalidateQueries({ queryKey: ["players"] })
-          queryClient.invalidateQueries({ queryKey: ["groups"] })
           queryClient.invalidateQueries({ queryKey: ["trend"] })
         }
       } catch {

@@ -214,7 +214,13 @@ async fn prometheus_metrics(State(state): State<AppState>) -> Response {
     };
 
     if should_recompute {
-        let snap = match DashboardSnapshot::load(&state.db, None, Some(24)).await {
+        let snap = match DashboardSnapshot::load(
+            &state.db,
+            None,
+            Some(crate::api::snapshot::DEFAULT_HISTORY_HOURS),
+        )
+        .await
+        {
             Ok(snap) => snap,
             Err(e) => return super::internal_error(e).into_response(),
         };

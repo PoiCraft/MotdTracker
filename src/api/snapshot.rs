@@ -18,6 +18,9 @@ use crate::db::{Database, DbError};
 use crate::models::*;
 use crate::utils::calculate_latency_stats;
 
+/// 快照历史层级的默认窗口（小时）：tree / node 列表 / exporter 共用
+pub const DEFAULT_HISTORY_HOURS: u32 = 24;
+
 /// 从节点列表和最新状态映射计算聚合指标（服务器/组级别共用）
 pub fn aggregate_latest(
     nodes: &[&Node],
@@ -142,15 +145,7 @@ impl DashboardSnapshot {
 
         let make_node = |n: &Node| SnapshotNode {
             node: n.clone(),
-            latest_status: latest_map.get(n.id.as_str()).map(|s| NodeStatus {
-                timestamp: *s.timestamp,
-                online: s.online,
-                latency: s.latency,
-                players_online: s.players_online,
-                players_max: s.players_max,
-                version: s.version.clone(),
-                motd: s.motd.clone(),
-            }),
+            latest_status: latest_map.get(n.id.as_str()).map(|s| (*s).into()),
             latency_stats: stats_by_node.get(&n.id).cloned(),
         };
 

@@ -10,7 +10,7 @@ use axum::{
 };
 use serde::Deserialize;
 
-use super::snapshot::DashboardSnapshot;
+use super::snapshot::{DashboardSnapshot, DEFAULT_HISTORY_HOURS};
 use super::AppState;
 
 pub fn create_router() -> Router<AppState> {
@@ -26,8 +26,12 @@ async fn get_tree(
     State(state): State<AppState>,
     Query(q): Query<TreeQuery>,
 ) -> Result<Json<DashboardSnapshot>, axum::http::StatusCode> {
-    DashboardSnapshot::load(&state.db, q.group_id.as_deref(), Some(24))
-        .await
-        .map(Json)
-        .map_err(super::internal_error)
+    DashboardSnapshot::load(
+        &state.db,
+        q.group_id.as_deref(),
+        Some(DEFAULT_HISTORY_HOURS),
+    )
+    .await
+    .map(Json)
+    .map_err(super::internal_error)
 }

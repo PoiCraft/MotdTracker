@@ -187,6 +187,18 @@ describe("aggregateHourly", () => {
     const buckets = aggregateHourly([{ session_start: t, session_end: t }])
     expect(buckets.every((b) => b.minutes === 0)).toBe(true)
   })
+
+  it("跨午夜的会话按本地小时正确分桶（23 点与次日 0/1 点）", () => {
+    const start = new Date(2026, 6, 30, 23, 30, 0)
+    const end = new Date(2026, 6, 31, 1, 15, 0)
+    const buckets = aggregateHourly([
+      { session_start: start.toString(), session_end: end.toString() },
+    ])
+    expect(buckets[23].minutes).toBe(30)
+    expect(buckets[0].minutes).toBe(60)
+    expect(buckets[1].minutes).toBe(15)
+    expect(buckets[22].minutes).toBe(0)
+  })
 })
 
 describe("computeSessionStats", () => {

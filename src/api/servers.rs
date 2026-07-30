@@ -97,15 +97,7 @@ async fn get_server(
                 .map(|l| calculate_latency_stats(l));
             NodeWithStats {
                 node: n.clone(),
-                latest_status: ls.map(|s| NodeStatus {
-                    timestamp: *s.timestamp,
-                    online: s.online,
-                    latency: s.latency,
-                    players_online: s.players_online,
-                    players_max: s.players_max,
-                    version: s.version.clone(),
-                    motd: s.motd.clone(),
-                }),
+                latest_status: ls.map(|s| (*s).into()),
                 latency_stats: stats,
             }
         })
