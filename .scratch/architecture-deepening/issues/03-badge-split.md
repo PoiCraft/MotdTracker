@@ -4,9 +4,9 @@
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] SVG 渲染与字宽表拆为独立模块，现有渲染测试随迁原样通过
-- [ ] 所有 uptime/延迟统计统一走共享统计函数，内联重算删除
-- [ ] badge 保持定向单实体查询（不加载全盘快照）
-- [ ] 每个 badge 端点行为与迁移前一致
+- [x] SVG 渲染与字宽表拆为独立模块，现有渲染测试随迁原样通过
+- [x] 所有 uptime/延迟统计统一走共享统计函数，内联重算删除
+- [x] badge 保持定向单实体查询（不加载全盘快照）
+- [x] 每个 badge 端点行为与迁移前一致
