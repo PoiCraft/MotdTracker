@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/api/endpoints"
 import type { NodeWithStats, ServerItem, GroupItem } from "@/api/types"
+import { HIGH_LATENCY_THRESHOLD, HIGH_LOAD_THRESHOLD } from "@/lib/thresholds"
 
 export type FilterStatus = "all" | "online" | "offline" | "issues"
 export type SortMode = "default" | "latency" | "players" | "uptime"
@@ -31,9 +32,6 @@ export interface MonitorGroup {
   sortOrder: number
   servers: GroupedNodes[]
 }
-
-const HIGH_LATENCY_THRESHOLD = 500
-const HIGH_LOAD_THRESHOLD = 0.85
 
 export function useMonitorData() {
   const { t } = useTranslation()

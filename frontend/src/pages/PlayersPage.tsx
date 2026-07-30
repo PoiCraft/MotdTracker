@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { api } from "@/api/endpoints"
 import { useDebounce } from "@/hooks/useDebounce"
+import { useGroupFilter } from "@/hooks/useGroupFilter"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { StatCard, StatGrid } from "@/components/shared/StatCard"
 import { PlayerCard } from "@/components/shared/PlayerCard"
@@ -17,13 +18,14 @@ type FilterStatus = "all" | "online" | "offline"
 
 export default function PlayersPage() {
   const { t } = useTranslation()
+  const groupFilter = useGroupFilter()
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<FilterStatus>("all")
   const debouncedSearch = useDebounce(search, 200)
 
   const { data: players = [], isLoading, error } = useQuery({
-    queryKey: ["players"],
-    queryFn: () => api.players.list(),
+    queryKey: ["players", groupFilter],
+    queryFn: () => api.players.list(groupFilter),
   })
 
   const filtered = players.filter((p) => {

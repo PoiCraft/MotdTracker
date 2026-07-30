@@ -6,9 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Server } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { HIGH_LATENCY_THRESHOLD } from "@/lib/thresholds"
 import type { ServerItem } from "@/api/types"
-
-const HIGH_LATENCY_THRESHOLD = 500
 
 export const ServerCard = memo(function ServerCard({ server }: { server: ServerItem }) {
   const { t } = useTranslation()

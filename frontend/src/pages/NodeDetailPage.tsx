@@ -23,6 +23,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { parseSamplePlayers } from "@/lib/history"
+import { HIGH_LATENCY_THRESHOLD } from "@/lib/thresholds"
 import {
   LineChart,
   Line,
@@ -81,7 +82,7 @@ export default function NodeDetailPage() {
   const status = detail.latest_status
   const latency =
     status?.latency != null ? Math.round(status.latency) : null
-  const isHighLatency = latency != null && latency > 500
+  const isHighLatency = latency != null && latency > HIGH_LATENCY_THRESHOLD
 
   const chartData = history.map((h) => ({
     time: new Date(h.timestamp).toLocaleTimeString([], {

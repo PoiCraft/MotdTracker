@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { api } from "@/api/endpoints"
 import { useDebounce } from "@/hooks/useDebounce"
+import { useGroupFilter } from "@/hooks/useGroupFilter"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { StatCard, StatGrid } from "@/components/shared/StatCard"
 import { NodeCard } from "@/components/shared/NodeCard"
@@ -17,13 +18,14 @@ type FilterStatus = "all" | "online" | "offline"
 
 export default function NodesPage() {
   const { t } = useTranslation()
+  const groupFilter = useGroupFilter()
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<FilterStatus>("all")
   const debouncedSearch = useDebounce(search, 200)
 
   const { data: nodes = [], isLoading, error } = useQuery({
-    queryKey: ["nodes"],
-    queryFn: () => api.nodes.list(),
+    queryKey: ["nodes", groupFilter],
+    queryFn: () => api.nodes.list(groupFilter ?? undefined),
   })
 
   const filtered = nodes.filter((n) => {

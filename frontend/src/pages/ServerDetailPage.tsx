@@ -8,6 +8,7 @@ import {
   buildLatencyChartData,
   extractLatestOnlinePlayers,
 } from "@/lib/history"
+import { HIGH_LATENCY_THRESHOLD } from "@/lib/thresholds"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { StatCard, StatGrid } from "@/components/shared/StatCard"
 import { EmptyState } from "@/components/shared/EmptyState"
@@ -400,7 +401,7 @@ export default function ServerDetailPage() {
               const status = n.latest_status
               const latency =
                 status?.latency != null ? Math.round(status.latency) : null
-              const isHighLatency = latency != null && latency > 500
+              const isHighLatency = latency != null && latency > HIGH_LATENCY_THRESHOLD
               const stats = n.latency_stats
 
               const statusVariant = status?.online

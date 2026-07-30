@@ -5,9 +5,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Network } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { HIGH_LATENCY_THRESHOLD } from "@/lib/thresholds"
 import type { NodeWithStats } from "@/api/types"
-
-const HIGH_LATENCY_THRESHOLD = 500
 
 export const NodeCard = memo(function NodeCard({ node }: { node: NodeWithStats }) {
   const { t } = useTranslation()

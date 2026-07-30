@@ -4,9 +4,9 @@
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] 阈值常量单一来源，五处复制删除
-- [ ] 统一组过滤 hook，所有列表页消费
-- [ ] Nodes/Players 页面支持 `?group_id` 服务端过滤（先验证路由支持，不支持则补后端）
-- [ ] 切换组时三个页面过滤行为一致
+- [x] 阈值常量单一来源，五处复制删除
+- [x] 统一组过滤 hook，所有列表页消费
+- [x] Nodes/Players 页面支持 `?group_id` 服务端过滤（先验证路由支持，不支持则补后端）
+- [x] 切换组时三个页面过滤行为一致

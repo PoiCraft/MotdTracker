@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { useSearchParams } from "react-router-dom"
 import { api } from "@/api/endpoints"
+import { useGroupFilter } from "@/hooks/useGroupFilter"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { StatCard, StatGrid } from "@/components/shared/StatCard"
 import { ServerCard } from "@/components/shared/ServerCard"
@@ -11,8 +11,7 @@ import { Server, Network, Users, Gauge } from "lucide-react"
 
 export default function ServersPage() {
   const { t } = useTranslation()
-  const [searchParams] = useSearchParams()
-  const groupFilter = searchParams.get("group_id")
+  const groupFilter = useGroupFilter()
 
   const { data: groups = [], error: groupsError } = useQuery({
     queryKey: ["groups"],

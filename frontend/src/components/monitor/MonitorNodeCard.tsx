@@ -9,10 +9,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { HIGH_LATENCY_THRESHOLD, HIGH_LOAD_THRESHOLD } from "@/lib/thresholds"
 import type { NodeWithStats } from "@/api/types"
-
-const HIGH_LATENCY_THRESHOLD = 500
-const HIGH_LOAD_THRESHOLD = 0.85
 
 function formatRelativeTime(timestamp: string | undefined, t: (key: string) => string): string {
   if (!timestamp) return "--"

@@ -1,9 +1,8 @@
 import { useTranslation } from "react-i18next"
 import { Users, Zap, AlertTriangle, Server } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { HIGH_LATENCY_THRESHOLD } from "@/lib/thresholds"
 import type { MonitorStats } from "@/hooks/useMonitorData"
-
-export const HIGH_LATENCY_THRESHOLD = 500
 
 interface MonitorStatsBarProps {
   stats: MonitorStats
