@@ -58,14 +58,7 @@ async fn get_node(
         .map_err(super::internal_error)?
         .ok_or(axum::http::StatusCode::NOT_FOUND)?;
     let latest = state.db.get_node_latest_status(&id).await.ok().flatten();
-    let poll_interval = state
-        .db
-        .get_app_config("poll_interval")
-        .await
-        .ok()
-        .flatten()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(60);
+    let poll_interval = state.db.poll_interval_secs().await;
     let history = state
         .db
         .get_node_history(&id, history_limit_for_hours(poll_interval, 24))

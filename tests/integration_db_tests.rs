@@ -2,7 +2,7 @@
 ///
 /// 这些测试验证 SQLite 数据库操作是否正常工作。
 /// 测试会创建临时数据库文件进行验证。
-use motdtracker::db::{Database, SqliteDatabase};
+use motdtracker::db::*;
 use motdtracker::models::{AddNodeParams, StatusLogEntry};
 use motdtracker::utils::time::now_gmt8;
 use std::fs;

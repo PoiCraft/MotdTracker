@@ -124,13 +124,7 @@ impl DashboardSnapshot {
         let servers = db.get_all_servers().await?;
         let nodes = db.get_all_nodes().await?;
         let latest = db.get_all_latest_status().await?;
-        let poll_interval = db
-            .get_app_config("poll_interval")
-            .await
-            .ok()
-            .flatten()
-            .and_then(|v| v.parse::<u64>().ok())
-            .unwrap_or(60);
+        let poll_interval = db.poll_interval_secs().await;
 
         let stats_by_node: HashMap<String, LatencyStats> = match history_hours {
             Some(hours) => db

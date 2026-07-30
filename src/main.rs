@@ -17,7 +17,7 @@ use motdtracker::{
     api,
     config::{load_config, AppConfig},
     core::poller::ServerPollerManager,
-    db::{Database, SqliteDatabase},
+    db::{ConfigRepository, SqliteDatabase},
     ws::WsBroadcaster,
 };
 
@@ -68,13 +68,7 @@ async fn main() {
     if let Err(e) = motdtracker::config::loader::apply_env_overrides(&mut config) {
         tracing::error!("环境变量覆盖失败: {}", e);
     }
-    let db_poll_interval = db
-        .get_app_config("poll_interval")
-        .await
-        .ok()
-        .flatten()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(60);
+    let db_poll_interval = db.poll_interval_secs().await;
     info!(
         "Runtime config: poll_interval={}, port={}",
         db_poll_interval, config.port
@@ -190,6 +184,6 @@ async fn main() {
     }
 
     info!("HTTP 服务已停止，正在关闭数据库连接...");
-    Database::close(db.as_ref()).await;
+    db.close().await;
     info!("MotdTracker 已完全关闭");
 }

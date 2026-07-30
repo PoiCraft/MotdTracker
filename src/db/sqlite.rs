@@ -5,7 +5,10 @@ use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use super::{Database, DbError};
+use super::{
+    AdminRepository, ConfigRepository, Database, DbError, PlayerRepository, ServerRepository,
+    StatusRepository,
+};
 use crate::models::*;
 use crate::utils::time::{format_gmt8_naive, now_gmt8, Gmt8Time};
 
@@ -40,83 +43,7 @@ impl SqliteDatabase {
 }
 
 #[async_trait]
-impl Database for SqliteDatabase {
-    async fn init_database(&self) -> Result<(), DbError> {
-        // ==================== server_groups ====================
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS server_groups (id TEXT PRIMARY KEY, name TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT (datetime('now')), updated_at DATETIME NOT NULL DEFAULT (datetime('now')))"
-        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
-
-        // ==================== servers ====================
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS servers (id TEXT PRIMARY KEY, group_id TEXT, name TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT (datetime('now')), updated_at DATETIME NOT NULL DEFAULT (datetime('now')))"
-        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_servers_group_id ON servers(group_id)")
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::MigrationError(e.to_string()))?;
-
-        // ==================== nodes (原 node_config) ====================
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS nodes (id TEXT PRIMARY KEY, server_id TEXT NOT NULL, name TEXT NOT NULL, host TEXT NOT NULL, port INTEGER NOT NULL, edition TEXT NOT NULL DEFAULT 'java', color TEXT, enabled INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT (datetime('now')), updated_at DATETIME NOT NULL DEFAULT (datetime('now')))"
-        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_nodes_server_id ON nodes(server_id)")
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::MigrationError(e.to_string()))?;
-
-        // ==================== status_logs ====================
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS status_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id TEXT NOT NULL, timestamp DATETIME NOT NULL, online INTEGER NOT NULL, latency REAL, players_online INTEGER, players_max INTEGER, version TEXT, motd TEXT, sample_players TEXT, software TEXT, plugins TEXT, map TEXT, edition TEXT)"
-        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
-        sqlx::query(
-            "CREATE INDEX IF NOT EXISTS idx_status_logs_timestamp ON status_logs(timestamp)",
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(|e| DbError::MigrationError(e.to_string()))?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_status_logs_node_id ON status_logs(node_id)")
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::MigrationError(e.to_string()))?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_status_logs_node_timestamp ON status_logs(node_id, timestamp DESC)")
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::MigrationError(e.to_string()))?;
-
-        // ==================== player_sessions ====================
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS player_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id TEXT NOT NULL, player_name TEXT NOT NULL, first_seen DATETIME NOT NULL, session_start DATETIME, last_seen DATETIME NOT NULL, online INTEGER NOT NULL DEFAULT 0, duration_seconds INTEGER, UNIQUE(node_id, player_name))"
-        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_player_sessions_player_name ON player_sessions(player_name)").execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
-
-        // ==================== player_session_history (按 server 聚合) ====================
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS player_session_history (id INTEGER PRIMARY KEY AUTOINCREMENT, server_id TEXT NOT NULL, player_name TEXT NOT NULL, session_start DATETIME NOT NULL, session_end DATETIME NOT NULL)"
-        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_player_session_history_player_name ON player_session_history(player_name)").execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_player_session_history_server_id ON player_session_history(server_id)").execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
-
-        // ==================== admin ====================
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS admin_users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, created_at DATETIME NOT NULL DEFAULT (datetime('now')), last_login_at DATETIME)"
-        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS admin_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, token TEXT NOT NULL UNIQUE, expires_at DATETIME NOT NULL, created_at DATETIME NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES admin_users(id) ON DELETE CASCADE)"
-        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_admin_sessions_token ON admin_sessions(token)")
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::MigrationError(e.to_string()))?;
-
-        // ==================== app_config ====================
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at DATETIME NOT NULL DEFAULT (datetime('now')))"
-        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
-
-        Ok(())
-    }
-
+impl ServerRepository for SqliteDatabase {
     // ==================== 服务器组 ====================
     async fn create_server_group(&self, name: &str, sort_order: i32) -> Result<String, DbError> {
         let id = uuid::Uuid::new_v4().to_string();
@@ -295,7 +222,10 @@ impl Database for SqliteDatabase {
             .map_err(|e| DbError::UpdateError(e.to_string()))?;
         Ok(())
     }
+}
 
+#[async_trait]
+impl StatusRepository for SqliteDatabase {
     // ==================== 状态日志 ====================
     async fn log_status(&self, entry: &StatusLogEntry) -> Result<(), DbError> {
         sqlx::query("INSERT INTO status_logs (node_id, timestamp, online, latency, players_online, players_max, version, motd, sample_players, software, plugins, map, edition) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(&entry.node_id).bind(format_gmt8_naive(entry.timestamp)).bind(entry.online).bind(entry.latency).bind(entry.players_online).bind(entry.players_max).bind(&entry.version).bind(&entry.motd).bind(&entry.sample_players).bind(&entry.software).bind(&entry.plugins).bind(&entry.map).bind(&entry.edition).execute(&self.pool).await.map_err(|e| DbError::InsertError(e.to_string()))?;
@@ -395,7 +325,10 @@ impl Database for SqliteDatabase {
             .map_err(|e| DbError::DeleteError(e.to_string()))?;
         Ok(result.rows_affected())
     }
+}
 
+#[async_trait]
+impl PlayerRepository for SqliteDatabase {
     // ==================== 玩家会话（每节点独立） ====================
     async fn update_player_sessions(
         &self,
@@ -628,7 +561,10 @@ impl Database for SqliteDatabase {
         }
         Ok(())
     }
+}
 
+#[async_trait]
+impl AdminRepository for SqliteDatabase {
     // ==================== 管理员认证 ====================
     async fn has_admin_user(&self) -> Result<bool, DbError> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM admin_users")
@@ -708,6 +644,85 @@ impl Database for SqliteDatabase {
             .map_err(|e| DbError::DeleteError(e.to_string()))?;
         Ok(())
     }
+}
+
+#[async_trait]
+impl ConfigRepository for SqliteDatabase {
+    async fn init_database(&self) -> Result<(), DbError> {
+        // ==================== server_groups ====================
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS server_groups (id TEXT PRIMARY KEY, name TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT (datetime('now')), updated_at DATETIME NOT NULL DEFAULT (datetime('now')))"
+        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
+
+        // ==================== servers ====================
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS servers (id TEXT PRIMARY KEY, group_id TEXT, name TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT (datetime('now')), updated_at DATETIME NOT NULL DEFAULT (datetime('now')))"
+        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_servers_group_id ON servers(group_id)")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::MigrationError(e.to_string()))?;
+
+        // ==================== nodes (原 node_config) ====================
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS nodes (id TEXT PRIMARY KEY, server_id TEXT NOT NULL, name TEXT NOT NULL, host TEXT NOT NULL, port INTEGER NOT NULL, edition TEXT NOT NULL DEFAULT 'java', color TEXT, enabled INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT (datetime('now')), updated_at DATETIME NOT NULL DEFAULT (datetime('now')))"
+        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_nodes_server_id ON nodes(server_id)")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::MigrationError(e.to_string()))?;
+
+        // ==================== status_logs ====================
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS status_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id TEXT NOT NULL, timestamp DATETIME NOT NULL, online INTEGER NOT NULL, latency REAL, players_online INTEGER, players_max INTEGER, version TEXT, motd TEXT, sample_players TEXT, software TEXT, plugins TEXT, map TEXT, edition TEXT)"
+        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_status_logs_timestamp ON status_logs(timestamp)",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::MigrationError(e.to_string()))?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_status_logs_node_id ON status_logs(node_id)")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::MigrationError(e.to_string()))?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_status_logs_node_timestamp ON status_logs(node_id, timestamp DESC)")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::MigrationError(e.to_string()))?;
+
+        // ==================== player_sessions ====================
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS player_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id TEXT NOT NULL, player_name TEXT NOT NULL, first_seen DATETIME NOT NULL, session_start DATETIME, last_seen DATETIME NOT NULL, online INTEGER NOT NULL DEFAULT 0, duration_seconds INTEGER, UNIQUE(node_id, player_name))"
+        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_player_sessions_player_name ON player_sessions(player_name)").execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
+
+        // ==================== player_session_history (按 server 聚合) ====================
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS player_session_history (id INTEGER PRIMARY KEY AUTOINCREMENT, server_id TEXT NOT NULL, player_name TEXT NOT NULL, session_start DATETIME NOT NULL, session_end DATETIME NOT NULL)"
+        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_player_session_history_player_name ON player_session_history(player_name)").execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_player_session_history_server_id ON player_session_history(server_id)").execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
+
+        // ==================== admin ====================
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS admin_users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, created_at DATETIME NOT NULL DEFAULT (datetime('now')), last_login_at DATETIME)"
+        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS admin_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, token TEXT NOT NULL UNIQUE, expires_at DATETIME NOT NULL, created_at DATETIME NOT NULL DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES admin_users(id) ON DELETE CASCADE)"
+        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_admin_sessions_token ON admin_sessions(token)")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::MigrationError(e.to_string()))?;
+
+        // ==================== app_config ====================
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at DATETIME NOT NULL DEFAULT (datetime('now')))"
+        ).execute(&self.pool).await.map_err(|e| DbError::MigrationError(e.to_string()))?;
+
+        Ok(())
+    }
 
     // ==================== 应用配置 ====================
     async fn get_app_config(&self, key: &str) -> Result<Option<String>, DbError> {
@@ -761,3 +776,6 @@ impl SqliteDatabase {
         Ok(sessions)
     }
 }
+
+/// 组合超 trait：五个领域 trait 全部实现
+impl Database for SqliteDatabase {}

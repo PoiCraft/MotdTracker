@@ -1,4 +1,13 @@
-//! 数据库抽象 trait
+//! 数据库抽象：按领域拆分的聚焦 trait + 组合超 trait
+//!
+//! - [`ServerRepository`]：服务器组 / 服务器 / 节点（拓扑）
+//! - [`StatusRepository`]：状态日志
+//! - [`PlayerRepository`]：玩家会话与统计
+//! - [`AdminRepository`]：管理员认证
+//! - [`ConfigRepository`]：应用配置（含 `poll_interval_secs` 便利方法）
+//!
+//! [`Database`] 是组合超 trait；`AppState` 持有的 `Arc<dyn Database>` 不变。
+//! mock 单个协作者时只需实现对应的 3-10 个方法，而非全部 55 个。
 
 use crate::models::*;
 use crate::utils::time::Gmt8Time;
@@ -23,10 +32,21 @@ pub enum DbError {
     ConfigError(String),
 }
 
-#[async_trait]
-pub trait Database: Send + Sync {
-    async fn init_database(&self) -> Result<(), DbError>;
+/// 组合超 trait：持久化层的完整接口
+pub trait Database:
+    ServerRepository
+    + StatusRepository
+    + PlayerRepository
+    + AdminRepository
+    + ConfigRepository
+    + Send
+    + Sync
+{
+}
 
+/// 服务器组 / 服务器 / 节点
+#[async_trait]
+pub trait ServerRepository: Send + Sync {
     // === 服务器组 ===
     async fn create_server_group(&self, name: &str, sort_order: i32) -> Result<String, DbError>;
     async fn get_all_server_groups(&self) -> Result<Vec<ServerGroup>, DbError>;
@@ -74,8 +94,11 @@ pub trait Database: Send + Sync {
         id2: &str,
         sort_order2: i32,
     ) -> Result<(), DbError>;
+}
 
-    // === 状态日志 ===
+/// 状态日志
+#[async_trait]
+pub trait StatusRepository: Send + Sync {
     async fn log_status(&self, entry: &StatusLogEntry) -> Result<(), DbError>;
     async fn log_status_batch(&self, entries: &[StatusLogEntry]) -> Result<(), DbError>;
     async fn get_node_latest_status(&self, node_id: &str) -> Result<Option<StatusLog>, DbError>;
@@ -97,8 +120,11 @@ pub trait Database: Send + Sync {
         hours: u32,
     ) -> Result<Vec<StatusLog>, DbError>;
     async fn cleanup_old_records(&self, days: u32) -> Result<u64, DbError>;
+}
 
-    // === 玩家会话 ===
+/// 玩家会话与统计
+#[async_trait]
+pub trait PlayerRepository: Send + Sync {
     async fn update_player_sessions(
         &self,
         node_id: &str,
@@ -145,8 +171,11 @@ pub trait Database: Send + Sync {
 
     /// 获取所有玩家会话（不分组，用于批量构建玩家列表）
     async fn get_all_player_sessions_flat(&self) -> Result<Vec<PlayerSession>, DbError>;
+}
 
-    // === 管理员认证 ===
+/// 管理员认证
+#[async_trait]
+pub trait AdminRepository: Send + Sync {
     async fn has_admin_user(&self) -> Result<bool, DbError>;
     async fn create_admin_user(&self, username: &str, password_hash: &str) -> Result<i64, DbError>;
     async fn get_admin_user(&self, username: &str) -> Result<Option<AdminUser>, DbError>;
@@ -162,12 +191,28 @@ pub trait Database: Send + Sync {
     async fn validate_session(&self, token: &str) -> Result<Option<AdminUser>, DbError>;
     async fn cleanup_expired_sessions(&self) -> Result<u64, DbError>;
     async fn delete_session(&self, token: &str) -> Result<(), DbError>;
+}
 
-    // === 应用配置 ===
+/// 应用配置与生命周期
+#[async_trait]
+pub trait ConfigRepository: Send + Sync {
+    async fn init_database(&self) -> Result<(), DbError>;
+
     async fn get_app_config(&self, key: &str) -> Result<Option<String>, DbError>;
     async fn set_app_config(&self, key: &str, value: &str) -> Result<(), DbError>;
     async fn get_all_app_config(&self) -> Result<Vec<AppConfigEntry>, DbError>;
     async fn delete_app_config(&self, key: &str) -> Result<(), DbError>;
 
     async fn close(&self) {}
+
+    /// 轮询间隔（秒），默认 60。收编原先散落各处的
+    /// `get_app_config → ok → flatten → parse → unwrap_or(60)` 调用链。
+    async fn poll_interval_secs(&self) -> u64 {
+        self.get_app_config("poll_interval")
+            .await
+            .ok()
+            .flatten()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(60)
+    }
 }

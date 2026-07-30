@@ -3,7 +3,7 @@
 /// 验证快照模块经内存 SQLite 的完整行为：
 /// 树形结构、组过滤、逐节点统计、无历史层级、错误传播。
 use motdtracker::api::snapshot::DashboardSnapshot;
-use motdtracker::db::{Database, SqliteDatabase};
+use motdtracker::db::*;
 use motdtracker::models::{AddNodeParams, StatusLogEntry};
 use motdtracker::utils::time::now_gmt8;
 use std::fs;

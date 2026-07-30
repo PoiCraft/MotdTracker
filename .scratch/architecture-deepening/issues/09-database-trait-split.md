@@ -4,9 +4,9 @@
 
 **Blocked by:** 03 — badge 模块拆分与统计统一; 06 — servers/groups handler 迁移 + 嵌套树 JSON; 07 — exporter 塌缩为快照格式适配器
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] 五个聚焦子 trait 定义，Database 组合超 trait 保持现有调用方可编译
-- [ ] SqliteDatabase 实现按域重组，行为不变（现有集成测试原样通过）
-- [ ] poll_interval_secs() 默认方法收编 8 处调用链
-- [ ] 全部调用方迁移完成，无残留的旧式配置读取链
+- [x] 五个聚焦子 trait 定义，Database 组合超 trait 保持现有调用方可编译
+- [x] SqliteDatabase 实现按域重组，行为不变（现有集成测试原样通过）
+- [x] poll_interval_secs() 默认方法收编 8 处调用链
+- [x] 全部调用方迁移完成，无残留的旧式配置读取链

@@ -205,14 +205,7 @@ impl ServerPollerManager {
         let _ = self.restart_tx.send(true);
     }
     pub async fn config_synced(&self) -> bool {
-        let db_interval = self
-            .db
-            .get_app_config("poll_interval")
-            .await
-            .ok()
-            .flatten()
-            .and_then(|v| v.parse::<u64>().ok())
-            .unwrap_or(60);
+        let db_interval = self.db.poll_interval_secs().await;
         let db_nodes = self.db.get_enabled_nodes().await.unwrap_or_default();
         let db_hash = compute_config_hash(db_interval, &db_nodes);
         let ah = self.active_config_hash.load(Ordering::Relaxed);
@@ -225,14 +218,7 @@ impl ServerPollerManager {
     pub async fn run(self: Arc<Self>) -> anyhow::Result<()> {
         let mut grx = self.global_shutdown_rx.clone();
         loop {
-            let poll_interval = self
-                .db
-                .get_app_config("poll_interval")
-                .await
-                .ok()
-                .flatten()
-                .and_then(|v| v.parse::<u64>().ok())
-                .unwrap_or(60);
+            let poll_interval = self.db.poll_interval_secs().await;
             let nodes = self.db.get_enabled_nodes().await.unwrap_or_default();
             if nodes.is_empty() {
                 self.active_config_hash.store(0, Ordering::Relaxed);

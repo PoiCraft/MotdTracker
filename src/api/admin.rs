@@ -301,14 +301,7 @@ async fn get_settings(State(state): State<AppState>) -> Result<Json<AppSettings>
         .ok()
         .flatten()
         .unwrap_or_else(|| "MotdTracker".to_string());
-    let pi: u64 = state
-        .db
-        .get_app_config("poll_interval")
-        .await
-        .ok()
-        .flatten()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(60);
+    let pi: u64 = state.db.poll_interval_secs().await;
     let wa = state
         .db
         .get_app_config("webhook_alert")

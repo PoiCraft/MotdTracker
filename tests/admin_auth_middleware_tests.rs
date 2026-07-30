@@ -16,7 +16,7 @@ use motdtracker::api::AppState;
 use motdtracker::auth::token::generate_session_token;
 use motdtracker::config::AppConfig;
 use motdtracker::core::poller::ServerPollerManager;
-use motdtracker::db::{Database, SqliteDatabase};
+use motdtracker::db::*;
 use motdtracker::utils::time::now_gmt8;
 use motdtracker::ws::WsBroadcaster;
 
